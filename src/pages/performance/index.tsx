@@ -14,6 +14,8 @@ import {
 import { useCoachGroupsQuery, useGroupPerformanceTableQuery } from '@/features/performance-table/model/use-performance-table';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
+import { PageIcon } from '@/shared/ui/page-head';
+import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
 import { monthShort, todayISO } from '@/shared/lib/format';
 
@@ -93,14 +95,14 @@ export function PerformanceTable() {
       setEditMode(false);
       tableQuery.refetch();
     } catch (e) {
-      alert('Saqlanmadi: ' + e.message);
+      notify.error('Saqlanmadi: ' + e.message);
     } finally {
       setSavingTable(false);
     }
   }
 
   async function handleAddMatch() {
-    if (!selectedGroupId || !newMatch.opponent.trim() || !newMatch.match_date) { alert(t('toast_required')); return; }
+    if (!selectedGroupId || !newMatch.opponent.trim() || !newMatch.match_date) { notify.error(t('toast_required')); return; }
     setSavingMatch(true);
     try {
       await apiAddPerformanceTableMatch(selectedGroupId, {
@@ -115,7 +117,7 @@ export function PerformanceTable() {
       exitEditMode();
       setTimeout(() => tableQuery.refetch(), 300);
     } catch (e) {
-      alert(e.message);
+      notify.error(e.message);
     } finally { setSavingMatch(false); }
   }
 
@@ -137,19 +139,19 @@ export function PerformanceTable() {
       setEditMatchTarget(null);
       tableQuery.refetch();
     } catch (e) {
-      alert(e.message);
+      notify.error(e.message);
     } finally { setSavingMatch(false); }
   }
 
   async function handleDeleteMatch(m) {
-    if (!window.confirm(`"${m.opponent}" ${t('confirm_delete_match')}`)) return;
+    if (!await confirmDialog(`"${m.opponent}" ${t('confirm_delete_match')}`)) return;
     setDeletingMatchId(m.id);
     try {
       await apiDeleteCoachPerformanceTableColumn(selectedGroupId, m.id, seasonYear);
       exitEditMode();
       tableQuery.refetch();
     } catch (e) {
-      alert(e.message);
+      notify.error(e.message);
     } finally { setDeletingMatchId(null); }
   }
 
@@ -163,7 +165,7 @@ export function PerformanceTable() {
       a.download = `performance-table-${selectedGroupId}-${seasonYear}.xlsx`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch (e) { alert('Excel ochilmadi: ' + e.message); }
+    } catch (e) { notify.error('Excel ochilmadi: ' + e.message); }
   }
 
   function cellStyle(rawValue) {
@@ -189,6 +191,7 @@ export function PerformanceTable() {
   return (
     <div>
       <div className="page-head">
+        <PageIcon icon={I.Trophy}/>
         <div>
           <h1 className="page-title">{t('performance_title')}</h1>
           <div className="page-sub">{selectedGroup?.name || '—'} · {seasonYear} {t('perf_season_sub')} · {matches.length} {t('perf_matches_count')}</div>
@@ -335,7 +338,7 @@ export function PerformanceTable() {
 
       {/* Add match modal */}
       {showAddMatch && (
-        <Modal
+        <Modal icon={I.Ball}
           onClose={() => setShowAddMatch(false)}
           title={t('perf_add_match')}
           footer={(
@@ -357,7 +360,7 @@ export function PerformanceTable() {
 
       {/* Edit match modal */}
       {editMatchTarget && (
-        <Modal
+        <Modal icon={I.Edit}
           onClose={() => setEditMatchTarget(null)}
           title={t('perf_edit_match')}
           size="sm"

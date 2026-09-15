@@ -14,6 +14,8 @@ import {
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal } from '@/shared/ui/modal';
 import { useT } from '@/shared/i18n/lang';
+import { PageIcon } from '@/shared/ui/page-head';
+import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
 import { calcAge, fullName, normalizeStatus } from './lib';
 import { todayISO } from '@/shared/lib/format';
@@ -96,6 +98,7 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
     <div>
       <button className="btn ghost sm back-link" onClick={onBack}><I.ArrowLeft size={15}/> {t('back_btn')}</button>
       <div className="page-head">
+        <PageIcon icon={I.UserPlus}/>
         <div>
           <h1 className="page-title">{t('new_student_title')}</h1>
           <div className="page-sub">{t('new_student_sub')}</div>
@@ -227,7 +230,7 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
                   const url = URL.createObjectURL(blob);
                   window.open(url, '_blank', 'noopener,noreferrer');
                 } catch (err) {
-                  alert(t('contract_open_error') + err.message);
+                  notify.error(t('contract_open_error') + err.message);
                 } finally {
                   setViewingContract(false);
                 }

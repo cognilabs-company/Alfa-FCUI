@@ -846,6 +846,23 @@ const UZ = {
   results_zero: '0 natija',
   profile_col_fullname: "To'liq ismi",
   audit_col_created: 'Sana',
+  // Design v3.1
+  confirm_title: 'Ishonchingiz komilmi?',
+  maint_title: 'Texnik ishlar olib borilmoqda',
+  maint_message: "Tizimda yangi o'zgarishlar qilinmoqda, shu sababli tizim 2 soatcha ishlamaydi.",
+  maint_hours: 'soat',
+  confirm_yes: 'Ha, tasdiqlash',
+  dash_done: 'tugadi',
+  dash_upcoming_short: 'kutilmoqda',
+  dash_no_sessions_short: "Bugun sessiya yo'q",
+  dash_share_of_active: "faol o'quvchilardan",
+  dash_total_debt: 'jami qarz',
+  dash_other: 'Boshqa',
+  day_tomorrow: 'Ertaga',
+  day_yesterday: 'Kecha',
+  activity_feed: 'Faoliyat tasmasi',
+  team_members: "jamoa a'zosi",
+  mark_hint: "Har bir o'quvchi uchun holatni tanlang — o'zgarish darhol saqlanadi",
 };
 
 const RU: typeof UZ = {
@@ -1693,6 +1710,23 @@ const RU: typeof UZ = {
   results_zero: '0 результатов',
   profile_col_fullname: 'Полное имя',
   audit_col_created: 'Дата',
+  // Design v3.1
+  confirm_title: 'Вы уверены?',
+  maint_title: 'Ведутся технические работы',
+  maint_message: 'В системе проводятся обновления, поэтому система не будет работать около 2 часов.',
+  maint_hours: 'часа',
+  confirm_yes: 'Да, подтвердить',
+  dash_done: 'завершено',
+  dash_upcoming_short: 'впереди',
+  dash_no_sessions_short: 'Сегодня сессий нет',
+  dash_share_of_active: 'от активных учеников',
+  dash_total_debt: 'общий долг',
+  dash_other: 'Другое',
+  day_tomorrow: 'Завтра',
+  day_yesterday: 'Вчера',
+  activity_feed: 'Лента активности',
+  team_members: 'участников',
+  mark_hint: 'Выберите статус для каждого ученика — изменения сохраняются сразу',
 };
 
 type LangKey = keyof typeof UZ;

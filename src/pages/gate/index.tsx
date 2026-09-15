@@ -4,6 +4,8 @@ import { Icon } from '@/shared/ui/icons';
 import { DateInput, DateTimeInput } from '@/shared/ui/date-picker';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
+import { PageIcon } from '@/shared/ui/page-head';
+import { gateBadge } from '@/shared/ui/status';
 import {
   apiGetContracts,
   apiGetContract,
@@ -113,6 +115,7 @@ export function GateLogsScreen() {
   return (
     <div>
       <div className="page-head">
+        <PageIcon icon={I.Gate}/>
         <div>
           <h1 className="page-title">{t('gate_title')}</h1>
           <div className="page-sub">{meta.total} {t('gate_events_suffix')}</div>
@@ -166,8 +169,8 @@ export function GateLogsScreen() {
                   </td>
                   <td>
                     {l.allowed !== false
-                      ? <span className="chip success"><span className="chip-dot"></span>{t('gate_allowed_chip')}</span>
-                      : <span className="chip danger"><span className="chip-dot"></span>{t('gate_denied_chip')}</span>}
+                      ? gateBadge(true, t)
+                      : gateBadge(false, t)}
                   </td>
                   <td style={{ color: 'var(--muted)', fontSize: 12.5 }}>{l.reason || '—'}</td>
                   <td style={{ fontSize: 12, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>

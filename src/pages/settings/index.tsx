@@ -3,6 +3,7 @@ import React from 'react';
 import { Icon } from '@/shared/ui/icons';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
+import { PageIcon } from '@/shared/ui/page-head';
 import {
   apiGetContracts,
   apiGetContract,
@@ -219,6 +220,7 @@ export function SettingsScreen({ theme, setTheme } = {}) {
   return (
     <div>
       <div className="page-head">
+        <PageIcon icon={I.Settings}/>
         <div>
           <h1 className="page-title">{t('nav_settings')}</h1>
           <div className="page-sub">{t('settings_sub')}</div>

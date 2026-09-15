@@ -4,6 +4,9 @@ import { Icon } from '@/shared/ui/icons';
 import { DateInput, DateTimeInput } from '@/shared/ui/date-picker';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
+import { PageIcon } from '@/shared/ui/page-head';
+import { txStatusBadge } from '@/shared/ui/status';
+import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import {
   apiGetContracts,
   apiGetContract,
@@ -138,7 +141,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
       window.open(url, '_blank');
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (e) {
-      alert('PDF ochilmadi: ' + e.message);
+      notify.error('PDF ochilmadi: ' + e.message);
     }
   }
 
@@ -148,7 +151,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
       await apiRegenerateContractPdf(contractId);
       await openPdf();
     } catch (e) {
-      alert(e.message);
+      notify.error(e.message);
     } finally {
       setRegenerating(false);
     }
@@ -266,6 +269,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
     <div>
       <button className="btn ghost sm back-link" onClick={onBack}><I.ArrowLeft size={15} /> {t('contracts_title')}</button>
       <div className="page-head">
+        <PageIcon icon={I.Scroll}/>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <h1 className="page-title">{contract.contract_number}</h1>
@@ -370,24 +374,20 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
         const srcLabel = s => ({ cash: t('tx_src_cash'), bank: t('tx_src_bank'), click: 'Click', payme: 'Payme' }[s] || s || '—');
         const stChip = st => {
           const s = String(st || '').toLowerCase();
-          if (isPaid(s)) return <span className="chip success"><span className="chip-dot"></span>{t('tx_st_success')}</span>;
-          if (s === 'pending') return <span className="chip warning"><span className="chip-dot"></span>{t('tx_st_pending')}</span>;
-          if (s === 'unassigned') return <span className="chip warning"><span className="chip-dot"></span>{t('tx_scope_unassigned')}</span>;
-          if (s === 'cancelled' || s === 'failed') return <span className="chip danger"><span className="chip-dot"></span>{t('tx_st_cancelled')}</span>;
-          return <span className="chip">{st}</span>;
+          return txStatusBadge(isPaid(s) ? 'success' : s, t);
         };
 
         return (
           <div style={{ marginTop: 16 }}>
             <div className="grid-3" style={{ marginBottom: 16 }}>
-              <Stat label={t('tx_st_success')} tone="success" icon={I.Check}
-                value={<>{fmt.format(totalPaid)} <small>so'm</small></>}
+              <Stat label={t('tx_st_success')} tone="success" icon={I.CheckCircle}
+                value={totalPaid} unit="so'm"
                 sub={`${successTx.length} ${t('contract_payments_sfx')}`} />
               <Stat label={`${t('contracts_monthly_fee')} × ${months} ${t('contract_months_sfx')}`} icon={I.Wallet}
-                value={<>{fmt.format(totalExpected)} <small>so'm</small></>}
+                value={totalExpected} unit="so'm"
                 sub={t('contract_total_by')} />
-              <Stat label={t('rpt_debtors_col_debt')} tone={debt > 0 ? 'danger' : 'success'} icon={debt > 0 ? I.AlertTriangle : I.Check}
-                value={<span style={{ color: debt > 0 ? 'var(--danger)' : undefined }}>{debt > 0 ? fmt.format(debt) : '0'} <small>so'm</small></span>}
+              <Stat label={t('rpt_debtors_col_debt')} tone={debt > 0 ? 'danger' : 'success'} icon={debt > 0 ? I.AlertCircle : I.CheckCircle}
+                value={debt} unit="so'm"
                 sub={debt > 0 ? t('contract_debt_unpaid') : t('contract_debt_none')} />
             </div>
 
@@ -434,7 +434,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
 
       {/* Terminate modal */}
       {terminateModal && (
-        <Modal
+        <Modal icon={I.XCircle} tone="danger"
           size="sm"
           onClose={() => setTerminateModal(false)}
           title={t('contracts_cancel_modal_title')}
@@ -458,7 +458,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
 
       {/* Fee modal */}
       {feeModal && (
-        <Modal
+        <Modal icon={I.Money}
           size="sm"
           onClose={() => setFeeModal(false)}
           title={t('contracts_edit_fee')}
@@ -478,7 +478,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
 
       {/* Dates modal */}
       {datesModal && (
-        <Modal
+        <Modal icon={I.Calendar}
           size="sm"
           onClose={() => setDatesModal(false)}
           title={t('contracts_change_dates_btn')}
@@ -502,7 +502,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
 
       {/* Edit modal */}
       {editModal && (
-        <Modal
+        <Modal icon={I.Edit}
           onClose={() => setEditModal(false)}
           title={t('contracts_edit_modal_title')}
           footer={<>
@@ -528,7 +528,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
 
       {/* Status modal */}
       {statusModal && (
-        <Modal
+        <Modal icon={I.Sealed}
           size="sm"
           onClose={() => setStatusModal(false)}
           title={t('contracts_change_status_title')}

@@ -20,6 +20,10 @@ import { WaitingListScreen } from '@/pages/waiting-list';
 import { AuditLogsScreen } from '@/pages/audit-logs';
 import { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSelect } from '@/shared/ui/tweaks-panel';
 import { BrandMark } from '@/shared/ui/logo';
+import { DialogHost } from '@/shared/ui/dialogs';
+import { NAV_ITEMS } from '@/widgets/layout/nav-config';
+import { MaintenanceScreen } from '@/pages/maintenance';
+import { MAINTENANCE_MODE, isMaintenanceExempt } from '@/shared/lib/maintenance';
 import { apiGetMe, apiLogout, getToken, setUnauthorizedHandler } from '@/shared/api';
 import { applyAppearance } from '@/shared/lib/appearance';
 import { LangProvider, useT } from '@/shared/i18n/lang';
@@ -67,6 +71,7 @@ function AppShell() {
   const [currentUser, setCurrentUser] = React.useState(null);
   const [permissions, setPermissions] = React.useState([]);
   const [authLoading, setAuthLoading] = React.useState(() => !!getToken());
+  const [meChecked, setMeChecked] = React.useState(false);
   const [route, setRoute] = React.useState(() => localStorage.getItem('alpha_route') || 'dashboard');
   const [studentId, setStudentId] = React.useState(() => localStorage.getItem('alpha_student_id'));
   const [sessionId, setSessionId] = React.useState(() => localStorage.getItem('alpha_session_id'));
@@ -88,7 +93,8 @@ function AppShell() {
   }, []);
 
   React.useEffect(() => {
-    if (!loggedIn) { setAuthLoading(false); return; }
+    if (!loggedIn) { setAuthLoading(false); setMeChecked(false); return; }
+    setMeChecked(false);
     apiGetMe().then(res => {
       if (res) {
         setCurrentUser(res.user);
@@ -106,7 +112,7 @@ function AppShell() {
         setLoggedIn(false);
       }
     }).catch(() => setLoggedIn(false))
-      .finally(() => setAuthLoading(false));
+      .finally(() => { setAuthLoading(false); setMeChecked(true); });
   }, [loggedIn]);
 
   React.useEffect(() => { localStorage.setItem('alpha_route', route); }, [route]);
@@ -144,6 +150,13 @@ function AppShell() {
 
   React.useEffect(() => () => clearTimeout(toastTimer.current), []);
 
+  // notify.success / notify.error from anywhere in the app land in the toast
+  React.useEffect(() => {
+    const onToast = (e) => showToast(e.detail?.message, e.detail?.type);
+    window.addEventListener('alpha:toast', onToast);
+    return () => window.removeEventListener('alpha:toast', onToast);
+  }, []);
+
   function navigate(r) {
     setRoute(r);
     setMobileNavOpen(false);
@@ -165,7 +178,7 @@ function AppShell() {
     setPermissions([]);
   }
 
-  if (authLoading) {
+  if (authLoading || (loggedIn && !meChecked)) {
     return (
       <div className="splash">
         <div className="splash-inner">
@@ -179,6 +192,11 @@ function AppShell() {
 
   if (!loggedIn) {
     return <LoginScreen onLogin={() => setLoggedIn(true)}/>;
+  }
+
+  // Maintenance: only the owner account may use the system right now
+  if (MAINTENANCE_MODE && !isMaintenanceExempt(currentUser)) {
+    return <MaintenanceScreen onSignOut={handleSignOut}/>;
   }
 
   let crumbKeys = ['app_name'];
@@ -203,6 +221,11 @@ function AppShell() {
   if (route === 'reports-debtors') { crumbKeys.push('nav_reports'); crumbKeys.push('rpt_debtors'); activeNav = 'reports'; }
   if (route === 'waiting-list') crumbKeys.push('nav_waiting_list');
   if (route === 'audit-logs') crumbKeys.push('nav_audit_logs');
+
+  // Section name shown above each page title ("O'quv jarayoni", …)
+  const section = NAV_ITEMS.find(sec => sec.items.some(it => it.id === activeNav));
+  const eyebrow = section ? JSON.stringify(t(section.sectionKey)) : 'none';
+  const pageKey = [route, studentId, contractId, sessionId].join(':');
 
   return (
     <div className="app" data-nav={navCollapsed && !isNarrow ? 'collapsed' : 'expanded'}>
@@ -235,7 +258,8 @@ function AppShell() {
             if (type === 'student') { setStudentId(id); setRoute('students-profile'); }
           }}
         />
-        <div className="content" ref={contentRef}>
+        <div className="content" ref={contentRef} style={{ '--page-eyebrow': eyebrow }}>
+          <div key={pageKey} className="page-enter">
           {route === 'dashboard' && <Dashboard role={T.role} user={currentUser} onNav={navigate} onOpenGroup={(id) => { setGroupId(id); setRoute('groups'); }}/>}
           {route === 'students' && <StudentsList onOpen={(id) => { setStudentId(id); setRoute('students-profile'); }} onNew={() => setRoute('students-new')} onToast={showToast}/>}
           {route === 'students-profile' && <StudentProfile studentId={studentId} onBack={() => navigate('students')}/>}
@@ -259,18 +283,20 @@ function AppShell() {
           {route === 'reports-debtors' && <ReportsScreen initialTab="debtors"/>}
           {route === 'waiting-list' && <WaitingListScreen onToast={showToast}/>}
           {route === 'audit-logs' && <AuditLogsScreen/>}
+          </div>
         </div>
       </div>
 
       {toast && (
         <div key={toast.key} className={'toast' + (toast.type === 'error' ? ' error' : '')} role={toast.type === 'error' ? 'alert' : 'status'}>
           <span className="toast-icon">
-            {toast.type === 'error' ? <Icon.AlertTriangle size={15}/> : <Icon.Check size={16}/>}
+            {toast.type === 'error' ? <Icon.AlertTriangle size={17} weight="fill"/> : <Icon.CheckCircle size={18} weight="fill"/>}
           </span>
           <span>{toast.msg}</span>
         </div>
       )}
 
+      <DialogHost/>
       <AlphaTweaks T={T}/>
     </div>
   );

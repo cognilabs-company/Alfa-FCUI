@@ -5,6 +5,9 @@ import { DateInput, DateTimeInput } from '@/shared/ui/date-picker';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal, DetailGrid } from '@/shared/ui/modal';
 import { useT } from '@/shared/i18n/lang';
+import { PageIcon } from '@/shared/ui/page-head';
+import { txStatusBadge } from '@/shared/ui/status';
+import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import {
   apiGetContracts,
   apiGetContract,
@@ -72,8 +75,9 @@ import {
   apiGetAuditLogs,
 } from '@/shared/api';
 
-import { fmt, fmtDateTime, fmtMln, monthLabel } from '@/shared/lib/format';
+import { fmt, fmtDateTime, fmtMln, fmtMoneyRoll, monthLabel } from '@/shared/lib/format';
 import { Pager } from '@/shared/ui/pager';
+import { CountUp } from '@/shared/ui/count-up';
 import { Stat } from '@/shared/ui/stat';
 
 
@@ -220,34 +224,34 @@ export function TransactionsScreen({ onToast } = {}) {
         } catch {}
       }
       setDetail(merged);
-    } catch (e) { setDetail(null); alert('Tranzaksiya ochilmadi: ' + e.message); }
+    } catch (e) { setDetail(null); notify.error('Tranzaksiya ochilmadi: ' + e.message); }
     finally { setDetailLoading(false); }
   }
 
   async function handleCancel(id) {
-    if (!confirm(t('tx_cancel_action') + '?')) return;
+    if (!await confirmDialog(t('tx_cancel_action') + '?')) return;
     try {
       await apiCancelTransaction(id);
       setDetail(null); onToast?.(t('toast_tx_cancelled')); loadData();
-    } catch (e) { alert(e.message); }
+    } catch (e) { notify.error(e.message); }
   }
 
   async function handleDelete(id) {
-    if (!confirm(t('delete') + '?')) return;
+    if (!await confirmDialog(t('delete') + '?')) return;
     try {
       await apiDeleteTransaction(id);
       setDetail(null); onToast?.(t('toast_tx_deleted')); loadData();
-    } catch (e) { alert(e.message); }
+    } catch (e) { notify.error(e.message); }
   }
 
   async function handleBulkDelete() {
     if (!selectedIds.length) return;
-    if (!confirm(selectedIds.length + ' ' + t('delete') + '?')) return;
+    if (!await confirmDialog(selectedIds.length + ' ' + t('delete') + '?')) return;
     setDeleting(true);
     try {
       await apiDeleteTransactionsBulk(selectedIds);
       setSelectedIds([]); onToast?.(t('toast_tx_deleted')); loadData();
-    } catch (e) { alert(e.message); }
+    } catch (e) { notify.error(e.message); }
     finally { setDeleting(false); }
   }
 
@@ -260,7 +264,7 @@ export function TransactionsScreen({ onToast } = {}) {
       });
       setAssignTxId(null); setAssignForm({ student_id: '', contract_id: '' });
       onToast?.(t('toast_tx_assigned')); loadData();
-    } catch (e) { alert(e.message); }
+    } catch (e) { notify.error(e.message); }
     finally { setAssigning(false); }
   }
 
@@ -328,6 +332,7 @@ export function TransactionsScreen({ onToast } = {}) {
   return (
     <div>
       <div className="page-head">
+        <PageIcon icon={I.Wallet}/>
         <div>
           <h1 className="page-title">{t('transactions_title')}</h1>
           <div className="page-sub">{totalCount} · {t('nav_transactions').toLowerCase()} · {fmt.format(pageTotal)} so'm</div>
@@ -344,12 +349,47 @@ export function TransactionsScreen({ onToast } = {}) {
       </div>
 
       {stats && (
-        <div className="grid-4" style={{ marginBottom: 16 }}>
-          <Stat feature label={t('tx_stat_total_paid')} value={fmtMln(stats.total_paid || 0)} sub={`${fmt.format(stats.total_paid || 0)} so'm`} icon={I.Wallet} />
-          <Stat label={t('tx_stat_success_count')} value={stats.successful_transactions || 0} tone="success" icon={I.Check} />
-          <Stat label="Click" value={stats.click_transactions || 0} icon={I.CreditCard} />
-          <Stat label="Payme" value={stats.payme_transactions || 0} icon={I.CreditCard} />
-        </div>
+        (() => {
+          const success = Number(stats.successful_transactions) || 0;
+          const click = Number(stats.click_transactions) || 0;
+          const payme = Number(stats.payme_transactions) || 0;
+          const other = Math.max(0, success - click - payme);
+          const parts = [
+            { key: 'payme', label: 'Payme', value: payme, color: '#35C4BE' },
+            { key: 'click', label: 'Click', value: click, color: '#5B83FF' },
+            { key: 'other', label: t('dash_other'), value: other, color: '#FBBF24' },
+          ];
+          const sum = parts.reduce((s, p) => s + p.value, 0) || 1;
+          return (
+            <section className="summary-card">
+              <div>
+                <div className="s-label"><I.HandCoins size={15}/> {t('tx_stat_total_paid')}</div>
+                <div className="s-big"><CountUp value={Number(stats.total_paid) || 0} format={fmtMoneyRoll} duration={1900}/></div>
+                <div className="s-note">{fmt.format(stats.total_paid || 0)} so'm</div>
+              </div>
+              <div className="dist">
+                <div className="dist-bar">
+                  {parts.filter(p => p.value > 0).map((p, i) => (
+                    <i key={p.key} style={{ flex: p.value / sum, background: p.color, animationDelay: `${250 + i * 140}ms` }} title={`${p.label}: ${p.value}`}/>
+                  ))}
+                </div>
+                <div className="dist-legend">
+                  {parts.map((p) => (
+                    <div key={p.key}>
+                      <span><i style={{ background: p.color }}/> {p.label}</span>
+                      <b><CountUp value={p.value} duration={1400}/></b>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="s-side">
+                <div className="s-label"><I.CheckCircle size={15}/> {t('tx_stat_success_count')}</div>
+                <div className="s-mid"><CountUp value={success} duration={1500}/></div>
+                <div className="s-note">{t('nav_transactions')}</div>
+              </div>
+            </section>
+          );
+        })()
       )}
 
       <div className="toolbar filter-buttons">
@@ -419,7 +459,7 @@ export function TransactionsScreen({ onToast } = {}) {
                   <td><span className="chip">{sourceLabel(tx.source)}</span></td>
                   <td className="muted" style={{ fontSize: 12.5 }}>{(tx.payment_months || []).map(m => monthName(m)).join(', ') || '—'}</td>
                   <td className="money" style={{ textAlign: 'right' }}>{fmt.format(tx.amount || 0)} so'm</td>
-                  <td><span className={'chip' + (st.cls ? ` ${st.cls}` : '')}><span className="chip-dot"></span>{st.text}</span></td>
+                  <td>{txStatusBadge(tx.status, t)}</td>
                   {scope === 'unassigned' && (
                     <td onClick={e => e.stopPropagation()}>
                       <button className="btn sm soft" onClick={() => setAssignTxId(tx.id)}>{t('tx_assign_btn')}</button>
@@ -436,7 +476,7 @@ export function TransactionsScreen({ onToast } = {}) {
 
       {/* Detail modal */}
       {detail && (
-        <Modal
+        <Modal icon={I.Receipt}
           size="lg"
           onClose={() => setDetail(null)}
           title={`${t('transactions_title')} #${detail.id}`}
@@ -461,7 +501,7 @@ export function TransactionsScreen({ onToast } = {}) {
                 { label: t('tx_amount_col'), value: `${fmt.format(detail.amount || 0)} so'm` },
                 { label: t('transactions_col_source'), value: sourceLabel(detail.source) },
                 { label: t('transactions_col_status'), value: (
-                  <span className={'chip' + (statusLabel(detail.status).cls ? ` ${statusLabel(detail.status).cls}` : '')}>{statusLabel(detail.status).text}</span>
+                  txStatusBadge(detail.status, t)
                 ) },
                 { label: t('transactions_col_date'), value: fmtDateTime(detail.paid_at || detail.created_at) },
                 { label: t('tx_months_col'), value: (detail.payment_months || []).map(m => monthName(m)).join(', ') || '—' },
@@ -485,7 +525,7 @@ export function TransactionsScreen({ onToast } = {}) {
 
       {/* Assign modal */}
       {assignTxId && (
-        <Modal
+        <Modal icon={I.Link}
           size="sm"
           onClose={() => setAssignTxId(null)}
           title={t('tx_assign_modal')}
@@ -513,7 +553,7 @@ export function TransactionsScreen({ onToast } = {}) {
 
       {/* Manual transaction modal */}
       {showManual && (
-        <Modal
+        <Modal icon={I.HandCoins}
           onClose={() => { setShowManual(false); setManualWithProof(false); }}
           title={t('tx_manual_modal')}
           footer={

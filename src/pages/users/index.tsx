@@ -3,6 +3,9 @@ import React from 'react';
 import { Icon } from '@/shared/ui/icons';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
+import { PageIcon } from '@/shared/ui/page-head';
+import { Badge, userStatusBadge } from '@/shared/ui/status';
+import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import {
   apiGetContracts,
   apiGetContract,
@@ -340,7 +343,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
   }
 
   async function removeRole(roleId) {
-    if (!confirm(t('delete') + '?')) return;
+    if (!await confirmDialog(t('delete') + '?')) return;
     try {
       await apiDeleteRole(roleId);
       onToast?.(t('toast_role_deleted'));
@@ -352,7 +355,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
 
   // User CRUD
   async function deleteUser(userId) {
-    if (!confirm(t('delete') + '?')) return;
+    if (!await confirmDialog(t('delete') + '?')) return;
     setDeletingUserId(userId);
     try {
       await apiDeleteUser(userId);
@@ -369,7 +372,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
 
   async function bulkDeleteUsers() {
     if (selectedIds.length === 0) return;
-    if (!confirm(selectedIds.length + ' ' + t('delete') + '?')) return;
+    if (!await confirmDialog(selectedIds.length + ' ' + t('delete') + '?')) return;
     setBulkDeleting(true);
     try {
       await apiDeleteUsersBulk(selectedIds);
@@ -470,6 +473,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
   return (
     <div>
       <div className="page-head">
+        <PageIcon icon={I.UserGear}/>
         <div>
           <h1 className="page-title">{t('users_heading')}</h1>
           <div className="page-sub">{users.length} {t('users_tab_users').toLowerCase()} · {roles.length} {t('users_tab_roles').toLowerCase()}</div>
@@ -494,55 +498,29 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
       </div>
 
       {tab === 'users' && (
-        <div className="table-wrap">
-          <div className="table-scroll">
-          <table className="table">
-            <thead>
-              <tr>
-                <th style={{ width: 36 }}>
-                  <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} title={t('all')} />
-                </th>
-                <th>{t('users_fio_label')}</th>
-                <th>{t('users_phone_email_label')}</th>
-                <th>{t('users_col_role')}</th>
-                <th>{t('users_col_status')}</th>
-                <th style={{ width: 40 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.length === 0 && <tr className="static"><td colSpan={6} className="empty-cell">{t('users_not_found')}</td></tr>}
-              {users.map((u) => {
-                const isSelected = selectedIds.includes(u.id);
-                return (
-                  <tr key={u.id} className={'static' + (isSelected ? ' selected' : '')}>
-                    <td>
-                      {!u.is_super_admin && (
-                        <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(u.id)} />
-                      )}
-                    </td>
-                    <td>
-                      <div className="row-name">
-                        <div className="avatar sm" style={{ background: u.is_super_admin ? 'var(--text)' : avatarColor(u.id) }}>{getInitials(u.full_name)}</div>
-                        <div className="meta"><span className="name">{u.full_name}</span></div>
-                      </div>
-                    </td>
-                    <td style={{ fontSize: 12.5, color: 'var(--text-2)' }}>
-                      <div>{u.phone || '—'}</div>
-                      {u.email && <div style={{ color: 'var(--muted)', fontSize: 11.5 }}>{u.email}</div>}
-                    </td>
-                    <td>
-                      {u.is_super_admin
-                        ? <span className="chip navy">Super Admin</span>
-                        : (regularRolesOf(u).length > 0 || personalRoleOf(u))
-                          ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                              {regularRolesOf(u).map(r => <span key={r.id} className="chip navy">{r.name}</span>)}
-                              {personalRoleOf(u) && <span className="chip accent" title={t('users_perms_menu')}>+{(personalRoleOf(u)?.permissions || []).length}</span>}
-                            </div>
-                          : <span className="chip">—</span>
-                      }
-                    </td>
-                    <td>{u.status === 'active' ? <span className="chip success"><span className="chip-dot"></span>{t('users_active_chip')}</span> : <span className="chip"><span className="chip-dot"></span>{t('users_inactive_chip')}</span>}</td>
-                    <td style={{ position: 'relative', overflow: 'visible' }}>
+        <div>
+          <div className="table-toolbar" style={{ marginBottom: 14 }}>
+            <label className="check-line">
+              <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
+              {t('all')}
+            </label>
+            {selectedIds.length > 0 && <span className="chip solid">{selectedIds.length}</span>}
+            <span className="toolbar-meta"><I.Users size={16}/> {users.length} {t('team_members')}</span>
+          </div>
+          {users.length === 0 && <div className="card empty">{t('users_not_found')}</div>}
+          <div className="user-grid">
+            {users.map((u) => {
+              const isSelected = selectedIds.includes(u.id);
+              const roleList = regularRolesOf(u);
+              const personal = personalRoleOf(u);
+              return (
+                <div key={u.id} className={'user-card' + (isSelected ? ' selected' : '')}>
+                  {u.is_super_admin && <span className="crown">Super Admin</span>}
+                  <div className="uc-top">
+                    {!u.is_super_admin
+                      ? <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(u.id)} aria-label={u.full_name} />
+                      : <I.Sealed size={20} weight="fill" color="var(--accent-ink)"/>}
+                    <div style={{ position: 'relative' }}>
                       <button className="icon-btn plain" aria-label="Actions" onClick={(e) => {
                         e.stopPropagation();
                         if (openMenuUserId === u.id) {
@@ -551,30 +529,55 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
                           setMenuPos(menuPosition(e.currentTarget, u.is_super_admin ? 1 : 3));
                           setOpenMenuUserId(u.id);
                         }
-                      }}><I.More size={16} /></button>
+                      }}><I.More size={18} /></button>
                       {openMenuUserId === u.id && (
                         <div className="menu" style={{ position: 'fixed', top: menuPos.y, left: menuPos.x }} onClick={e => e.stopPropagation()}>
                           <button className="menu-item" onClick={() => openEditUser(u)}>
-                            <I.Edit size={14} /> {t('edit')}
+                            <I.Edit size={15} /> {t('edit')}
                           </button>
                           {!u.is_super_admin && (
                             <button className="menu-item" onClick={() => openUserPerms(u)}>
-                              <I.Shield size={14} /> {t('users_perms_menu')}
+                              <I.Key size={15} /> {t('users_perms_menu')}
                             </button>
                           )}
                           {!u.is_super_admin && (
                             <button className="menu-item danger" onClick={() => deleteUser(u.id)} disabled={deletingUserId === u.id}>
-                              <I.Trash2 size={14} /> {deletingUserId === u.id ? t('deleting') : t('delete')}
+                              <I.Trash2 size={15} /> {deletingUserId === u.id ? t('deleting') : t('delete')}
                             </button>
                           )}
                         </div>
                       )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </div>
+                  </div>
+                  <div className="uc-who">
+                    <div className="avatar lg" style={{ background: u.is_super_admin ? 'var(--ink)' : avatarColor(u.id), color: u.is_super_admin ? 'var(--accent)' : '#fff' }}>
+                      {getInitials(u.full_name)}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div className="uc-name">{u.full_name}</div>
+                      <div className="uc-roles">
+                        {u.is_super_admin
+                          ? <Badge tone="accent" icon={I.Sealed}>Super Admin</Badge>
+                          : (roleList.length > 0 || personal)
+                            ? <>
+                                {roleList.map(r => <span key={r.id} className="chip navy"><I.Shield size={13}/> {r.name}</span>)}
+                                {personal && <span className="chip accent" title={t('users_perms_menu')}><I.Key size={13}/> +{(personal?.permissions || []).length}</span>}
+                              </>
+                            : <span className="chip">—</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="uc-contact">
+                    <span><I.Phone size={15}/> {u.phone || '—'}</span>
+                    <span><I.Mail size={15}/> {u.email || '—'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    {userStatusBadge(u.status, t)}
+                    <button className="btn sm ghost" onClick={() => openEditUser(u)}><I.Edit size={14}/> {t('edit')}</button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -640,7 +643,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
 
       {/* Create User Modal */}
       {showCreateUser && (
-        <Modal
+        <Modal icon={I.UserPlus}
           onClose={() => setShowCreateUser(false)}
           title={t('users_create_user_modal')}
           footer={
@@ -693,7 +696,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
 
       {/* Edit User Modal */}
       {editingUser && (
-        <Modal
+        <Modal icon={I.UserGear}
           onClose={() => setEditingUser(null)}
           title={t('users_edit_user_modal')}
           footer={
@@ -742,7 +745,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
 
       {/* Per-user permissions modal */}
       {permUser && (
-        <Modal
+        <Modal icon={I.Key}
           onClose={() => setPermUser(null)}
           title={t('users_perms_title')}
           subtitle={permUser.full_name}
@@ -786,7 +789,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
 
       {/* Edit Role Modal */}
       {editingRole && (
-        <Modal
+        <Modal icon={I.Shield}
           onClose={() => setEditingRole(null)}
           title={t('users_edit_role_modal')}
           footer={

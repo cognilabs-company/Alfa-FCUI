@@ -13,6 +13,8 @@ import {
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal, DetailGrid } from '@/shared/ui/modal';
 import { useT } from '@/shared/i18n/lang';
+import { Badge, studentStatusBadge, contractStatusBadge, txStatusBadge } from '@/shared/ui/status';
+import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
 import { fmt, fmtDate, fmtDateTime, monthLabel } from '@/shared/lib/format';
 import { DateInput } from '@/shared/ui/date-picker';
@@ -107,10 +109,9 @@ export function StudentProfile({ studentId, onBack }) {
           </div>
           <div style={{ minWidth: 0 }}>
             <div className="chips">
-              {studentStatus === 'active' && <span className="chip success"><span className="chip-dot"></span>{t('profile_active_student')}</span>}
-              {studentStatus === 'inactive' && <span className="chip warning"><span className="chip-dot"></span>{t('status_inactive')}</span>}
-              {studentStatus === 'archived' && <span className="chip"><span className="chip-dot"></span>{t('status_archived')}</span>}
-              {studentStatus === 'deleted' && <span className="chip danger"><span className="chip-dot"></span>{t('status_deleted')}</span>}
+              {studentStatus === 'active'
+                ? <Badge tone="success" icon={I.CheckCircle}>{t('profile_active_student')}</Badge>
+                : studentStatusBadge(s.status, t)}
               {attendances.length > 0 && (
                 <span className="chip solid">{t('profile_attendance_label')} {Math.round((presentCount / attendances.length) * 100)}%</span>
               )}
@@ -233,7 +234,7 @@ export function StudentProfile({ studentId, onBack }) {
               {contract && (
                 <DetailGrid items={[
                   { label: t('contracts_number'), value: contract.contract_number },
-                  { label: t('contracts_status'), value: contract.status ? statusChip(contract.status, t) : <span className="chip success"><span className="chip-dot"></span>{t('status_active')}</span> },
+                  { label: t('contracts_status'), value: contractStatusBadge(contract.status || 'ACTIVE', t) },
                   { label: t('contracts_start_date'), value: fmtDate(contract.start_date) },
                   { label: t('contracts_end_date'), value: fmtDate(contract.end_date) },
                   { label: t('contracts_monthly_fee'), value: `${fmt.format(contract.monthly_fee ?? contract.monthly_fee_amount ?? 0)} so'm` },
@@ -254,7 +255,7 @@ export function StudentProfile({ studentId, onBack }) {
                       document.body.removeChild(a);
                       URL.revokeObjectURL(url);
                     } catch (err) {
-                      alert('PDF yuklab bo\'lmadi: ' + err.message);
+                      notify.error('PDF yuklab bo\'lmadi: ' + err.message);
                     } finally {
                       setPdfDownloading(false);
                     }
@@ -296,9 +297,7 @@ export function StudentProfile({ studentId, onBack }) {
                       <td style={{ color: 'var(--muted)', fontSize: 12.5 }}>{tx.payment_months?.map(m => monthLabel(Number(m) - 1) || m).join(', ') || '—'}</td>
                       <td className="money" style={{ textAlign: 'right' }}>{fmt.format(tx.amount || 0)} so'm</td>
                       <td>
-                        {tx.status === 'SETTLED' && <span className="chip success"><span className="chip-dot"></span>{t('tx_st_success')}</span>}
-                        {tx.status === 'UNASSIGNED' && <span className="chip warning"><span className="chip-dot"></span>{t('tx_scope_unassigned')}</span>}
-                        {tx.status === 'CANCELLED' && <span className="chip"><span className="chip-dot"></span>{t('tx_st_cancelled')}</span>}
+                        {txStatusBadge(tx.status, t)}
                       </td>
                     </tr>
                   ))}
@@ -366,7 +365,7 @@ export function StudentProfile({ studentId, onBack }) {
                             document.body.removeChild(a);
                             URL.revokeObjectURL(dlUrl);
                           } catch (err) {
-                            alert(err.message);
+                            notify.error(err.message);
                           } finally {
                             setDownloadingFile(null);
                           }
@@ -388,7 +387,7 @@ export function StudentProfile({ studentId, onBack }) {
                         const infoRes = await apiGetStudentFullInfo(studentId);
                         setInfo(infoRes?.data || null);
                       } catch (err) {
-                        alert(err.message);
+                        notify.error(err.message);
                       } finally {
                         setUploadingFile(null);
                         e.target.value = '';
@@ -403,7 +402,7 @@ export function StudentProfile({ studentId, onBack }) {
       </div>
 
       {showHardDeleteModal && info && (
-        <Modal size="sm"
+        <Modal icon={I.Trash} tone="danger" size="sm"
           onClose={() => { if (!hardDeleting) setShowHardDeleteModal(false); }}
           title={t('student_full_delete_confirm_title')}
           footer={<>
@@ -415,7 +414,7 @@ export function StudentProfile({ studentId, onBack }) {
                 setShowHardDeleteModal(false);
                 onBack?.();
               } catch (e) {
-                alert(e.message);
+                notify.error(e.message);
               } finally {
                 setHardDeleting(false);
               }
@@ -431,7 +430,7 @@ export function StudentProfile({ studentId, onBack }) {
       )}
 
       {showEditModal && info && (
-        <Modal
+        <Modal icon={I.Edit}
           onClose={() => { if (!editLoading) setShowEditModal(false); }}
           size="lg"
           title={`${t('edit')} — ${t('students_title')}`}

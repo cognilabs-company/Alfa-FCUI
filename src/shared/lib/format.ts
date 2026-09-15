@@ -83,6 +83,16 @@ function parseDateValue(value) {
   return new Date(value);
 }
 
+/**
+ * Count-up friendly money: keeps one unit for the whole animation so the text
+ * doesn't jump from "999 999" to "1.0 mln" mid-roll. target decides the unit.
+ */
+export function fmtMoneyRoll(n, target = n, lang = currentLang()) {
+  const unit = lang === 'ru' ? 'млн' : 'mln';
+  if (Math.abs(Number(target) || 0) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} ${unit}`;
+  return fmt.format(Math.round(n));
+}
+
 /** 1 250 000 → "1.3 mln" / "1,3 млн" */
 export function fmtMln(v, lang = currentLang()) {
   const n = Number(v) || 0;

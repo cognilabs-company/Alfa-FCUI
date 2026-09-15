@@ -13,6 +13,8 @@ import {
 import { useCoachGroupsQuery, useGroupPerformanceTableQuery } from '@/features/performance-table/model/use-performance-table';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
+import { PageIcon } from '@/shared/ui/page-head';
+import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
 import { fmtDate } from '@/shared/lib/format';
 import { Stat } from '@/shared/ui/stat';
@@ -64,7 +66,7 @@ export function AttendanceMark({ sessionId, onBack }) {
       }
     } catch (e) {
       setMarks(p => ({ ...p, [id]: prev }));
-      alert(e.message);
+      notify.error(e.message);
     } finally {
       setRowSaving(p => ({ ...p, [id]: false }));
     }
@@ -84,7 +86,7 @@ export function AttendanceMark({ sessionId, onBack }) {
       })));
     } catch (e) {
       setMarks(prevMarks);
-      alert(e.message);
+      notify.error(e.message);
     } finally {
       setSaving(false);
     }
@@ -105,7 +107,7 @@ export function AttendanceMark({ sessionId, onBack }) {
       await apiMarkBulkAttendance(sessionId, attendances);
       onBack?.();
     } catch (e) {
-      alert(e.message);
+      notify.error(e.message);
     } finally {
       setSaving(false);
     }
@@ -119,6 +121,7 @@ export function AttendanceMark({ sessionId, onBack }) {
       <button className="btn ghost sm back-link" onClick={onBack}><I.ArrowLeft size={15}/> {t('sessions_tab_sessions')}</button>
 
       <div className="page-head">
+        <PageIcon icon={I.ListChecks}/>
         <div>
           <h1 className="page-title">{session.topic}</h1>
           <div className="page-sub" style={{ display: 'flex', gap: '6px 16px', flexWrap: 'wrap' }}>
@@ -135,75 +138,65 @@ export function AttendanceMark({ sessionId, onBack }) {
       </div>
 
       <div className="grid-4" style={{ marginBottom: 16 }}>
-        <Stat feature label={t('profile_attendance')} value={students.length ? `${Math.round(counts.present / students.length * 100)}%` : '—'} icon={I.Activity}/>
-        <Stat label={t('att_present')} value={counts.present} sub={`${t('total')}: ${students.length}`} tone="success" icon={I.Check}/>
+        <Stat feature label={t('profile_attendance')} icon={I.Activity}
+          value={students.length ? Math.round(counts.present / students.length * 100) : '—'}
+          format={(n) => `${Math.round(n)}%`}/>
+        <Stat label={t('att_present')} value={counts.present} sub={`${t('total')}: ${students.length}`} tone="success" icon={I.CheckCircle}/>
         <Stat label={t('att_late')} value={counts.late} tone="warning" icon={I.Clock}/>
-        <Stat label={t('att_absent')} value={counts.absent} tone="danger" icon={I.X}/>
+        <Stat label={t('att_absent')} value={counts.absent} tone="danger" icon={I.XCircle}/>
       </div>
 
       {students.length === 0 && <div className="card empty">{t('att_no_students')}</div>}
 
       {students.length > 0 && (
-        <div className="table-wrap">
-          <div className="table-toolbar">
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-2)' }}>{t('att_mark_all')}</span>
+        <>
+          <div className="table-toolbar" style={{ marginBottom: 14 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><I.ListChecks size={17}/> {t('att_mark_all')}</span>
             <button className="btn sm" disabled={saving} onClick={() => markAll('present')}>
-              <I.Check size={14} color="var(--success)"/> {t('att_btn_present')}
+              <I.CheckCircle size={16} color="var(--success)" weight="fill"/> {t('att_btn_present')}
             </button>
             <button className="btn sm" disabled={saving} onClick={() => markAll('absent')}>
-              <I.X size={14} color="var(--danger)"/> {t('att_btn_absent')}
+              <I.XCircle size={16} color="var(--danger)" weight="fill"/> {t('att_btn_absent')}
             </button>
-            <span className="toolbar-meta">{students.length} {t('nav_students').toLowerCase()}</span>
+            <span className="toolbar-meta" style={{ fontWeight: 600 }}>{t('mark_hint')}</span>
           </div>
-          <div className="table-scroll">
-          <table className="table">
-            <thead>
-              <tr><th>{t('att_col_student')}</th><th style={{ width: 340 }}>{t('att_col_status')}</th><th>{t('att_col_comment')}</th></tr>
-            </thead>
-            <tbody>
-              {students.map(s => {
-                const m = marks[s.id] || 'present';
-                const name = `${s.first_name} ${s.last_name}`;
-                return (
-                  <tr key={s.id} className="static">
-                    <td>
-                      <div className="row-name">
-                        <div className="avatar sm" style={{ background: avatarColor(s.id) }}>{s.first_name?.[0]}{s.last_name?.[0]}</div>
-                        <div className="meta">
-                          <span className="name">{name}</span>
-                          <span className="sub">#{String(s.id).padStart(4, '0')}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="att-toggle" role="radiogroup" aria-label={name}>
-                        {[
-                          { k: 'present', l: t('att_btn_present'), icon: 'Check' },
-                          { k: 'late', l: t('att_btn_late'), icon: 'Clock' },
-                          { k: 'absent', l: t('att_btn_absent'), icon: 'X' },
-                        ].map(b => {
-                          const Ic = I[b.icon];
-                          const sel = m === b.k;
-                          return (
-                            <button key={b.k} type="button" role="radio" aria-checked={sel}
-                              className={b.k + (sel ? ' on' : '')}
-                              disabled={rowSaving[s.id]} onClick={() => setMark(s.id, b.k)}>
-                              <Ic size={14}/> {b.l}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </td>
-                    <td>
-                      <input className="input" placeholder={m !== 'present' ? t('att_placeholder_reason') : t('att_placeholder_optional')} value={comments[s.id] || ''} onChange={e => setComments({ ...comments, [s.id]: e.target.value })}/>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="mark-grid">
+            {students.map(s => {
+              const m = marks[s.id] || 'present';
+              const name = `${s.first_name} ${s.last_name}`;
+              return (
+                <div key={s.id} className={'mark-card ' + m}>
+                  <div className="row-name">
+                    <div className="avatar" style={{ background: avatarColor(s.id), width: 42, height: 42, borderRadius: 14 }}>{s.first_name?.[0]}{s.last_name?.[0]}</div>
+                    <div className="meta" style={{ flex: 1 }}>
+                      <span className="name" style={{ fontSize: 14.5 }}>{name}</span>
+                      <span className="sub">#{String(s.id).padStart(4, '0')}</span>
+                    </div>
+                    {rowSaving[s.id] && <span className="empty loading" style={{ padding: 0, transform: 'scale(0.6)' }}/>}
+                  </div>
+                  <div className="att-toggle" role="radiogroup" aria-label={name}>
+                    {[
+                      { k: 'present', l: t('att_btn_present'), icon: 'CheckCircle' },
+                      { k: 'late', l: t('att_btn_late'), icon: 'Clock' },
+                      { k: 'absent', l: t('att_btn_absent'), icon: 'XCircle' },
+                    ].map(b => {
+                      const Ic = I[b.icon];
+                      const sel = m === b.k;
+                      return (
+                        <button key={b.k} type="button" role="radio" aria-checked={sel}
+                          className={b.k + (sel ? ' on' : '')}
+                          disabled={rowSaving[s.id]} onClick={() => setMark(s.id, b.k)}>
+                          <Ic size={16} weight={sel ? 'fill' : 'bold'}/> {b.l}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <input className="input" placeholder={m !== 'present' ? t('att_placeholder_reason') : t('att_placeholder_optional')} value={comments[s.id] || ''} onChange={e => setComments({ ...comments, [s.id]: e.target.value })}/>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        </>
       )}
 
       {/* Konspekt upload */}
@@ -239,7 +232,7 @@ export function AttendanceMark({ sessionId, onBack }) {
                   setKonspektFile(null);
                   setKonspektDesc('');
                 } catch (e) {
-                  alert(t('konspekt_upload_error') + e.message);
+                  notify.error(t('konspekt_upload_error') + e.message);
                 } finally {
                   setUploadingKonspekt(false);
                 }

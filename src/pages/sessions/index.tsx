@@ -15,8 +15,11 @@ import { useCoachGroupsQuery, useGroupPerformanceTableQuery } from '@/features/p
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal } from '@/shared/ui/modal';
 import { useT } from '@/shared/i18n/lang';
+import { PageIcon } from '@/shared/ui/page-head';
+import { Badge, sessionStatusBadge, attendanceBadge } from '@/shared/ui/status';
+import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
-import { fmtDate, todayISO, toLocalISO, weekdayShort } from '@/shared/lib/format';
+import { fmtDate, monthShort, todayISO, toLocalISO, weekdayShort } from '@/shared/lib/format';
 import { Pager, menuPosition } from '@/shared/ui/pager';
 
 function sessionStatus(session_date) {
@@ -149,7 +152,7 @@ export function SessionsScreen({ onMark }) {
   }
 
   async function handleDeleteSession(id) {
-    if (!window.confirm(t('confirm_delete_session'))) return;
+    if (!await confirmDialog(t('confirm_delete_session'))) return;
     try {
       await apiDeleteSession(id);
       const params = {};
@@ -157,7 +160,7 @@ export function SessionsScreen({ onMark }) {
       const sRes = await apiGetSessions(params);
       setSessions(sRes?.data || []);
     } catch (e) {
-      alert(e.message);
+      notify.error(e.message);
     }
   }
 
@@ -180,7 +183,7 @@ export function SessionsScreen({ onMark }) {
       const sRes = await apiGetSessions(params);
       setSessions(sRes?.data || []);
     } catch (e) {
-      alert(e.message);
+      notify.error(e.message);
     } finally {
       setSaving(false);
     }
@@ -188,7 +191,7 @@ export function SessionsScreen({ onMark }) {
 
   async function handleCreateSession() {
     if (!newSession.group_id || !newSession.topic.trim() || newSession.session_dates.length === 0) {
-      alert(t('toast_required'));
+      notify.error(t('toast_required'));
       return;
     }
     setSaving(true);
@@ -211,7 +214,7 @@ export function SessionsScreen({ onMark }) {
       const [sRes] = await Promise.all([apiGetSessions()]);
       setSessions(sRes?.data || []);
     } catch (e) {
-      alert(e.message);
+      notify.error(e.message);
     } finally {
       setSaving(false);
     }
@@ -220,6 +223,7 @@ export function SessionsScreen({ onMark }) {
   return (
     <div>
       <div className="page-head">
+        <PageIcon icon={I.Calendar}/>
         <div>
           <h1 className="page-title">{t('sessions_title')}</h1>
           <div className="page-sub">{sessions.length} {t('sessions_page_sub')} · {sessions.filter(s => sessionStatus(s.session_date) === 'upcoming').length} {t('sessions_filter_upcoming').toLowerCase()}</div>
@@ -272,10 +276,7 @@ export function SessionsScreen({ onMark }) {
                       <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>#{a.session_id}</td>
                       <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>#{a.student_id}</td>
                       <td>
-                        {a.status === 'present' && <span className="chip success"><span className="chip-dot"></span>{t('att_present')}</span>}
-                        {a.status === 'absent' && <span className="chip danger"><span className="chip-dot"></span>{t('att_absent')}</span>}
-                        {a.status === 'late' && <span className="chip warning"><span className="chip-dot"></span>{t('att_late')}</span>}
-                        {!['present','absent','late'].includes(a.status) && <span className="chip">{a.status}</span>}
+                        {attendanceBadge(a.status, t)}
                       </td>
                       <td style={{ color: 'var(--muted)', fontSize: 12.5 }}>{a.comment || '—'}</td>
                       <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5, color: 'var(--muted)' }}>{fmtDate(a.created_at)}</td>
@@ -290,7 +291,7 @@ export function SessionsScreen({ onMark }) {
 
       {activeTab === 'sessions' && (
       <div>
-      <div className="card" style={{ marginBottom: 16, padding: 14 }}>
+      <div className="card" style={{ marginBottom: 14, padding: 12 }}>
         <div className="week-calendar">
           {days.map(d => {
             const isToday = d.iso === today;
@@ -329,64 +330,111 @@ export function SessionsScreen({ onMark }) {
         </div>
       </div>
 
-      <div className="table-wrap">
-        <table className="table">
-          <thead><tr><th>{t('sessions_col_date')}</th><th>{t('sessions_col_time')}</th><th>{t('sessions_col_topic')}</th><th>{t('sessions_col_group')}</th><th>{t('sessions_col_location')}</th><th>{t('sessions_col_status')}</th><th></th></tr></thead>
-          <tbody>
-            {list.length === 0 && (
-              <tr>
-                <td colSpan="7">
-                  <div className="empty" style={{ padding: 32 }}>
-                    {t('sessions_no_sessions')}
-                  </div>
-                </td>
-              </tr>
-            )}
-            {list.slice((page - 1) * SESSIONS_PAGE, page * SESSIONS_PAGE).map(s => (
-              <tr key={s.id} onClick={() => onMark(s.id)}>
-                <td style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{fmtDate(s.session_date)}</td>
-                <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 750, whiteSpace: 'nowrap' }}>{s.start_time?.slice(0, 5)} – {s.end_time?.slice(0, 5)}</td>
-                <td>{s.topic}</td>
-                <td><span className="chip navy">{groupMap[s.group_id] || '—'}</span></td>
-                <td style={{ color: 'var(--muted)' }}>{s.station || '—'}</td>
-                <td>
-                  {s._status === 'completed' && <span className="chip success"><span className="chip-dot"></span>{t('sessions_completed_chip')}</span>}
-                  {s._status === 'today' && <span className="chip warning"><span className="chip-dot"></span>{t('sessions_today_chip')}</span>}
-                  {s._status === 'upcoming' && <span className="chip"><span className="chip-dot"></span>{t('sessions_upcoming_chip')}</span>}
-                </td>
-                <td style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-                  <button className="icon-btn plain" aria-label="Actions" onClick={(e) => {
-                    if (openMenuSessionId === s.id) { setOpenMenuSessionId(null); return; }
+      {(() => {
+        // today first, then upcoming (soonest first), then past (latest first)
+        const rank = (s) => (s._status === 'today' ? 0 : s._status === 'upcoming' ? 1 : 2);
+        const ordered = [...list].sort((a, b) => {
+          const r = rank(a) - rank(b);
+          if (r) return r;
+          if (a.session_date !== b.session_date) {
+            return rank(a) === 2 ? (a.session_date < b.session_date ? 1 : -1) : (a.session_date < b.session_date ? -1 : 1);
+          }
+          return String(a.start_time || '').localeCompare(String(b.start_time || ''));
+        });
+        const pageItems = ordered.slice((page - 1) * SESSIONS_PAGE, page * SESSIONS_PAGE);
+        const byDay = [];
+        pageItems.forEach((s) => {
+          const last = byDay[byDay.length - 1];
+          if (last && last.date === s.session_date) last.items.push(s);
+          else byDay.push({ date: s.session_date, items: [s] });
+        });
+        const tomorrowIso = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return toLocalISO(d); })();
+        const yesterdayIso = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return toLocalISO(d); })();
+        const dayLabel = (iso) => {
+          if (iso === today) return t('sessions_filter_today');
+          if (iso === tomorrowIso) return t('day_tomorrow');
+          if (iso === yesterdayIso) return t('day_yesterday');
+          const [y, m, dd] = String(iso).split('-').map(Number);
+          return weekdayShort(new Date(y, (m || 1) - 1, dd || 1), lang);
+        };
 
-                    setMenuPos(menuPosition(e.currentTarget, 3));
-                    setOpenMenuSessionId(s.id);
-                  }}><I.More size={15}/></button>
-                  {openMenuSessionId === s.id && (
-                    <div className="menu" style={{ position: 'fixed', top: menuPos.y, left: menuPos.x }}>
-                      {[
-                        { icon: 'Calendar', label: t('sessions_mark_attendance'), action: () => { onMark(s.id); setOpenMenuSessionId(null); } },
-                        { icon: 'Edit', label: t('edit'), action: () => openEditSession(s) },
-                        { icon: 'Trash', label: t('delete'), action: () => { setOpenMenuSessionId(null); handleDeleteSession(s.id); }, danger: true },
-                      ].map(item => {
-                        const Ic = I[item.icon];
+        if (list.length === 0) {
+          return <div className="card empty" style={{ padding: 48 }}>{t('sessions_no_sessions')}</div>;
+        }
+
+        let n = 0;
+        return (
+          <>
+            <div className="agenda">
+              {byDay.map((day) => {
+                const [y, m, dd] = String(day.date).split('-').map(Number);
+                return (
+                  <section key={day.date} className={'agenda-day' + (day.date === today ? ' is-today' : '')}>
+                    <div className="agenda-date">
+                      <b>{dd || '—'}</b>
+                      <span>{monthShort((m || 1) - 1, lang)} {y !== new Date().getFullYear() ? y : ''}</span>
+                      <em>{dayLabel(day.date)}</em>
+                    </div>
+                    <div className="agenda-items">
+                      {day.items.map((s) => {
+                        const delay = 60 + (n++) * 45;
                         return (
-                          <button key={item.label} className={'menu-item' + (item.danger ? ' danger' : '')} onClick={item.action}>
-                            <Ic size={14}/> {item.label}
-                          </button>
+                          <div key={s.id} role="button" tabIndex={0}
+                            className={'agenda-item ' + s._status}
+                            style={{ animationDelay: `${delay}ms` }}
+                            onClick={() => onMark(s.id)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') onMark(s.id); }}>
+                            <div className="agenda-time">
+                              <b>{s.start_time?.slice(0, 5) || '--:--'}</b>
+                              <span>{s.end_time?.slice(0, 5) || ''}</span>
+                            </div>
+                            <span className="agenda-rail"/>
+                            <div className="agenda-main">
+                              <div className="title">{s.topic || '—'}</div>
+                              <div className="meta">
+                                <span className="chip navy"><I.UsersFour size={13}/> {groupMap[s.group_id] || '—'}</span>
+                                {s.station && <span><I.MapPin size={14}/> {s.station}</span>}
+                              </div>
+                            </div>
+                            {sessionStatusBadge(s._status, t)}
+                            <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+                              <button className="icon-btn plain" aria-label="Actions" onClick={(e) => {
+                                if (openMenuSessionId === s.id) { setOpenMenuSessionId(null); return; }
+                                setMenuPos(menuPosition(e.currentTarget, 3));
+                                setOpenMenuSessionId(s.id);
+                              }}><I.More size={16}/></button>
+                              {openMenuSessionId === s.id && (
+                                <div className="menu" style={{ position: 'fixed', top: menuPos.y, left: menuPos.x }}>
+                                  {[
+                                    { icon: 'ListChecks', label: t('sessions_mark_attendance'), action: () => { onMark(s.id); setOpenMenuSessionId(null); } },
+                                    { icon: 'Edit', label: t('edit'), action: () => openEditSession(s) },
+                                    { icon: 'Trash', label: t('delete'), action: () => { setOpenMenuSessionId(null); handleDeleteSession(s.id); }, danger: true },
+                                  ].map(item => {
+                                    const Ic = I[item.icon];
+                                    return (
+                                      <button key={item.label} className={'menu-item' + (item.danger ? ' danger' : '')} onClick={item.action}>
+                                        <Ic size={15}/> {item.label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         );
                       })}
                     </div>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {list.length > SESSIONS_PAGE && <Pager page={page} totalPages={Math.ceil(list.length / SESSIONS_PAGE)} onPage={setPage} total={list.length} pageSize={SESSIONS_PAGE}/>}
-      </div>
+                  </section>
+                );
+              })}
+            </div>
+            {list.length > SESSIONS_PAGE && <Pager detached page={page} totalPages={Math.ceil(list.length / SESSIONS_PAGE)} onPage={setPage} total={list.length} pageSize={SESSIONS_PAGE}/>}
+          </>
+        );
+      })()}
 
       {showCreate && (
-        <Modal
+        <Modal icon={I.CalendarPlus}
           onClose={() => setShowCreate(false)}
           title={t('sessions_new_title')}
           footer={<>
@@ -439,7 +487,7 @@ export function SessionsScreen({ onMark }) {
         </Modal>
       )}
       {editingSession && (
-        <Modal
+        <Modal icon={I.Edit}
           onClose={() => setEditingSession(null)}
           title={`${t('edit')} — ${t('sessions_tab_sessions')}`}
           footer={<>

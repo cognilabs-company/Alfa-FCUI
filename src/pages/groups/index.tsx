@@ -15,6 +15,10 @@ import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal, DetailGrid } from '@/shared/ui/modal';
 import { menuPosition } from '@/shared/ui/pager';
 import { useT } from '@/shared/i18n/lang';
+import { PageIcon } from '@/shared/ui/page-head';
+import { CountUp } from '@/shared/ui/count-up';
+import { Badge, studentStatusBadge } from '@/shared/ui/status';
+import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
 
 function GroupFormFields({ form, setForm, coaches }) {
@@ -161,7 +165,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
   }
 
   async function handleDeleteGroup(g) {
-    if (!window.confirm(`"${g.name}" ${t('confirm_delete_group')}`)) return;
+    if (!await confirmDialog(`"${g.name}" ${t('confirm_delete_group')}`)) return;
     try {
       await apiDeleteGroup(g.id);
       setOpenMenuGroupId(null);
@@ -174,14 +178,14 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
 
   async function handleBulkDelete() {
     if (selectedIds.length === 0) return;
-    if (!window.confirm(`${selectedIds.length} ${t('confirm_delete_groups')}`)) return;
+    if (!await confirmDialog(`${selectedIds.length} ${t('confirm_delete_groups')}`)) return;
     setBulkDeleting(true);
     try {
       await apiDeleteGroupsBulk(selectedIds);
       setSelectedIds([]);
       await loadData();
     } catch (e) {
-      alert(e.message);
+      notify.error(e.message);
     } finally {
       setBulkDeleting(false);
     }
@@ -207,7 +211,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (e) {
-      alert(e.message);
+      notify.error(e.message);
     }
   }
 
@@ -218,6 +222,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
   return (
     <div>
       <div className="page-head">
+        <PageIcon icon={I.UsersFour}/>
         <div>
           <h1 className="page-title">{t('groups_title')}</h1>
           <div className="page-sub">{groups.length} {t('groups_sub')}</div>
@@ -242,7 +247,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
 
       {/* Group detail modal */}
       {selectedGroup && (
-        <Modal
+        <Modal icon={I.UsersFour}
           onClose={() => onCloseGroup?.()}
           size="lg"
           title={selectedGroup.name}
@@ -260,7 +265,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span className="chip success"><span className="chip-dot"></span>{t('groups_active')}</span>
+              <Badge tone="success" icon={I.CheckCircle}>{t('groups_active')}</Badge>
               <span className="chip navy">{groupStudents.length} {t('groups_students_count')}</span>
             </div>
 
@@ -301,9 +306,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
                         <div style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.first_name} {s.last_name}</div>
                         <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{s.phone || t('groups_no_phone')}</div>
                       </div>
-                      <span className={'chip' + (s.status === 'active' ? ' success' : '')} style={{ fontSize: 11 }}>
-                        {s.status === 'active' ? t('status_active') : s.status || '—'}
-                      </span>
+                      {studentStatusBadge(s.status, t)}
                       {onOpenStudent && <Icon.ChevronRight size={15} style={{ color: 'var(--muted)', flexShrink: 0 }}/>}
                     </div>
                   ))}
@@ -331,11 +334,11 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
                     {g.description && <div className="gc-eyebrow">{g.description}</div>}
                     <div className="gc-name">{g.name}</div>
                   </button>
-                  <span className="chip success"><span className="chip-dot"></span>{t('status_active')}</span>
+                  <Badge tone="success" icon={I.CheckCircle}>{t('status_active')}</Badge>
                 </div>
                 <div>
                   <div className="gc-count">
-                    <b>{count}</b>
+                    <b><CountUp value={count} duration={1000}/></b>
                     <span>{capacity ? `/ ${capacity} · ` : ''}{t('groups_active_students')}</span>
                   </div>
                   {pct != null && (
@@ -398,7 +401,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
                     <td>{coachName}</td>
                     <td style={{ fontVariantNumeric: 'tabular-nums' }}>{g.active_students_count ?? '—'}</td>
                     <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>{g.waiting_list_count ?? '—'}</td>
-                    <td><span className="chip success">{t('status_active')}</span></td>
+                    <td><Badge tone="success" icon={I.CheckCircle}>{t('status_active')}</Badge></td>
                     <td style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
                       <button className="icon-btn plain" aria-label="Actions" onClick={(e) => {
                         if (openMenuGroupId === g.id) { setOpenMenuGroupId(null); return; }
@@ -434,7 +437,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
 
       {/* New group modal */}
       {showNew && (
-        <Modal
+        <Modal icon={I.PlusCircle}
           onClose={() => setShowNew(false)}
           title={t('groups_new_title')}
           footer={<>
@@ -450,7 +453,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
 
       {/* Edit group modal */}
       {editingGroup && (
-        <Modal
+        <Modal icon={I.Edit}
           onClose={() => setEditingGroup(null)}
           title={t('groups_edit_title')}
           footer={<>

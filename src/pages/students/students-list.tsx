@@ -13,6 +13,9 @@ import {
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Pager, menuPosition } from '@/shared/ui/pager';
 import { useT } from '@/shared/i18n/lang';
+import { PageIcon } from '@/shared/ui/page-head';
+import { studentStatusBadge } from '@/shared/ui/status';
+import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
 import { fmtDate } from '@/shared/lib/format';
 import { calcAge, fullName, normalizeStatus } from './lib';
@@ -148,7 +151,7 @@ export function StudentsList({ onOpen, onNew, onToast }) {
   const allSelected = students.length > 0 && students.every(s => selected.includes(s.id));
 
   async function handleDeleteStudent(id) {
-    if (!confirm(t('confirm_delete_student'))) return;
+    if (!await confirmDialog(t('confirm_delete_student'))) return;
     try {
       await apiDeleteStudent(id);
       setSelected(prev => prev.filter(x => x !== id));
@@ -162,7 +165,7 @@ export function StudentsList({ onOpen, onNew, onToast }) {
 
   async function handleBulkDelete() {
     if (selected.length === 0) return;
-    if (!confirm(`${selected.length} ${t('confirm_delete_students')}`)) return;
+    if (!await confirmDialog(`${selected.length} ${t('confirm_delete_students')}`)) return;
     setBulkDeleting(true);
     try {
       await apiDeleteStudentsBulk(selected);
@@ -200,6 +203,7 @@ export function StudentsList({ onOpen, onNew, onToast }) {
   return (
     <div>
       <div className="page-head">
+        <PageIcon icon={I.Student}/>
         <div>
           <h1 className="page-title">{t('students_title')}</h1>
           <div className="page-sub">{t('students_sub')} {totalCount} {t('students_count')}</div>
@@ -216,22 +220,26 @@ export function StudentsList({ onOpen, onNew, onToast }) {
       </div>
 
       <div className={"table-wrap" + (loading ? " is-loading" : "")}>
+        <div className="seg" style={{ marginBottom: 12 }} role="tablist">
+          {[
+            { value: 'all', label: t('students_all_statuses'), icon: I.Stack },
+            { value: 'active', label: t('status_active'), icon: I.CheckCircle },
+            { value: 'inactive', label: t('status_inactive'), icon: I.Pause },
+            { value: 'archived', label: t('status_archived'), icon: I.Archive },
+            { value: 'DELETED', label: t('status_deleted'), icon: I.Prohibit },
+          ].map(opt => (
+            <button key={opt.value} type="button" role="tab" aria-selected={status === opt.value}
+              className={status === opt.value ? 'active' : ''}
+              onClick={() => { setStatus(opt.value); setPage(1); }}>
+              <opt.icon size={16} weight={status === opt.value ? 'fill' : 'duotone'}/> {opt.label}
+            </button>
+          ))}
+        </div>
         <div className="table-toolbar">
           <div className="search">
             <span className="icon-l"><I.Search size={15}/></span>
             <input value={q} onChange={e => setQ(e.target.value)} placeholder={t('students_search')}/>
           </div>
-          <SearchableSelect
-            value={status}
-            onChange={v => { setStatus(v); setPage(1); }}
-            options={[
-              { value: 'all', label: t('students_all_statuses') },
-              { value: 'active', label: t('status_active') },
-              { value: 'inactive', label: t('status_inactive') },
-              { value: 'archived', label: t('status_archived') },
-              { value: 'DELETED', label: t('status_deleted') },
-            ]}
-          />
           <SearchableGroupSelect value={groupId} onChange={v => { setGroupId(v === 'all' ? '' : v); setPage(1); }} groups={groups} placeholder={t('students_all_groups')} />
           <div className="toolbar-meta">
             {selected.length > 0 && <span className="chip solid">{selected.length} {t('students_selected')}</span>}
@@ -280,10 +288,7 @@ export function StudentsList({ onOpen, onNew, onToast }) {
                     <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--text-2)' }}>{fmtDate(s.date_of_birth)}</td>
                     <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--text-2)' }}>{s.phone || '—'}</td>
                     <td>
-                      {normalizeStatus(s.status) === 'active' && <span className="chip success"><span className="chip-dot"></span>{t('status_active')}</span>}
-                      {normalizeStatus(s.status) === 'inactive' && <span className="chip warning"><span className="chip-dot"></span>{t('status_inactive')}</span>}
-                      {normalizeStatus(s.status) === 'archived' && <span className="chip"><span className="chip-dot"></span>{t('status_archived')}</span>}
-                      {normalizeStatus(s.status) === 'deleted' && <span className="chip danger"><span className="chip-dot"></span>{t('status_deleted')}</span>}
+                      {studentStatusBadge(s.status, t)}
                     </td>
                     <td onClick={e => e.stopPropagation()} style={{ position: 'relative' }}>
                       <button className="icon-btn plain" aria-label="Actions" onClick={(e) => {

@@ -3,6 +3,8 @@ import React from 'react';
 import { Icon } from '@/shared/ui/icons';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
+import { PageIcon } from '@/shared/ui/page-head';
+import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import {
   apiGetContracts,
   apiGetContract,
@@ -128,14 +130,14 @@ export function WaitingListScreen({ onToast } = {}) {
   React.useEffect(() => { loadList(); }, [groupFilter, birthYearFilter, page]);
 
   async function loadNext() {
-    if (!groupFilter) { alert(t('group_required_alert')); return; }
+    if (!groupFilter) { notify.error(t('group_required_alert')); return; }
     setNextLoading(true);
     try {
       const res = await apiGetWaitingListNext(Number(groupFilter));
       setNextEntry(res?.data || null);
       setShowNextModal(true);
     } catch (e) {
-      alert(e.message);
+      notify.error(e.message);
     } finally {
       setNextLoading(false);
     }
@@ -190,7 +192,7 @@ export function WaitingListScreen({ onToast } = {}) {
   }
 
   async function remove(id) {
-    if (!confirm(t('delete') + '?')) return;
+    if (!await confirmDialog(t('delete') + '?')) return;
     try {
       await apiDeleteWaitingList(id);
       onToast?.(t('toast_candidate_deleted'));
@@ -209,6 +211,7 @@ export function WaitingListScreen({ onToast } = {}) {
   return (
     <div>
       <div className="page-head">
+        <PageIcon icon={I.Queue}/>
         <div>
           <h1 className="page-title">{t('waiting_title')}</h1>
           <div className="page-sub">{totalCount} {t('wl_candidates_sfx')}</div>
@@ -302,7 +305,7 @@ export function WaitingListScreen({ onToast } = {}) {
 
       {/* Next in queue modal */}
       {showNextModal && (
-        <Modal
+        <Modal icon={I.Queue}
           onClose={() => setShowNextModal(false)}
           title={`${t('wl_next_modal_title')} — ${groupMap[groupFilter] || `${t('nav_groups')} #${groupFilter}`}`}
           footer={nextEntry ? (
@@ -343,7 +346,7 @@ export function WaitingListScreen({ onToast } = {}) {
 
       {/* Add/edit modal */}
       {showModal && (
-        <Modal
+        <Modal icon={I.UserPlus}
           onClose={() => setShowModal(false)}
           title={editing ? t('wl_edit_candidate') : t('wl_new_candidate')}
           size="lg"

@@ -4,6 +4,8 @@ import { Icon } from '@/shared/ui/icons';
 import { DateInput, DateTimeInput } from '@/shared/ui/date-picker';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
+import { PageIcon } from '@/shared/ui/page-head';
+import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import {
   apiGetContracts,
   apiGetContract,
@@ -71,7 +73,7 @@ import {
   apiGetAuditLogs,
 } from '@/shared/api';
 
-import { fmt, fmtMln, monthLabel, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
+import { fmt, fmtMln, fmtMoneyRoll, monthLabel, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
 import { Stat } from '@/shared/ui/stat';
 
 export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
@@ -173,7 +175,7 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (e) {
-      alert('Export xatoligi: ' + e.message);
+      notify.error('Export xatoligi: ' + e.message);
     }
   }
   async function handleDebtorsExport() {
@@ -188,7 +190,7 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (e) {
-      alert('Export xatoligi: ' + e.message);
+      notify.error('Export xatoligi: ' + e.message);
     }
   }
 
@@ -206,13 +208,14 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (e) {
-      alert('Export xatoligi: ' + e.message);
+      notify.error('Export xatoligi: ' + e.message);
     }
   }
 
   return (
     <div>
       <div className="page-head">
+        <PageIcon icon={I.Reports}/>
         <div>
           <h1 className="page-title">{t('nav_reports')}</h1>
           <div className="page-sub">{t('rpt_subtitle')}</div>
@@ -241,16 +244,16 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
 
       {tab === 'dashboard' && (
         <div className="grid-4" style={{ marginBottom: 16 }}>
-          <Stat feature label={t('rpt_active_students')} value={safeSummary.active_students ?? '—'} icon={I.Users} />
-          <Stat label={t('rpt_today_revenue')} tone="success" icon={I.TrendingUp}
-            value={safeSummary.today_revenue != null ? fmtMln(safeSummary.today_revenue) : '—'}
+          <Stat feature label={t('rpt_active_students')} value={safeSummary.active_students != null ? Number(safeSummary.active_students) : '—'} icon={I.Users} />
+          <Stat label={t('rpt_today_revenue')} tone="success" icon={I.HandCoins}
+            value={safeSummary.today_revenue != null ? Number(safeSummary.today_revenue) : '—'} format={fmtMoneyRoll}
             sub={safeSummary.today_revenue != null ? `${fmt.format(safeSummary.today_revenue)} so'm` : null} />
-          <Stat label={t('rpt_debtors_count_lbl')} tone="danger" icon={I.AlertTriangle}
-            value={safeSummary.total_debtors ?? '—'}
+          <Stat label={t('rpt_debtors_count_lbl')} tone="danger" icon={I.AlertCircle}
+            value={safeSummary.total_debtors != null ? Number(safeSummary.total_debtors) : '—'}
             sub={(safeSummary.total_debt ?? safeSummary.total_outstanding ?? safeSummary.outstanding_debt) != null
               ? `${fmt.format(safeSummary.total_debt ?? safeSummary.total_outstanding ?? safeSummary.outstanding_debt)} so'm ${t('rpt_total_debt')}`
               : null} />
-          <Stat label={t('rpt_today_sessions')} icon={I.Calendar} value={safeSummary.today_sessions ?? '—'} />
+          <Stat label={t('rpt_today_sessions')} icon={I.CalendarCheck} value={safeSummary.today_sessions != null ? Number(safeSummary.today_sessions) : '—'} />
         </div>
       )}
 
@@ -266,32 +269,28 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
             {[
               {
                 label: t('rpt_total_income'),
-                value: financeReport ? `${fmt.format(financeReport.total_income ?? financeReport.total_revenue ?? 0)} so'm` : (txStats ? `${fmt.format(txStats.total_paid || 0)} so'm` : '—'),
-                icon: I.TrendingUp, color: 'var(--success)',
+                value: financeReport ? Number(financeReport.total_income ?? financeReport.total_revenue ?? 0) : (txStats ? Number(txStats.total_paid || 0) : null),
+                money: true, icon: I.TrendingUp, tone: 'success',
               },
               {
                 label: t('rpt_paid'),
-                value: financeReport?.total_paid != null ? `${fmt.format(financeReport.total_paid)} so'm` : (txStats ? `${fmt.format(txStats.total_paid || 0)} so'm` : '—'),
-                icon: I.Check, color: 'var(--text)',
+                value: financeReport?.total_paid != null ? Number(financeReport.total_paid) : (txStats ? Number(txStats.total_paid || 0) : null),
+                money: true, icon: I.CheckCircle, tone: 'info',
               },
               {
                 label: t('rpt_total_debt'),
-                value: financeReport?.total_debt != null ? `${fmt.format(financeReport.total_debt)} so'm` : '—',
-                icon: I.AlertTriangle, color: 'var(--danger)',
+                value: financeReport?.total_debt != null ? Number(financeReport.total_debt) : null,
+                money: true, icon: I.AlertCircle, tone: 'danger',
               },
               {
                 label: t('rpt_success_tx'),
-                value: txStats?.successful_transactions ?? '—',
-                icon: I.Wallet, color: 'var(--text)',
+                value: txStats?.successful_transactions != null ? Number(txStats.successful_transactions) : null,
+                icon: I.Receipt, tone: 'default',
               },
             ].map((item) => (
-              <div key={item.label} className="stat">
-                <div className="stat-head">
-                  <span className="stat-label">{item.label}</span>
-                  <span className="stat-icon" style={{ color: item.color }}><item.icon size={18} /></span>
-                </div>
-                <div className="stat-value" style={{ fontSize: 22, color: item.color === 'var(--danger)' ? item.color : undefined }}>{item.value}</div>
-              </div>
+              <Stat key={item.label} label={item.label} icon={item.icon} tone={item.tone}
+                value={item.value == null ? '—' : item.value}
+                unit={item.money && item.value != null ? "so'm" : undefined}/>
             ))}
           </div>
 

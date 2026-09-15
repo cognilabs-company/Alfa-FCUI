@@ -57,7 +57,7 @@ export function Sidebar({ active, onNav, role, userPermissions = [], collapsed, 
                   aria-current={isActive ? 'page' : undefined}
                   onClick={() => onNav(it.id)}
                   title={collapsed ? label : undefined}>
-                  <Ic size={18} strokeWidth={isActive ? 2.1 : 1.8}/>
+                  <Ic size={20} weight={isActive ? 'fill' : 'duotone'}/>
                   {!collapsed && <>
                     <span>{label}</span>
                     {it.badge && <span className="nav-badge">{it.badge}</span>}

@@ -4,6 +4,7 @@ import {
   unwrapData, unwrapDataArray,
   normalizeContractMonthlyFeePayload, normalizeContractDatesPayload,
 } from './client';
+import { rememberLoginId, forgetLoginId } from '../lib/maintenance';
 
 // Auth
 export async function apiLogin(phone_or_email, password) {
@@ -17,6 +18,7 @@ export async function apiLogin(phone_or_email, password) {
   if (!res.ok) throw new Error(json.detail || 'Login xatolik');
   const auth = json.data || json;
   setTokens(auth.access_token, auth.refresh_token);
+  rememberLoginId(phone_or_email);
   return auth;
 }
 
@@ -32,4 +34,4 @@ export async function apiGetMe() {
   };
 }
 
-export function apiLogout() { clearTokens(); }
+export function apiLogout() { clearTokens(); forgetLoginId(); }

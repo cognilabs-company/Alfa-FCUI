@@ -4,6 +4,7 @@ import { Icon } from '@/shared/ui/icons';
 import { DateInput, DateTimeInput } from '@/shared/ui/date-picker';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
+import { PageIcon } from '@/shared/ui/page-head';
 import {
   apiGetContracts,
   apiGetContract,
@@ -71,8 +72,9 @@ import {
   apiGetAuditLogs,
 } from '@/shared/api';
 
-import { fmt, fmtDate, fmtMln } from '@/shared/lib/format';
+import { fmt, fmtDate, fmtMln, fmtMoneyRoll } from '@/shared/lib/format';
 import { Pager } from '@/shared/ui/pager';
+import { CountUp } from '@/shared/ui/count-up';
 import { Stat } from '@/shared/ui/stat';
 import { Modal } from '@/shared/ui/modal';
 
@@ -175,6 +177,7 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
   return (
     <div>
       <div className="page-head">
+        <PageIcon icon={I.FileText}/>
         <div>
           <h1 className="page-title">{t('contracts_title')}</h1>
           <div className="page-sub">{totalCount} ta {t('nav_contracts').toLowerCase()}</div>
@@ -182,13 +185,43 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
       </div>
 
       {stats && (
-        <div className="stat-grid" style={{ marginBottom: 16 }}>
-          <Stat feature label={t('all')} value={stats.total || 0} icon={I.FileText} />
-          <Stat label={t('status_active')} value={stats.active || 0} tone="success" icon={I.Check} />
-          <Stat label={t('status_terminated')} value={stats.terminated || 0} tone="danger" icon={I.XCircle} />
-          <Stat label={t('status_cancelled')} value={stats.expired || 0} tone="warning" icon={I.Clock} />
-          <Stat label={t('contracts_total_monthly')} value={fmtMln(stats.total_monthly_fee || 0)} sub={`${fmt.format(stats.total_monthly_fee || 0)} so'm`} icon={I.Wallet} />
-        </div>
+        (() => {
+          const parts = [
+            { key: 'active', label: t('status_active'), value: Number(stats.active) || 0, color: '#4ADE80', icon: I.Sealed },
+            { key: 'expired', label: t('status_cancelled'), value: Number(stats.expired) || 0, color: '#FBBF24', icon: I.Hourglass },
+            { key: 'terminated', label: t('status_terminated'), value: Number(stats.terminated) || 0, color: '#FF6B5E', icon: I.XCircle },
+          ];
+          const sum = parts.reduce((s, p) => s + p.value, 0) || 1;
+          return (
+            <section className="summary-card">
+              <div>
+                <div className="s-label"><I.FileText size={15}/> {t('all')}</div>
+                <div className="s-big"><CountUp value={Number(stats.total) || 0} duration={1400}/></div>
+                <div className="s-note">{t('nav_contracts')}</div>
+              </div>
+              <div className="dist">
+                <div className="dist-bar">
+                  {parts.filter(p => p.value > 0).map((p, i) => (
+                    <i key={p.key} style={{ flex: p.value / sum, background: p.color, animationDelay: `${250 + i * 140}ms` }} title={`${p.label}: ${p.value}`}/>
+                  ))}
+                </div>
+                <div className="dist-legend">
+                  {parts.map((p) => (
+                    <div key={p.key}>
+                      <span><i style={{ background: p.color }}/> {p.label}</span>
+                      <b><CountUp value={p.value} duration={1400}/></b>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="s-side">
+                <div className="s-label"><I.Wallet size={15}/> {t('contracts_total_monthly')}</div>
+                <div className="s-mid"><CountUp value={Number(stats.total_monthly_fee) || 0} format={fmtMoneyRoll} duration={1800}/> <span style={{ fontSize: 13, fontFamily: 'var(--font-sans)', color: 'rgba(238,242,236,0.55)' }}>so'm</span></div>
+                <div className="s-note">{fmt.format(stats.total_monthly_fee || 0)} so'm</div>
+              </div>
+            </section>
+          );
+        })()
       )}
 
       <div className="seg" style={{ marginBottom: 14 }}>
@@ -278,7 +311,7 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
       </div>
 
       {terminateModal && (
-        <Modal
+        <Modal icon={I.XCircle} tone="danger"
           size="sm"
           onClose={() => setTerminateModal(false)}
           title={t('contracts_terminate_title')}

@@ -4,6 +4,8 @@ import { Icon } from '@/shared/ui/icons';
 import { DateInput, DateTimeInput } from '@/shared/ui/date-picker';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
+import { PageIcon } from '@/shared/ui/page-head';
+import { Badge, auditActionMeta } from '@/shared/ui/status';
 import {
   apiGetContracts,
   apiGetContract,
@@ -71,7 +73,7 @@ import {
   apiGetAuditLogs,
 } from '@/shared/api';
 
-import { fmt, fmtDateTime } from '@/shared/lib/format';
+import { fmt, fmtDate, fmtDateTime } from '@/shared/lib/format';
 import { Stat } from '@/shared/ui/stat';
 import { Modal, DetailGrid } from '@/shared/ui/modal';
 import { Pager } from '@/shared/ui/pager';
@@ -161,12 +163,8 @@ export function AuditLogsScreen() {
   function actionChip(a) {
     const s = String(a || '').toUpperCase();
     const label = trOrNull(t, 'audit_act_' + s) || a;
-    if (s === 'CREATE') return <span className="chip success">{label}</span>;
-    if (s === 'UPDATE' || s === 'PATCH') return <span className="chip warning">{label}</span>;
-    if (s === 'DELETE') return <span className="chip danger">{label}</span>;
-    if (s === 'LOGIN') return <span className="chip navy">{label}</span>;
-    if (s === 'CANCEL' || s === 'TERMINATE') return <span className="chip danger">{label}</span>;
-    return <span className="chip">{label || '—'}</span>;
+    const meta = auditActionMeta(s);
+    return <Badge tone={meta.tone} icon={meta.icon}>{label || '—'}</Badge>;
   }
 
   const hasFilters = entityType || action || fromDate || toDate || search || userFilter;
@@ -175,6 +173,7 @@ export function AuditLogsScreen() {
   return (
     <div>
       <div className="page-head">
+        <PageIcon icon={I.Shield}/>
         <div>
           <h1 className="page-title">{t('audit_title')}</h1>
           <div className="page-sub">{totalCount} {t('audit_records_sfx')}</div>
@@ -233,35 +232,43 @@ export function AuditLogsScreen() {
       {loading && rows.length === 0 ? (
         <div className="empty loading" style={{ padding: 48 }}>{t('loading')}</div>
       ) : (
-        <div className={'table-wrap' + (loading ? ' is-loading' : '')}>
-          <div className="table-scroll">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>{t('audit_col_time')}</th>
-                <th>{t('audit_col_user')}</th>
-                <th>{t('audit_col_action')}</th>
-                <th>{t('audit_col_entity')}</th>
-                <th>{t('audit_name_col')}</th>
-                <th>{t('audit_col_details')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 && (
-                <tr className="static"><td colSpan={6} className="empty-cell" style={loadError ? { color: 'var(--danger)' } : undefined}>{loadError || t('audit_not_found')}</td></tr>
-              )}
-              {rows.map(r => (
-                <tr key={r.id} className={detail?.id === r.id ? 'selected' : undefined} onClick={() => setDetail(r)}>
-                  <td style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontSize: 12.5 }}>{fmtDateTime(r.created_at)}</td>
-                  <td style={{ fontSize: 13, fontWeight: 700 }}>{r.user_full_name || `#${r.user_id || '—'}`}</td>
-                  <td>{actionChip(r.action)}</td>
-                  <td><span className="chip">{trOrNull(t, 'audit_ent_' + r.entity_type) || r.entity_type || '—'}</span></td>
-                  <td style={{ fontSize: 13 }}>{r.entity_label || (r.entity_id ? `#${r.entity_id}` : '—')}</td>
-                  <td style={{ fontSize: 12.5, color: 'var(--muted)', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{describeLog(r, t)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className={'card' + (loading ? ' is-loading' : '')} style={{ padding: '16px 14px', opacity: loading ? 0.6 : 1, transition: 'opacity 160ms' }}>
+          {rows.length === 0 && (
+            <div className="empty" style={loadError ? { color: 'var(--danger)' } : undefined}>{loadError || t('audit_not_found')}</div>
+          )}
+          <div className="feed">
+            {(() => {
+              let lastDay = '';
+              return rows.map((r, i) => {
+                const d = new Date(r.created_at);
+                const dayKey = isNaN(d.getTime()) ? '' : fmtDate(d);
+                const showDay = dayKey && dayKey !== lastDay;
+                lastDay = dayKey || lastDay;
+                const meta = auditActionMeta(r.action);
+                const Ic = meta.icon;
+                const actionLabel = trOrNull(t, 'audit_act_' + String(r.action || '').toUpperCase()) || r.action;
+                const time = isNaN(d.getTime()) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                return (
+                  <React.Fragment key={r.id}>
+                    {showDay && <div className="feed-day"><I.Calendar size={13}/> {dayKey}</div>}
+                    <button type="button" className={'feed-item' + (detail?.id === r.id ? ' selected' : '')}
+                      style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}
+                      onClick={() => setDetail(r)}>
+                      <span className={'feed-icon ' + meta.tone}><Ic size={20} weight="duotone"/></span>
+                      <div style={{ minWidth: 0 }}>
+                        <div className="feed-text"><b>{r.user_full_name || `#${r.user_id || '—'}`}</b> · {describeLog(r, t)}</div>
+                        <div className="feed-meta">
+                          <Badge tone={meta.tone} icon={Ic}>{actionLabel}</Badge>
+                          <span className="chip">{trOrNull(t, 'audit_ent_' + r.entity_type) || r.entity_type || '—'}</span>
+                          {(r.entity_label || r.entity_id) && <span>{r.entity_label || `#${r.entity_id}`}</span>}
+                        </div>
+                      </div>
+                      <span className="feed-time">{time}</span>
+                    </button>
+                  </React.Fragment>
+                );
+              });
+            })()}
           </div>
           {totalPages > 1 && <Pager page={page} totalPages={totalPages} onPage={setPage} total={totalCount} pageSize={50}/>}
         </div>
@@ -269,7 +276,7 @@ export function AuditLogsScreen() {
 
       {/* Detail modal */}
       {detail && (
-        <Modal onClose={() => setDetail(null)} title={`${t('audit_title')} #${detail.id}`} size="lg">
+        <Modal icon={I.Shield} onClose={() => setDetail(null)} title={`${t('audit_title')} #${detail.id}`} size="lg">
           <DetailGrid items={[
             { label: t('audit_detail_date'), value: fmtDateTime(detail.created_at) },
             { label: t('audit_detail_user'), value: detail.user_full_name || `#${detail.user_id}` },
