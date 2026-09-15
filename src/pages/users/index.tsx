@@ -123,18 +123,19 @@ const ALL_PERMS = [
   { code: 'finance:unassigned:assign', label: "To'lovlarni biriktirish" },
 ];
 
+// Permission category → i18n key (unknown categories fall back to the raw code)
 const PERM_CATS = {
-  students:   "O'quvchilar",
-  groups:     'Guruhlar',
-  attendance: 'Davomat',
-  sessions:   'Sessiyalar',
-  reports:    'Hisobotlar',
-  settings:   'Sozlamalar',
-  roles:      'Rollar',
-  users:      'Foydalanuvchilar',
-  gate:       'Darvoza',
-  contracts:  'Shartnomalar',
-  finance:    'Moliya',
+  students:   'nav_students',
+  groups:     'nav_groups',
+  attendance: 'profile_attendance',
+  sessions:   'sessions_tab_sessions',
+  reports:    'nav_reports',
+  settings:   'nav_settings',
+  roles:      'users_tab_roles',
+  users:      'nav_users',
+  gate:       'profile_gate',
+  contracts:  'nav_contracts',
+  finance:    'perm_cat_finance',
 };
 
 function getPermGroups(perms) {
@@ -148,6 +149,7 @@ function getPermGroups(perms) {
 }
 
 function PermSelector({ ids, onChange, permissions }) {
+  const { t } = useT();
   const groups = getPermGroups(permissions);
   return (
     <div className="perm-list">
@@ -162,7 +164,7 @@ function PermSelector({ ids, onChange, permissions }) {
           <div key={g.label} className="perm-group">
             <label className="check-line">
               <input type="checkbox" checked={allChecked} ref={el => { if (el) el.indeterminate = someChecked && !allChecked; }} onChange={toggleGroup} />
-              {g.label}
+              {t(g.label)}
             </label>
             <div className="perm-items">
             {g.items.map(p => (
@@ -183,7 +185,7 @@ function PermSelector({ ids, onChange, permissions }) {
 
 export function UsersScreen({ initialView = 'users', onToast } = {}) {
   const I = Icon;
-  const { t } = useT();
+  const { t, tp } = useT();
   const [users, setUsers] = React.useState([]);
   const [roles, setRoles] = React.useState([]);
   const [permissions, setPermissions] = React.useState([]);
@@ -262,7 +264,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
         }
       } else {
         let personalId = existing?.id;
-        const description = `Shaxsiy ruxsatlar: ${permUser.full_name || permUser.id}`;
+        const description = `${t('users_perms_title')}: ${permUser.full_name || permUser.id}`;
         if (existing) {
           await apiUpdateRole(existing.id, { name, description, permission_ids: extras });
         } else {
@@ -505,7 +507,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
               {t('all')}
             </label>
             {selectedIds.length > 0 && <span className="chip solid">{selectedIds.length}</span>}
-            <span className="toolbar-meta"><I.Users size={16}/> {users.length} {t('team_members')}</span>
+            <span className="toolbar-meta"><I.Users size={16}/> {users.length} {tp('team_members', users.length)}</span>
           </div>
           {users.length === 0 && <div className="card empty">{t('users_not_found')}</div>}
           <div className="user-grid">

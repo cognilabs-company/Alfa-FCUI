@@ -142,13 +142,14 @@ function SelectShell({ value, selectedLabel, placeholder, onSelect, options, sho
   );
 }
 
-export function SearchableSelect({ value, onChange, options, placeholder = 'Tanlang', style, direction = 'down' }) {
+export function SearchableSelect({ value, onChange, options, placeholder, style, direction = 'down' }) {
+  const { t } = useT();
   const selectedOpt = options.find(o => String(o.value) === String(value));
   return (
     <SelectShell
       value={value}
       selectedLabel={selectedOpt ? selectedOpt.label : null}
-      placeholder={placeholder}
+      placeholder={placeholder ?? t('select_ph')}
       options={options}
       showSearch={options.length > 5}
       direction={direction}

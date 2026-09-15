@@ -3,8 +3,8 @@ export const fmt = new Intl.NumberFormat('uz-UZ');
 
 // Uzbek month names don't exist in Intl — hand-made lists, RU for the ru locale.
 const MONTHS_UZ = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
-// Genitive ("19 Мая") for dates, nominative ("Май") for standalone labels.
-const MONTHS_RU = ['Января', 'Февраля', 'Марта', 'Апреля', 'Мая', 'Июня', 'Июля', 'Августа', 'Сентября', 'Октября', 'Ноября', 'Декабря'];
+// Genitive, lowercase ("19 мая") for dates; nominative ("Май") for standalone labels.
+const MONTHS_RU = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 const MONTHS_RU_NOM = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const MONTHS_UZ_SHORT = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
 const MONTHS_RU_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
@@ -57,7 +57,7 @@ export function toLocalISO(date = new Date()) {
 }
 export function todayISO() { return toLocalISO(new Date()); }
 
-/** "2026-05-19", timestamp, or Date → "19 May 2026" (uz) / "19 Мая 2026" (ru) */
+/** "2026-05-19", timestamp, or Date → "19 May 2026" (uz) / "19 мая 2026" (ru) */
 export function fmtDate(value) {
   if (!value) return '—';
   const d = value instanceof Date ? value : parseDateValue(value);

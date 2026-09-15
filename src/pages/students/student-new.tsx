@@ -145,9 +145,9 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
                 />
               </div>
               <div className="field"><label>{t('field_nationality')}</label><input value={form.millati} onChange={e => setF('millati', e.target.value)} placeholder="O'zbek"/></div>
-              <div className="field col-span-2"><label>{t('field_address')}</label><input value={form.address} onChange={e => setF('address', e.target.value)} placeholder="Toshkent sh., Chilonzor t."/></div>
+              <div className="field col-span-2"><label>{t('field_address')}</label><input value={form.address} onChange={e => setF('address', e.target.value)} placeholder={t('ph_address')}/></div>
               <div className="field"><label>{t('field_group2')}</label>
-                <SearchableGroupSelect value={form.group_id} onChange={v => setF('group_id', v)} groups={groups} placeholder="Tanlanmagan" />
+                <SearchableGroupSelect value={form.group_id} onChange={v => setF('group_id', v)} groups={groups} placeholder={t('not_selected')} />
               </div>
             </div>
           )}
@@ -155,7 +155,7 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
             <div className="grid-2" style={{ gap: 14 }}>
               <div className="field col-span-2"><label>{t('field_customer_name')} <span className="req">*</span></label><input value={form.customer_full_name} onChange={e => setF('customer_full_name', e.target.value)} placeholder="Karimov Ravshan Akmalovich"/></div>
               <div className="field"><label>{t('field_passport_num')} <span className="req">*</span></label><input value={form.customer_passport_number} onChange={e => setF('customer_passport_number', e.target.value)} placeholder="AB 1234567"/></div>
-              <div className="field"><label>{t('field_address')} <span className="req">*</span></label><input value={form.customer_address} onChange={e => setF('customer_address', e.target.value)} placeholder="Toshkent sh., Chilonzor t."/></div>
+              <div className="field"><label>{t('field_address')} <span className="req">*</span></label><input value={form.customer_address} onChange={e => setF('customer_address', e.target.value)} placeholder={t('ph_address')}/></div>
               <div className="field"><label>{t('field_monthly_fee')} <span className="req">*</span></label><input type="number" value={form.monthly_fee_amount} onChange={e => setF('monthly_fee_amount', e.target.value)} placeholder="500000"/></div>
               <div className="field"><label>{t('field_uniform_fee')}</label><input type="number" value={form.uniform_fee_amount} onChange={e => setF('uniform_fee_amount', e.target.value)} placeholder="0"/></div>
               <div className="field"><label>{t('field_contract_start')}</label><DateInput value={form.contract_start_date} onChange={v => setF('contract_start_date', v)}/></div>

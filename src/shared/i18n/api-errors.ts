@@ -31,7 +31,7 @@ const RULES = [
   [/^Student not found$/i, "O'quvchi topilmadi", 'Ученик не найден'],
   [/^Student with ID (\d+) not found$/i, "ID $1 o'quvchi topilmadi", 'Ученик с ID $1 не найден'],
   [/^Student not found or not in your groups$/i, "O'quvchi topilmadi yoki sizning guruhlaringizda emas", 'Ученик не найден или не в ваших группах'],
-  [/^Student not found for this contract$/i, "Bu shartnoma uchun o'quvchi topilmadi", 'Ученик по этому договору не найден'],
+  [/^Student not found for this contract$/i, "Bu shartnoma uchun o'quvchi topilmadi", 'Ученик по этому контракту не найден'],
   [/^PNFL already exists\. Please use a unique PNFL$/i, "Bu PNFL allaqachon mavjud. Boshqa PNFL kiriting", 'Такой ПИНФЛ уже существует. Введите уникальный ПИНФЛ'],
   [/^Invalid student status: (.+)$/i, "O'quvchi statusi noto'g'ri: $1", 'Неверный статус ученика: $1'],
   [/^No student IDs provided$/i, "O'quvchilar tanlanmagan", 'Ученики не выбраны'],
@@ -72,10 +72,10 @@ const RULES = [
   [/^Row for student_id (\d+) must have exactly (\d+) cells$/i, "ID $1 o'quvchi qatori $2 ta katakdan iborat bo'lishi kerak", 'Строка ученика с ID $1 должна содержать ровно $2 ячеек'],
 
   // Contracts
-  [/^Contract not found$/i, 'Shartnoma topilmadi', 'Договор не найден'],
-  [/^Contract is already terminated$/i, 'Shartnoma allaqachon bekor qilingan', 'Договор уже расторгнут'],
-  [/^Could not generate unique terminated contract number$/i, "Bekor qilingan shartnoma raqamini yaratib bo'lmadi", 'Не удалось создать номер расторгнутого договора'],
-  [/^PDF not generated for this contract$/i, 'Bu shartnoma uchun PDF yaratilmagan', 'PDF для этого договора не создан'],
+  [/^Contract not found$/i, 'Shartnoma topilmadi', 'Контракт не найден'],
+  [/^Contract is already terminated$/i, 'Shartnoma allaqachon bekor qilingan', 'Контракт уже расторгнут'],
+  [/^Could not generate unique terminated contract number$/i, "Bekor qilingan shartnoma raqamini yaratib bo'lmadi", 'Не удалось создать номер расторгнутого контракта'],
+  [/^PDF not generated for this contract$/i, 'Bu shartnoma uchun PDF yaratilmagan', 'PDF для этого контракта не создан'],
   [/^PDF file not found: (.+)$/i, 'PDF fayl topilmadi: $1', 'PDF файл не найден: $1'],
 
   // Transactions

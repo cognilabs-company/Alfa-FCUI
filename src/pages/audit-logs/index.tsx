@@ -114,7 +114,7 @@ function extraRows(extra, t) {
 
 export function AuditLogsScreen() {
   const I = Icon;
-  const { t } = useT();
+  const { t, tp } = useT();
   const [rows, setRows] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState('');
@@ -176,7 +176,7 @@ export function AuditLogsScreen() {
         <PageIcon icon={I.Shield}/>
         <div>
           <h1 className="page-title">{t('audit_title')}</h1>
-          <div className="page-sub">{totalCount} {t('audit_records_sfx')}</div>
+          <div className="page-sub">{totalCount} {tp('audit_records_sfx', totalCount)}</div>
         </div>
       </div>
 

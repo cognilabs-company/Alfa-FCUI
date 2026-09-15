@@ -84,7 +84,7 @@ import { statusChip } from './status-chip';
 
 export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }) {
   const I = Icon;
-  const { t } = useT();
+  const { t, tp } = useT();
   const [contracts, setContracts] = React.useState([]);
   const [terminated, setTerminated] = React.useState([]);
   const [stats, setStats] = React.useState(null);
@@ -180,7 +180,7 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
         <PageIcon icon={I.FileText}/>
         <div>
           <h1 className="page-title">{t('contracts_title')}</h1>
-          <div className="page-sub">{totalCount} ta {t('nav_contracts').toLowerCase()}</div>
+          <div className="page-sub">{totalCount} {tp('contracts_count_sfx', totalCount)}</div>
         </div>
       </div>
 
@@ -216,8 +216,8 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
               </div>
               <div className="s-side">
                 <div className="s-label"><I.Wallet size={15}/> {t('contracts_total_monthly')}</div>
-                <div className="s-mid"><CountUp value={Number(stats.total_monthly_fee) || 0} format={fmtMoneyRoll} duration={1800}/> <span style={{ fontSize: 13, fontFamily: 'var(--font-sans)', color: 'rgba(238,242,236,0.55)' }}>so'm</span></div>
-                <div className="s-note">{fmt.format(stats.total_monthly_fee || 0)} so'm</div>
+                <div className="s-mid"><CountUp value={Number(stats.total_monthly_fee) || 0} format={fmtMoneyRoll} duration={1800}/> <span style={{ fontSize: 13, fontFamily: 'var(--font-sans)', color: 'rgba(238,242,236,0.55)' }}>{t('currency')}</span></div>
+                <div className="s-note">{fmt.format(stats.total_monthly_fee || 0)} {t('currency')}</div>
               </div>
             </section>
           );
@@ -257,7 +257,7 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
               ]}
             />
           )}
-          <div className="toolbar-meta">{totalCount} {t('students_results')}</div>
+          <div className="toolbar-meta">{totalCount} {tp('students_results', totalCount)}</div>
         </div>
 
         {loading ? (
@@ -288,7 +288,7 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
                   <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>
                     {fmtDate(c.contract_start_date ?? c.start_date)} <span style={{ color: 'var(--muted)' }}>→</span> {fmtDate(c.contract_end_date ?? c.end_date)}
                   </td>
-                  <td className="money">{fmt.format(c.monthly_fee_amount ?? c.monthly_fee ?? 0)} so'm</td>
+                  <td className="money">{fmt.format(c.monthly_fee_amount ?? c.monthly_fee ?? 0)} {t('currency')}</td>
                   <td>{statusChip(c.status, t)}</td>
                   <td onClick={e => e.stopPropagation()}>
                     {c.status === 'ACTIVE' && (
@@ -324,7 +324,7 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
           </>}
         >
           <div className="field" style={{ marginBottom: 12 }}>
-            <label>{t('transactions_comment')} *</label>
+            <label>{t('contracts_termination_reason_label')} <span className="req">*</span></label>
             <textarea rows={3} value={terminateReason} onChange={e => setTerminateReason(e.target.value)} placeholder="" />
           </div>
           <div className="field">

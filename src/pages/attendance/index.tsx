@@ -141,9 +141,9 @@ export function AttendanceMark({ sessionId, onBack }) {
         <Stat feature label={t('profile_attendance')} icon={I.Activity}
           value={students.length ? Math.round(counts.present / students.length * 100) : '—'}
           format={(n) => `${Math.round(n)}%`}/>
-        <Stat label={t('att_present')} value={counts.present} sub={`${t('total')}: ${students.length}`} tone="success" icon={I.CheckCircle}/>
-        <Stat label={t('att_late')} value={counts.late} tone="warning" icon={I.Clock}/>
-        <Stat label={t('att_absent')} value={counts.absent} tone="danger" icon={I.XCircle}/>
+        <Stat label={t('att_present_count')} value={counts.present} sub={`${t('total')}: ${students.length}`} tone="success" icon={I.CheckCircle}/>
+        <Stat label={t('att_late_count')} value={counts.late} tone="warning" icon={I.Clock}/>
+        <Stat label={t('att_absent_count')} value={counts.absent} tone="danger" icon={I.XCircle}/>
       </div>
 
       {students.length === 0 && <div className="card empty">{t('att_no_students')}</div>}
@@ -183,10 +183,11 @@ export function AttendanceMark({ sessionId, onBack }) {
                       const Ic = I[b.icon];
                       const sel = m === b.k;
                       return (
-                        <button key={b.k} type="button" role="radio" aria-checked={sel}
+                        <button key={b.k} type="button" role="radio" aria-checked={sel} title={b.l}
                           className={b.k + (sel ? ' on' : '')}
                           disabled={rowSaving[s.id]} onClick={() => setMark(s.id, b.k)}>
-                          <Ic size={16} weight={sel ? 'fill' : 'bold'}/> {b.l}
+                          <Ic size={19} weight={sel ? 'fill' : 'duotone'}/>
+                          <span>{b.l}</span>
                         </button>
                       );
                     })}
@@ -201,7 +202,7 @@ export function AttendanceMark({ sessionId, onBack }) {
 
       {/* Konspekt upload */}
       <div className="card" style={{ marginTop: 16, padding: 20 }}>
-        <div className="card-title" style={{ marginBottom: 12 }}>Konspekt</div>
+        <div className="card-title" style={{ marginBottom: 12 }}>{t('konspekt_title')}</div>
         {session.konspekt_url && (
           <a className="alert info" href={session.konspekt_url} target="_blank" rel="noopener noreferrer" style={{ marginBottom: 12, textDecoration: 'none', alignItems: 'center' }}>
             <I.FileText size={16}/> {t('konspekt_view')}

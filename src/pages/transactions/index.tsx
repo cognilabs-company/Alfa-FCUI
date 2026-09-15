@@ -91,7 +91,7 @@ function todayDateTimeLocal() {
 
 export function TransactionsScreen({ onToast } = {}) {
   const I = Icon;
-  const { t } = useT();
+  const { t, tp } = useT();
   const [rows, setRows] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState('');
@@ -232,7 +232,7 @@ export function TransactionsScreen({ onToast } = {}) {
         } catch {}
       }
       setDetail(merged);
-    } catch (e) { setDetail(null); notify.error('Tranzaksiya ochilmadi: ' + e.message); }
+    } catch (e) { setDetail(null); notify.error(`${t('err_tx_open')}: ${e.message}`); }
     finally { setDetailLoading(false); }
   }
 
@@ -343,7 +343,7 @@ export function TransactionsScreen({ onToast } = {}) {
         <PageIcon icon={I.Wallet}/>
         <div>
           <h1 className="page-title">{t('transactions_title')}</h1>
-          <div className="page-sub">{totalCount} · {t('nav_transactions').toLowerCase()} · {fmt.format(pageTotal)} so'm</div>
+          <div className="page-sub">{totalCount} {tp('tx_count_sfx', totalCount)} · {fmt.format(pageTotal)} {t('currency')}</div>
         </div>
         <div className="page-actions">
           {selectedIds.length > 0 && (
@@ -373,7 +373,7 @@ export function TransactionsScreen({ onToast } = {}) {
               <div>
                 <div className="s-label"><I.HandCoins size={15}/> {t('tx_stat_total_paid')}</div>
                 <div className="s-big"><CountUp value={Number(stats.total_paid) || 0} format={fmtMoneyRoll} duration={1900}/></div>
-                <div className="s-note">{fmt.format(stats.total_paid || 0)} so'm</div>
+                <div className="s-note">{fmt.format(stats.total_paid || 0)} {t('currency')}</div>
               </div>
               <div className="dist">
                 <div className="dist-bar">
@@ -466,7 +466,7 @@ export function TransactionsScreen({ onToast } = {}) {
                   <td style={{ fontWeight: 700 }}>{tx.student_full_name || `#${tx.student_id || '—'}`}</td>
                   <td><span className="chip">{sourceLabel(tx.source)}</span></td>
                   <td className="muted" style={{ fontSize: 12.5 }}>{(tx.payment_months || []).map(m => monthName(m)).join(', ') || '—'}</td>
-                  <td className="money" style={{ textAlign: 'right' }}>{fmt.format(tx.amount || 0)} so'm</td>
+                  <td className="money" style={{ textAlign: 'right' }}>{fmt.format(tx.amount || 0)} {t('currency')}</td>
                   <td>{txStatusBadge(tx.status, t)}</td>
                   {scope === 'unassigned' && (
                     <td onClick={e => e.stopPropagation()}>
@@ -506,7 +506,7 @@ export function TransactionsScreen({ onToast } = {}) {
           ) : (
             <>
               <DetailGrid items={[
-                { label: t('tx_amount_col'), value: `${fmt.format(detail.amount || 0)} so'm` },
+                { label: t('tx_amount_col'), value: `${fmt.format(detail.amount || 0)} ${t('currency')}` },
                 { label: t('transactions_col_source'), value: sourceLabel(detail.source) },
                 { label: t('transactions_col_status'), value: (
                   txStatusBadge(detail.status, t)
@@ -618,7 +618,7 @@ export function TransactionsScreen({ onToast } = {}) {
                           <div className="row2">
                             {customerName && studentName && <span>{t('contracts_client_label')}: {customerName}</span>}
                             <span>{t('transactions_col_student')} ID: #{contract.student_id || '-'}</span>
-                            <span>{fmt.format(contract.monthly_fee || 0)} so'm</span>
+                            <span>{fmt.format(contract.monthly_fee || 0)} {t('currency')}</span>
                             <span>{contract.status || '-'}</span>
                           </div>
                         </button>

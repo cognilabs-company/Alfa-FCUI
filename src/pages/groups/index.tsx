@@ -22,7 +22,7 @@ import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
 
 function GroupFormFields({ form, setForm, coaches }) {
-  const { t } = useT();
+  const { t, tp } = useT();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div className="field">
@@ -47,7 +47,7 @@ function GroupFormFields({ form, setForm, coaches }) {
 
 export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onToast, onOpenStudent } = {}) {
   const I = Icon;
-  const { t } = useT();
+  const { t, tp } = useT();
   const [groups, setGroups] = React.useState([]);
   const [coaches, setCoaches] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -178,7 +178,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
 
   async function handleBulkDelete() {
     if (selectedIds.length === 0) return;
-    if (!await confirmDialog(`${selectedIds.length} ${t('confirm_delete_groups')}`)) return;
+    if (!await confirmDialog(tp('confirm_delete_groups', selectedIds.length))) return;
     setBulkDeleting(true);
     try {
       await apiDeleteGroupsBulk(selectedIds);
@@ -225,7 +225,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
         <PageIcon icon={I.UsersFour}/>
         <div>
           <h1 className="page-title">{t('groups_title')}</h1>
-          <div className="page-sub">{groups.length} {t('groups_sub')}</div>
+          <div className="page-sub">{groups.length} {tp('groups_sub', groups.length)}</div>
         </div>
         <div className="page-actions">
           {selectedIds.length > 0 && (
@@ -266,7 +266,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <Badge tone="success" icon={I.CheckCircle}>{t('groups_active')}</Badge>
-              <span className="chip navy">{groupStudents.length} {t('groups_students_count')}</span>
+              <span className="chip navy">{groupStudents.length} {tp('groups_students_count', groupStudents.length)}</span>
             </div>
 
             {groupLoading ? (

@@ -3,7 +3,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './icons';
 import { useT } from '@/shared/i18n/lang';
-import { monthName, fmtDate, fmtDateTime } from '@/shared/lib/format';
+import { monthLabel, fmtDate, fmtDateTime } from '@/shared/lib/format';
 
 const WEEKDAYS = {
   uz: ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'],
@@ -86,7 +86,7 @@ function CalendarPop({ anchorRef, value, onPick, lang, t, withTime, time, onTime
       <div className="cal-head">
         <button type="button" className="cal-nav" onClick={() => nav(-1)}><Icon.ChevronLeft size={15}/></button>
         <button type="button" className="cal-label" onClick={() => setMode(mode === 'days' ? 'months' : mode === 'months' ? 'years' : 'days')}>
-          {mode === 'days' && `${monthName(view.mo, lang)} ${view.y}`}
+          {mode === 'days' && `${monthLabel(view.mo, lang)} ${view.y}`}
           {mode === 'months' && view.y}
           {mode === 'years' && `${yearBase} – ${yearBase + 11}`}
         </button>
@@ -119,7 +119,7 @@ function CalendarPop({ anchorRef, value, onPick, lang, t, withTime, time, onTime
           {Array.from({ length: 12 }, (_, m) => (
             <button key={m} type="button" className={'cal-mcell' + (m === view.mo ? ' selected' : '')}
               onClick={() => { setView(v => ({ ...v, mo: m })); setMode('days'); }}>
-              {monthName(m, lang)}
+              {monthLabel(m, lang)}
             </button>
           ))}
         </div>
@@ -160,7 +160,7 @@ function CalendarPop({ anchorRef, value, onPick, lang, t, withTime, time, onTime
 
 /** Handmade calendar input. value: 'YYYY-MM-DD' | ''. onChange(value). */
 export function DateInput({ value, onChange, placeholder, style }) {
-  const { t, lang } = useT();
+  const { t, tp, lang } = useT();
   const [open, setOpen] = React.useState(false);
   const btnRef = React.useRef(null);
   return (
@@ -185,7 +185,7 @@ export function DateInput({ value, onChange, placeholder, style }) {
 
 /** Multi-select calendar. values: string[] of 'YYYY-MM-DD'. onChange(next[]). Click a day to toggle it. */
 export function MultiDateInput({ values, onChange, placeholder, style }) {
-  const { t, lang } = useT();
+  const { t, tp, lang } = useT();
   const [open, setOpen] = React.useState(false);
   const btnRef = React.useRef(null);
   const list = values || [];
@@ -194,7 +194,7 @@ export function MultiDateInput({ values, onChange, placeholder, style }) {
     ? (placeholder || t('cal_pick'))
     : list.length === 1
       ? fmtDate(list[0])
-      : `${list.length} ${t('sessions_dates_selected')}`;
+      : `${list.length} ${tp('sessions_dates_selected', list.length)}`;
   function toggle(iso) {
     if (!iso) return;
     onChange(set.has(iso) ? list.filter(v => v !== iso) : [...list, iso]);
@@ -216,7 +216,7 @@ export function MultiDateInput({ values, onChange, placeholder, style }) {
 
 /** Handmade calendar + time. value: 'YYYY-MM-DDTHH:mm' | ''. onChange(value). */
 export function DateTimeInput({ value, onChange, placeholder, style }) {
-  const { t, lang } = useT();
+  const { t, tp, lang } = useT();
   const [open, setOpen] = React.useState(false);
   const btnRef = React.useRef(null);
   const datePart = (value || '').slice(0, 10);

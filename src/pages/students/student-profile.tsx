@@ -23,7 +23,7 @@ import { calcAge, fullName, normalizeStatus } from './lib';
 
 export function StudentProfile({ studentId, onBack }) {
   const I = Icon;
-  const { t } = useT();
+  const { t, tp } = useT();
   const [info, setInfo] = React.useState(null);
   const [transactions, setTransactions] = React.useState([]);
   const [gateLogs, setGateLogs] = React.useState([]);
@@ -118,7 +118,7 @@ export function StudentProfile({ studentId, onBack }) {
             </div>
             <h1>{name}</h1>
             <div className="facts">
-              <span>{age} {t('students_years')} · {fmtDate(s.date_of_birth)}</span>
+              <span>{age} {tp('students_years', age)} · {fmtDate(s.date_of_birth)}</span>
               {group && <span>{group.name}</span>}
               {coach && <span>{t('profile_coach')}: {coach.full_name}</span>}
             </div>
@@ -155,7 +155,7 @@ export function StudentProfile({ studentId, onBack }) {
                 { label: t('profile_dob'), value: fmtDate(s.date_of_birth) },
                 { label: t('profile_nationality'), value: s.millati || '—' },
                 { label: t('profile_blood'), value: s.ampula || '—' },
-                { label: t('profile_height_weight'), value: `${s.height} sm · ${s.weight} kg` },
+                { label: t('profile_height_weight'), value: `${s.height} ${t('unit_cm')} · ${s.weight} ${t('unit_kg')}` },
                 { label: t('profile_pnfl'), value: s.pnfl },
                 { label: t('profile_phone'), value: s.phone || '—' },
                 { label: t('profile_address'), value: s.address || '—' },
@@ -179,7 +179,7 @@ export function StudentProfile({ studentId, onBack }) {
                   { l: t('profile_total_trainings'), v: String(attendances.length), sub: t('profile_this_season') },
                   { l: t('profile_present_absent'), v: `${presentCount}/${absentCount}`, sub: t('profile_attendance_label') },
                   { l: t('profile_late'), v: String(lateCount), sub: t('profile_last_records') },
-                  { l: t('profile_monthly_fee'), v: contract ? `${fmt.format(contract.monthly_fee ?? contract.monthly_fee_amount ?? 0)} so'm` : '—', sub: t('profile_contract_label') },
+                  { l: t('profile_monthly_fee'), v: contract ? `${fmt.format(contract.monthly_fee ?? contract.monthly_fee_amount ?? 0)} ${t('currency')}` : '—', sub: t('profile_contract_label') },
                 ].map(it => (
                   <div key={it.l} className="list-row">
                     <div className="grow">
@@ -196,7 +196,7 @@ export function StudentProfile({ studentId, onBack }) {
                       <div className="subtitle">{attendanceReport.present_count || 0} / {attendanceReport.absent_count || 0} / {attendanceReport.late_count || 0}</div>
                     </div>
                     <div className="big">
-                      {attendanceReport.total_sessions || 0} <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--muted)', fontWeight: 700 }}>{t('sessions_sfx_short')}</span>
+                      {attendanceReport.total_sessions || 0} <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--muted)', fontWeight: 700 }}>{tp('sessions_sfx_short', attendanceReport.total_sessions || 0)}</span>
                     </div>
                   </div>
                 )}
@@ -207,7 +207,7 @@ export function StudentProfile({ studentId, onBack }) {
 
         {tab === 'attendance' && (
           <div style={{ padding: 20 }}>
-            <div className="card-title" style={{ marginBottom: 14 }}>{t('profile_last_trainings')} {Math.min(attendances.length, 14)} {t('profile_last_trainings_suffix')}</div>
+            <div className="card-title" style={{ marginBottom: 14 }}>{t('profile_last_trainings')} {Math.min(attendances.length, 14)} {tp('profile_last_trainings_suffix', Math.min(attendances.length, 14))}</div>
             {attendances.length === 0 && <div className="empty">{t('profile_no_attendance')}</div>}
             <div className="attendance-strip">
               {attendances.slice(0, 14).map((a, i) => {
@@ -237,7 +237,7 @@ export function StudentProfile({ studentId, onBack }) {
                   { label: t('contracts_status'), value: contractStatusBadge(contract.status || 'ACTIVE', t) },
                   { label: t('contracts_start_date'), value: fmtDate(contract.start_date) },
                   { label: t('contracts_end_date'), value: fmtDate(contract.end_date) },
-                  { label: t('contracts_monthly_fee'), value: `${fmt.format(contract.monthly_fee ?? contract.monthly_fee_amount ?? 0)} so'm` },
+                  { label: t('contracts_monthly_fee'), value: `${fmt.format(contract.monthly_fee ?? contract.monthly_fee_amount ?? 0)} ${t('currency')}` },
                 ]}/>
               )}
               <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
@@ -255,7 +255,7 @@ export function StudentProfile({ studentId, onBack }) {
                       document.body.removeChild(a);
                       URL.revokeObjectURL(url);
                     } catch (err) {
-                      notify.error('PDF yuklab bo\'lmadi: ' + err.message);
+                      notify.error(`${t('err_pdf_download')}: ${err.message}`);
                     } finally {
                       setPdfDownloading(false);
                     }
@@ -295,7 +295,7 @@ export function StudentProfile({ studentId, onBack }) {
                       <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>{fmtDateTime(tx.paid_at)}</td>
                       <td><span className="chip">{tx.source}</span></td>
                       <td style={{ color: 'var(--muted)', fontSize: 12.5 }}>{tx.payment_months?.map(m => monthLabel(Number(m) - 1) || m).join(', ') || '—'}</td>
-                      <td className="money" style={{ textAlign: 'right' }}>{fmt.format(tx.amount || 0)} so'm</td>
+                      <td className="money" style={{ textAlign: 'right' }}>{fmt.format(tx.amount || 0)} {t('currency')}</td>
                       <td>
                         {txStatusBadge(tx.status, t)}
                       </td>

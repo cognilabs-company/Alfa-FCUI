@@ -79,7 +79,7 @@ import { Pager } from '@/shared/ui/pager';
 
 export function WaitingListScreen({ onToast } = {}) {
   const I = Icon;
-  const { t } = useT();
+  const { t, tp } = useT();
   const [rows, setRows] = React.useState([]);
   const [groups, setGroups] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -214,7 +214,7 @@ export function WaitingListScreen({ onToast } = {}) {
         <PageIcon icon={I.Queue}/>
         <div>
           <h1 className="page-title">{t('waiting_title')}</h1>
-          <div className="page-sub">{totalCount} {t('wl_candidates_sfx')}</div>
+          <div className="page-sub">{totalCount} {tp('wl_candidates_sfx', totalCount)}</div>
         </div>
         <div className="page-actions">
           {groupFilter && (

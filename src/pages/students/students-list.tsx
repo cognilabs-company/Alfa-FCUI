@@ -29,7 +29,7 @@ function loadSavedFilters() {
 
 export function StudentsList({ onOpen, onNew, onToast }) {
   const I = Icon;
-  const { t } = useT();
+  const { t, tp } = useT();
   const [students, setStudents] = React.useState([]);
   const [groups, setGroups] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -167,12 +167,12 @@ export function StudentsList({ onOpen, onNew, onToast }) {
 
   async function handleBulkDelete() {
     if (selected.length === 0) return;
-    if (!await confirmDialog(`${selected.length} ${t('confirm_delete_students')}`)) return;
+    if (!await confirmDialog(tp('confirm_delete_students', selected.length))) return;
     setBulkDeleting(true);
     try {
       await apiDeleteStudentsBulk(selected);
       setSelected([]);
-      onToast?.(`${selected.length} ${t('toast_students_deleted')}`);
+      onToast?.(tp('toast_students_deleted', selected.length));
       loadStudents();
     } catch (e) {
       onToast?.(e.message, 'error');
@@ -245,7 +245,7 @@ export function StudentsList({ onOpen, onNew, onToast }) {
           <SearchableGroupSelect value={groupId} onChange={v => { setGroupId(v === 'all' ? '' : v); setPage(1); }} groups={groups} placeholder={t('students_all_groups')} />
           <div className="toolbar-meta">
             {selected.length > 0 && <span className="chip solid">{selected.length} {t('students_selected')}</span>}
-            <span>{totalCount} {t('students_results')}</span>
+            <span>{totalCount} {tp('students_results', totalCount)}</span>
           </div>
         </div>
         <div className="table-scroll">
@@ -282,7 +282,7 @@ export function StudentsList({ onOpen, onNew, onToast }) {
                         <div className="avatar sm" style={{ background: avatarColor(s.id) }}>{s.first_name?.[0]}{s.last_name?.[0]}</div>
                         <div className="meta">
                           <span className="name">{name}</span>
-                          <span className="sub">{contractNo || '#' + String(s.id).padStart(4, '0')} · {age} {t('students_years')}</span>
+                          <span className="sub">{contractNo || '#' + String(s.id).padStart(4, '0')} · {age} {tp('students_years', age)}</span>
                         </div>
                       </div>
                     </td>

@@ -79,7 +79,7 @@ import { Stat } from '@/shared/ui/stat';
 
 export function GateLogsScreen() {
   const I = Icon;
-  const { t } = useT();
+  const { t, tp } = useT();
   const todayIso = todayISO();
   const [logs, setLogs] = React.useState([]);
   const [meta, setMeta] = React.useState({ total: 0, total_pages: 1, page: 1 });
@@ -118,7 +118,7 @@ export function GateLogsScreen() {
         <PageIcon icon={I.Gate}/>
         <div>
           <h1 className="page-title">{t('gate_title')}</h1>
-          <div className="page-sub">{meta.total} {t('gate_events_suffix')}</div>
+          <div className="page-sub">{meta.total} {tp('gate_events_suffix', meta.total)}</div>
         </div>
         <div className="page-actions">
           <DateInput value={fromDate} onChange={v => { setFromDate(v); setPage(1); }} placeholder={t('cal_from')} />

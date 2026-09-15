@@ -78,7 +78,7 @@ import { Stat } from '@/shared/ui/stat';
 
 export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
   const I = Icon;
-  const { t } = useT();
+  const { t, tp } = useT();
   const [tab, setTab] = React.useState(initialTab);
   const [summary, setSummary] = React.useState(null);
   const [financeReport, setFinanceReport] = React.useState(null);
@@ -124,9 +124,9 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
         setTerminatedSummary(t.status === 'fulfilled' ? (t.value?.data || null) : null);
 
         if (results.every((r) => r.status === 'rejected')) {
-          setLoadError('Hisobot API javobi olinmadi');
+          setLoadError('rpt_load_failed');
         } else if (results.some((r) => r.status === 'rejected')) {
-          setLoadError("Ba'zi hisobot endpointlari javob bermadi");
+          setLoadError('rpt_load_partial');
         }
       } finally {
         if (mounted) setLoading(false);
@@ -175,7 +175,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (e) {
-      notify.error('Export xatoligi: ' + e.message);
+      notify.error(`${t('groups_export_error')}: ${e.message}`);
     }
   }
   async function handleDebtorsExport() {
@@ -190,7 +190,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (e) {
-      notify.error('Export xatoligi: ' + e.message);
+      notify.error(`${t('groups_export_error')}: ${e.message}`);
     }
   }
 
@@ -208,7 +208,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (e) {
-      notify.error('Export xatoligi: ' + e.message);
+      notify.error(`${t('groups_export_error')}: ${e.message}`);
     }
   }
 
@@ -240,7 +240,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
         </div>
       </div>
 
-      {loadError && <div className="alert warning" style={{ marginBottom: 14 }}><I.AlertTriangle size={16}/> <span>{loadError}</span></div>}
+      {loadError && <div className="alert warning" style={{ marginBottom: 14 }}><I.AlertTriangle size={16}/> <span>{t(loadError)}</span></div>}
 
       {tab === 'dashboard' && (
         <div className="grid-4" style={{ marginBottom: 16 }}>
@@ -257,12 +257,12 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
               onNav?.('transactions');
             }}
             value={safeSummary.today_revenue != null ? Number(safeSummary.today_revenue) : '—'} format={fmtMoneyRoll}
-            sub={safeSummary.today_revenue != null ? `${fmt.format(safeSummary.today_revenue)} so'm` : null} />
+            sub={safeSummary.today_revenue != null ? `${fmt.format(safeSummary.today_revenue)} ${t('currency')}` : null} />
           <Stat label={t('rpt_debtors_count_lbl')} tone="danger" icon={I.AlertCircle}
             onClick={() => setTab('debtors')}
             value={safeSummary.total_debtors != null ? Number(safeSummary.total_debtors) : '—'}
             sub={(safeSummary.total_debt ?? safeSummary.total_outstanding ?? safeSummary.outstanding_debt) != null
-              ? `${fmt.format(safeSummary.total_debt ?? safeSummary.total_outstanding ?? safeSummary.outstanding_debt)} so'm ${t('rpt_total_debt')}`
+              ? `${fmt.format(safeSummary.total_debt ?? safeSummary.total_outstanding ?? safeSummary.outstanding_debt)} ${t('currency')} ${t('rpt_total_debt')}`
               : null} />
           <Stat label={t('rpt_today_sessions')} icon={I.CalendarCheck} value={safeSummary.today_sessions != null ? Number(safeSummary.today_sessions) : '—'}
             onClick={() => onNav?.('sessions')} />
@@ -302,7 +302,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
             ].map((item) => (
               <Stat key={item.label} label={item.label} icon={item.icon} tone={item.tone}
                 value={item.value == null ? '—' : item.value}
-                unit={item.money && item.value != null ? "so'm" : undefined}/>
+                unit={item.money && item.value != null ? t('currency') : undefined}/>
             ))}
           </div>
 
@@ -318,7 +318,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
                         {financeReport.breakdown.map((b, i) => (
                           <tr key={i}>
                             <td><span className="chip">{b.source || '—'}</span></td>
-                            <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt.format(b.total_amount || 0)} so'm</td>
+                            <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt.format(b.total_amount || 0)} {t('currency')}</td>
                             <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{b.transaction_count || 0}</td>
                           </tr>
                         ))}
@@ -337,8 +337,8 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
                         {financeReport.by_month.map((m, i) => (
                           <tr key={i}>
                             <td>{m.month || m.period}</td>
-                            <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt.format(m.income || m.total_income || m.amount || 0)} so'm</td>
-                            <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{fmt.format(m.expected || 0)} so'm</td>
+                            <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt.format(m.income || m.total_income || m.amount || 0)} {t('currency')}</td>
+                            <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{fmt.format(m.expected || 0)} {t('currency')}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -387,7 +387,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
       {tab === 'debtors' && (
         <div>
           <div className="toolbar">
-            <span className="chip danger">{debtors.length} {t('rpt_debtors_count_sfx')}</span>
+            <span className="chip danger">{debtors.length} {tp('rpt_debtors_count_sfx', debtors.length)}</span>
             <button className="btn" style={{ marginLeft: 'auto' }} onClick={handleDebtorsExport}><I.Download size={15} /> Excel</button>
           </div>
           {debtorsLoading ? (
@@ -419,13 +419,13 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
                       <td>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                           {(d.overdue_months || []).map((m, mi) => (
-                            <span key={mi} className="chip danger" style={{ fontSize: 11 }}>{m.label}</span>
+                            <span key={mi} className="chip danger" style={{ fontSize: 11 }}>{m.month ? `${monthLabel(Number(m.month) - 1)}${m.year ? ' ' + m.year : ''}` : m.label}</span>
                           ))}
                           {(!d.overdue_months || d.overdue_months.length === 0) && <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
                         </div>
                       </td>
                       <td className="money" style={{ textAlign: 'right', color: 'var(--danger)' }}>
-                        {fmt.format(d.debt_amount || Math.abs(d.debt || d.balance || 0))} so'm
+                        {fmt.format(d.debt_amount || Math.abs(d.debt || d.balance || 0))} {t('currency')}
                       </td>
                     </tr>
                   ))}
@@ -455,7 +455,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
               ]}
               style={{ minWidth: 140 }}
             />
-            <span className="chip success" style={{ marginLeft: 'auto' }}>{payers.length} {t('rpt_payers_count_sfx')}</span>
+            <span className="chip success" style={{ marginLeft: 'auto' }}>{payers.length} {tp('rpt_payers_count_sfx', payers.length)}</span>
             <button className="btn" onClick={handlePayersExport}><I.Download size={15} /> Excel</button>
           </div>
           {payersLoading ? (
@@ -491,7 +491,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
                           </div>
                         </td>
                         <td className="money" style={{ textAlign: 'right', color: 'var(--success)' }}>
-                          {fmt.format(p.total_paid || 0)} so'm
+                          {fmt.format(p.total_paid || 0)} {t('currency')}
                         </td>
                       </tr>
                     );

@@ -56,7 +56,7 @@ function sessionStatus(session_date) {
 
 export function SessionsScreen({ onMark }) {
   const I = Icon;
-  const { t, lang } = useT();
+  const { t, tp, lang } = useT();
   const todayIso = todayISO();
   const [activeTab, setActiveTab] = React.useState('sessions');
   const [sessions, setSessions] = React.useState([]);
@@ -243,7 +243,7 @@ export function SessionsScreen({ onMark }) {
         <PageIcon icon={I.Calendar}/>
         <div>
           <h1 className="page-title">{t('sessions_title')}</h1>
-          <div className="page-sub">{sessions.length} {t('sessions_page_sub')} · {sessions.filter(s => sessionStatus(s.session_date) === 'upcoming').length} {t('sessions_filter_upcoming').toLowerCase()}</div>
+          <div className="page-sub">{sessions.length} {tp('sessions_page_sub', sessions.length)} · {sessions.filter(s => sessionStatus(s.session_date) === 'upcoming').length} {t('sessions_filter_upcoming').toLowerCase()}</div>
         </div>
         <div className="page-actions">
           {activeTab === 'sessions' && (
@@ -275,7 +275,7 @@ export function SessionsScreen({ onMark }) {
           <div className="table-wrap">
             <div className="table-toolbar">
               <SearchableGroupSelect value={attGroupFilter} onChange={v => setAttGroupFilter(v)} groups={groups} />
-              <div className="toolbar-meta">{myAttendances.length} {t('records_sfx')}</div>
+              <div className="toolbar-meta">{myAttendances.length} {tp('records_sfx', myAttendances.length)}</div>
             </div>
             {attendancesLoading ? (
               <div className="empty loading" style={{ padding: 32 }}>{t('loading')}</div>
@@ -316,7 +316,7 @@ export function SessionsScreen({ onMark }) {
               <div className="week-cal-month">{monthLabel(days[3].date.getMonth(), lang)} {days[3].date.getFullYear()}</div>
               <div className="week-cal-range">
                 {days[0].num} {monthShort(days[0].date.getMonth(), lang)} — {weekEnd.getDate()} {monthShort(weekEnd.getMonth(), lang)}
-                <span className="dot-sep"/>{weekTotal} {t('session_sfx')}
+                <span className="dot-sep"/>{weekTotal} {tp('session_sfx', weekTotal)}
               </div>
             </div>
           </div>
@@ -350,7 +350,7 @@ export function SessionsScreen({ onMark }) {
                 <span className="wc-dots">
                   {d.items.slice(0, 4).map(s => <i key={s.id} style={{ background: groupColor(s.group_id) }}/>)}
                 </span>
-                <span className="wc-count">{d.items.length ? `${d.items.length} ${t('session_sfx')}` : ''}</span>
+                <span className="wc-count">{d.items.length ? `${d.items.length} ${tp('session_sfx', d.items.length)}` : ''}</span>
               </button>
             );
           })}
@@ -426,7 +426,7 @@ export function SessionsScreen({ onMark }) {
                         <span>{fmtDate(day.date)}</span>
                       </div>
                       {rel && <em>{rel}</em>}
-                      <span className="agenda-count">{day.items.length} {t('session_sfx')}</span>
+                      <span className="agenda-count">{day.items.length} {tp('session_sfx', day.items.length)}</span>
                     </div>
                     <div className="agenda-items">
                       {day.items.map((s) => {
@@ -519,11 +519,11 @@ export function SessionsScreen({ onMark }) {
             </div>
             <div className="field">
               <label>{t('sessions_topic')} <span className="req">*</span></label>
-              <input value={newSession.topic} onChange={e => setNewSession(p => ({ ...p, topic: e.target.value }))} placeholder="Masalan: Tezlik mashqi" />
+              <input value={newSession.topic} onChange={e => setNewSession(p => ({ ...p, topic: e.target.value }))} placeholder={t('ph_session_topic')} />
             </div>
             <div className="field">
               <label>{t('sessions_location')}</label>
-              <input value={newSession.station} onChange={e => setNewSession(p => ({ ...p, station: e.target.value }))} placeholder="Maydon 1" />
+              <input value={newSession.station} onChange={e => setNewSession(p => ({ ...p, station: e.target.value }))} placeholder={t('ph_station')} />
             </div>
             <div className="field">
               <label>{t('sessions_start')}</label>
@@ -534,7 +534,7 @@ export function SessionsScreen({ onMark }) {
               <input type="time" value={newSession.end_time} onChange={e => setNewSession(p => ({ ...p, end_time: e.target.value }))} />
             </div>
             <div className="field col-span-2">
-              <label>{t('transactions_comment')}</label>
+              <label>{t('field_comment')}</label>
               <textarea value={newSession.description} onChange={e => setNewSession(p => ({ ...p, description: e.target.value }))} placeholder="" />
             </div>
           </div>
@@ -552,7 +552,7 @@ export function SessionsScreen({ onMark }) {
           <div className="grid-2" style={{ gap: 12 }}>
             <div className="field">
               <label>{t('sessions_col_group')} <span className="req">*</span></label>
-              <SearchableGroupSelect value={editForm.group_id} onChange={v => setEditForm(p => ({ ...p, group_id: v }))} groups={groups} placeholder="Tanlang" />
+              <SearchableGroupSelect value={editForm.group_id} onChange={v => setEditForm(p => ({ ...p, group_id: v }))} groups={groups} placeholder={t('select_ph')} />
             </div>
             <div className="field">
               <label>{t('sessions_col_date')} <span className="req">*</span></label>
@@ -560,11 +560,11 @@ export function SessionsScreen({ onMark }) {
             </div>
             <div className="field">
               <label>{t('sessions_topic')} <span className="req">*</span></label>
-              <input value={editForm.topic} onChange={e => setEditForm(p => ({ ...p, topic: e.target.value }))} placeholder="Masalan: Tezlik mashqi" />
+              <input value={editForm.topic} onChange={e => setEditForm(p => ({ ...p, topic: e.target.value }))} placeholder={t('ph_session_topic')} />
             </div>
             <div className="field">
               <label>{t('field_pitch')}</label>
-              <input value={editForm.station} onChange={e => setEditForm(p => ({ ...p, station: e.target.value }))} placeholder="Maydon 1" />
+              <input value={editForm.station} onChange={e => setEditForm(p => ({ ...p, station: e.target.value }))} placeholder={t('ph_station')} />
             </div>
             <div className="field">
               <label>{t('sessions_start')}</label>

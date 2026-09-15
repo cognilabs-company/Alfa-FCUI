@@ -29,7 +29,7 @@ function shortDate(iso) {
 import { Modal } from '@/shared/ui/modal';
 
 export function PerformanceTable() {
-  const { t } = useT();
+  const { t, tp } = useT();
   const I = Icon;
   const currentYear = new Date().getFullYear();
   const [seasonYear, setSeasonYear] = React.useState(currentYear);
@@ -95,7 +95,7 @@ export function PerformanceTable() {
       setEditMode(false);
       tableQuery.refetch();
     } catch (e) {
-      notify.error('Saqlanmadi: ' + e.message);
+      notify.error(`${t('err_not_saved')}: ${e.message}`);
     } finally {
       setSavingTable(false);
     }
@@ -144,7 +144,7 @@ export function PerformanceTable() {
   }
 
   async function handleDeleteMatch(m) {
-    if (!await confirmDialog(`"${m.opponent}" ${t('confirm_delete_match')}`)) return;
+    if (!await confirmDialog(t('confirm_delete_match').replace('{name}', m.opponent))) return;
     setDeletingMatchId(m.id);
     try {
       await apiDeleteCoachPerformanceTableColumn(selectedGroupId, m.id, seasonYear);
@@ -165,7 +165,7 @@ export function PerformanceTable() {
       a.download = `performance-table-${selectedGroupId}-${seasonYear}.xlsx`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch (e) { notify.error('Excel ochilmadi: ' + e.message); }
+    } catch (e) { notify.error(`${t('err_excel_open')}: ${e.message}`); }
   }
 
   function cellStyle(rawValue) {
@@ -194,7 +194,7 @@ export function PerformanceTable() {
         <PageIcon icon={I.Trophy}/>
         <div>
           <h1 className="page-title">{t('performance_title')}</h1>
-          <div className="page-sub">{selectedGroup?.name || '—'} · {seasonYear} {t('perf_season_sub')} · {matches.length} {t('perf_matches_count')}</div>
+          <div className="page-sub">{selectedGroup?.name || '—'} · {t('perf_season_sub').replace('{year}', seasonYear)} · {matches.length} {tp('perf_matches_count', matches.length)}</div>
         </div>
         <div className="page-actions">
           <SearchableGroupSelect value={selectedGroupId || ''} onChange={v => { setSelectedGroupId(v ? Number(v) : null); exitEditMode(); }} groups={groups} placeholder={t('group_select_ph')} />
@@ -352,8 +352,8 @@ export function PerformanceTable() {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div className="field"><label>{t('field_date')} <span className="req">*</span></label><DateInput value={newMatch.match_date} onChange={v => setNewMatch(p => ({ ...p, match_date: v }))} /></div>
-            <div className="field"><label>{t('field_opponent')} <span className="req">*</span></label><input value={newMatch.opponent} onChange={e => setNewMatch(p => ({ ...p, opponent: e.target.value }))} placeholder="Masalan: Almaty FC"/></div>
-            <div className="field"><label>{t('field_tour')}</label><input value={newMatch.tour_label} onChange={e => setNewMatch(p => ({ ...p, tour_label: e.target.value }))} placeholder="Masalan: 1-tur"/></div>
+            <div className="field"><label>{t('field_opponent')} <span className="req">*</span></label><input value={newMatch.opponent} onChange={e => setNewMatch(p => ({ ...p, opponent: e.target.value }))} placeholder={t('ph_opponent')}/></div>
+            <div className="field"><label>{t('field_tour')}</label><input value={newMatch.tour_label} onChange={e => setNewMatch(p => ({ ...p, tour_label: e.target.value }))} placeholder={t('ph_tour')}/></div>
           </div>
         </Modal>
       )}
@@ -375,8 +375,8 @@ export function PerformanceTable() {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div className="field"><label>{t('field_date')} <span className="req">*</span></label><DateInput value={editMatchForm.match_date} onChange={v => setEditMatchForm(p => ({ ...p, match_date: v }))} /></div>
-            <div className="field"><label>{t('field_opponent')} <span className="req">*</span></label><input value={editMatchForm.opponent} onChange={e => setEditMatchForm(p => ({ ...p, opponent: e.target.value }))} placeholder="Masalan: Almaty FC"/></div>
-            <div className="field"><label>{t('field_tour')}</label><input value={editMatchForm.tour_label} onChange={e => setEditMatchForm(p => ({ ...p, tour_label: e.target.value }))} placeholder="Masalan: 1-tur"/></div>
+            <div className="field"><label>{t('field_opponent')} <span className="req">*</span></label><input value={editMatchForm.opponent} onChange={e => setEditMatchForm(p => ({ ...p, opponent: e.target.value }))} placeholder={t('ph_opponent')}/></div>
+            <div className="field"><label>{t('field_tour')}</label><input value={editMatchForm.tour_label} onChange={e => setEditMatchForm(p => ({ ...p, tour_label: e.target.value }))} placeholder={t('ph_tour')}/></div>
           </div>
         </Modal>
       )}

@@ -82,7 +82,7 @@ import { statusChip } from './status-chip';
 
 export function ContractView({ contractId, onBack, onToast, onNavigateToStudent }) {
   const I = Icon;
-  const { t } = useT();
+  const { t, tp } = useT();
   const [contract, setContract] = React.useState(null);
   const [student, setStudent] = React.useState(null);
   const [transactions, setTransactions] = React.useState([]);
@@ -141,7 +141,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
       window.open(url, '_blank');
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (e) {
-      notify.error('PDF ochilmadi: ' + e.message);
+      notify.error(`${t('err_pdf_open')}: ${e.message}`);
     }
   }
 
@@ -330,7 +330,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
             { label: t('contracts_client_label'), value: cust.full_name || '—' },
             { label: t('contracts_start_date'), value: fmtDate(contract.start_date) },
             { label: t('contracts_end_date'), value: fmtDate(contract.end_date) },
-            { label: t('contracts_monthly_fee'), value: `${fmt.format(contract.monthly_fee || 0)} so'm` },
+            { label: t('contracts_monthly_fee'), value: `${fmt.format(contract.monthly_fee || 0)} ${t('currency')}` },
             { label: t('contracts_contract_year_label'), value: contract.contract_year || '—' },
           ]} />
         </div>
@@ -381,13 +381,13 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
           <div style={{ marginTop: 16 }}>
             <div className="grid-3" style={{ marginBottom: 16 }}>
               <Stat label={t('tx_st_success')} tone="success" icon={I.CheckCircle}
-                value={totalPaid} unit="so'm"
-                sub={`${successTx.length} ${t('contract_payments_sfx')}`} />
+                value={totalPaid} unit={t('currency')}
+                sub={`${successTx.length} ${tp('contract_payments_sfx', successTx.length)}`} />
               <Stat label={`${t('contracts_monthly_fee')} × ${months} ${t('contract_months_sfx')}`} icon={I.Wallet}
-                value={totalExpected} unit="so'm"
+                value={totalExpected} unit={t('currency')}
                 sub={t('contract_total_by')} />
               <Stat label={t('rpt_debtors_col_debt')} tone={debt > 0 ? 'danger' : 'success'} icon={debt > 0 ? I.AlertCircle : I.CheckCircle}
-                value={debt} unit="so'm"
+                value={debt} unit={t('currency')}
                 sub={debt > 0 ? t('contract_debt_unpaid') : t('contract_debt_none')} />
             </div>
 
@@ -416,7 +416,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
                     {transactions.map(tx => (
                       <tr key={tx.id} className="static">
                         <td className="muted num" style={{ fontWeight: 700, fontSize: 12.5 }}>#{tx.id}</td>
-                        <td className="money">{fmt.format(tx.amount || 0)} so'm</td>
+                        <td className="money">{fmt.format(tx.amount || 0)} {t('currency')}</td>
                         <td><span className="chip">{srcLabel(tx.source)}</span></td>
                         <td className="num" style={{ fontSize: 12.5 }}>{tx.payment_month ? `${monthLabel(Number(tx.payment_month) - 1)} ${tx.payment_year || ''}` : '—'}</td>
                         <td className="num" style={{ fontSize: 12.5 }}>{fmtDate(tx.created_at)}</td>

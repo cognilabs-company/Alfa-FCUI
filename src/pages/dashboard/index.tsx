@@ -69,7 +69,7 @@ function RevenueKpi({ loading, total, breakdown, lang, onClick, t }) {
   const I = Icon;
   const parts = (breakdown || []).filter((b) => Number(b.amount) > 0);
   const sum = parts.reduce((s, b) => s + Number(b.amount), 0) || 1;
-  const labelOf = (src) => (src === 'payme' ? 'Payme' : src === 'click' ? 'Click' : src === 'cash' ? (lang === 'ru' ? 'Наличные' : 'Naqd') : t('dash_other'));
+  const labelOf = (src) => (src === 'payme' ? 'Payme' : src === 'click' ? 'Click' : src === 'cash' ? t('tx_src_cash') : t('dash_other'));
 
   return (
     <div className="kpi revenue" role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => onKeyActivate(e, onClick)}>
@@ -79,14 +79,14 @@ function RevenueKpi({ loading, total, breakdown, lang, onClick, t }) {
       </div>
       <div className="kpi-value">
         {loading ? '…' : <CountUp value={total} format={fmtMoneyRoll} duration={1800}/>}
-        {!loading && <small>so'm</small>}
+        {!loading && <small>{t('currency')}</small>}
       </div>
       <div className="kpi-foot">
         <div className="stack-bar">
           {parts.map((b, i) => (
             <i key={b.source + i}
               style={{ flex: Number(b.amount) / sum, background: SOURCE_COLORS[b.source] || 'var(--muted)', animationDelay: `${350 + i * 120}ms` }}
-              title={`${labelOf(b.source)}: ${fmt.format(b.amount)} so'm`}/>
+              title={`${labelOf(b.source)}: ${fmt.format(b.amount)} ${t('currency')}`}/>
           ))}
         </div>
         <div className="kpi-legend">
@@ -128,7 +128,7 @@ function DebtKpi({ loading, debtors, active, totalDebt, onClick, t }) {
           <div className="kpi-value">{loading ? '…' : <CountUp value={debtors} duration={1200}/>}</div>
           <div className="kpi-legend" style={{ marginTop: 10 }}>
             {totalDebt > 0
-              ? <span><b><CountUp value={totalDebt} format={fmtMoneyRoll} duration={1800}/></b>&nbsp;so'm {t('dash_total_debt')}</span>
+              ? <span><b><CountUp value={totalDebt} format={fmtMoneyRoll} duration={1800}/></b>&nbsp;{t('currency')} {t('dash_total_debt')}</span>
               : <span>{active > 0 ? <><b>{debtors}/{active}</b>&nbsp;{t('dash_share_of_active')}</> : '—'}</span>}
           </div>
         </div>
@@ -146,7 +146,7 @@ function DebtKpi({ loading, debtors, active, totalDebt, onClick, t }) {
 
 export function Dashboard({ user, onNav, onOpenGroup }) {
   const I = Icon;
-  const { t, lang } = useT();
+  const { t, tp, lang } = useT();
   const [summary, setSummary] = React.useState(null);
   const [todaySessions, setTodaySessions] = React.useState([]);
   const [groups, setGroups] = React.useState([]);
@@ -195,7 +195,7 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
         <div style={{ minWidth: 0 }}>
           <span className="eyebrow">{weekdayLong(now, lang)} · {fmtDate(now)}</span>
           <h1>{greeting}{firstName ? `, ${firstName}` : ''}</h1>
-          <p>{loading ? t('loading') : `${sessionsToday} ${t('dashboard_sessions_today')}`}</p>
+          <p>{loading ? t('loading') : `${sessionsToday} ${tp('dashboard_sessions_today', sessionsToday)}`}</p>
         </div>
         <div className="hero-actions">
           <button className="btn" onClick={() => onNav('sessions')}><I.Calendar size={17}/> {t('nav_sessions')}</button>
