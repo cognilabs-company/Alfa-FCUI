@@ -19,8 +19,32 @@ import { PageIcon } from '@/shared/ui/page-head';
 import { Badge, sessionStatusBadge, attendanceBadge } from '@/shared/ui/status';
 import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
-import { fmtDate, monthShort, todayISO, toLocalISO, weekdayShort } from '@/shared/lib/format';
+import { fmtDate, monthLabel, monthShort, todayISO, toLocalISO, weekdayLong, weekdayShort } from '@/shared/lib/format';
 import { Pager, menuPosition } from '@/shared/ui/pager';
+
+// Monday of the week containing `date` (local calendar day)
+function mondayOf(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d;
+}
+function addDays(date, n) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+function minutesOf(hhmm) {
+  const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})/);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+function durationLabel(start, end, t) {
+  const a = minutesOf(start), b = minutesOf(end);
+  if (a == null || b == null || b <= a) return '';
+  const h = Math.floor((b - a) / 60), m = (b - a) % 60;
+  return [h ? `${h} ${t('dur_h')}` : '', m ? `${m} ${t('dur_m')}` : ''].filter(Boolean).join(' ');
+}
+// Stable colour per group, like calendar colour-coding
+const groupColor = (id) => avatarColor(Number(id) || 0);
 
 function sessionStatus(session_date) {
   const today = todayISO();
@@ -64,6 +88,8 @@ export function SessionsScreen({ onMark }) {
   const loadedOnce = React.useRef(false);
   const SESSIONS_PAGE = 20;
   const [page, setPage] = React.useState(1);
+  // Monday of the week shown in the calendar
+  const [weekStart, setWeekStart] = React.useState(() => mondayOf(new Date()));
   React.useEffect(() => { setPage(1); }, [filter, selectedDate, groupFilter]);
 
   React.useEffect(() => {
@@ -108,12 +134,7 @@ export function SessionsScreen({ onMark }) {
     if (selectedDate && s.session_date !== selectedDate) return false;
     if (filter === 'all') return true;
     if (filter === 'week') {
-      const d = new Date(s.session_date);
-      const start = new Date(today);
-      start.setDate(start.getDate() - 3);
-      const end = new Date(today);
-      end.setDate(end.getDate() + 3);
-      return d >= start && d <= end;
+      return s.session_date >= toLocalISO(weekStart) && s.session_date <= toLocalISO(addDays(weekStart, 6));
     }
     if (filter === 'today') return s._status === 'today';
     if (filter === 'upcoming') return s._status === 'upcoming';
@@ -121,18 +142,14 @@ export function SessionsScreen({ onMark }) {
     return true;
   });
 
-  const days = [];
-  for (let i = -3; i <= 3; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(weekStart, i);
     const iso = toLocalISO(d);
-    days.push({
-      date: d, iso,
-      label: weekdayShort(d, lang),
-      num: d.getDate(),
-      count: sessions.filter(s => s.session_date === iso).length,
-    });
-  }
+    const items = sessions.filter(s => s.session_date === iso);
+    return { date: d, iso, label: weekdayShort(d, lang), num: d.getDate(), items, weekend: i >= 5 };
+  });
+  const weekTotal = days.reduce((n, d) => n + d.items.length, 0);
+  const weekEnd = days[6].date;
 
   if (loading && !loadedOnce.current) return <div className="empty loading" style={{ padding: 64 }}>{t('loading')}</div>;
   if (!loading) loadedOnce.current = true;
@@ -291,27 +308,54 @@ export function SessionsScreen({ onMark }) {
 
       {activeTab === 'sessions' && (
       <div>
-      <div className="card" style={{ marginBottom: 14, padding: 12 }}>
-        <div className="week-calendar">
+      <section className="week-cal">
+        <div className="week-cal-head">
+          <div className="week-cal-title">
+            <span className="week-cal-icon"><I.Calendar size={22} weight="duotone"/></span>
+            <div>
+              <div className="week-cal-month">{monthLabel(days[3].date.getMonth(), lang)} {days[3].date.getFullYear()}</div>
+              <div className="week-cal-range">
+                {days[0].num} {monthShort(days[0].date.getMonth(), lang)} — {weekEnd.getDate()} {monthShort(weekEnd.getMonth(), lang)}
+                <span className="dot-sep"/>{weekTotal} {t('session_sfx')}
+              </div>
+            </div>
+          </div>
+          <div className="week-cal-nav">
+            <button type="button" className="icon-btn" aria-label={t('week_prev')} title={t('week_prev')} onClick={() => setWeekStart(w => addDays(w, -7))}>
+              <I.ChevronLeft size={16}/>
+            </button>
+            <button type="button" className="btn sm" onClick={() => { setWeekStart(mondayOf(new Date())); setSelectedDate(today); setFilter('all'); }}>
+              {t('sessions_filter_today')}
+            </button>
+            <button type="button" className="icon-btn" aria-label={t('week_next')} title={t('week_next')} onClick={() => setWeekStart(w => addDays(w, 7))}>
+              <I.ChevronRight size={16}/>
+            </button>
+          </div>
+        </div>
+        <div className="week-cal-grid">
           {days.map(d => {
             const isToday = d.iso === today;
             const isSelected = d.iso === selectedDate;
+            const isPast = d.iso < today;
             return (
               <button
                 key={d.iso}
                 type="button"
-                className={'week-day' + (isSelected ? ' selected' : isToday ? ' today' : '')}
+                className={'wc-day' + (isToday ? ' today' : '') + (isSelected ? ' selected' : '') + (d.weekend ? ' weekend' : '') + (isPast ? ' past' : '') + (d.items.length ? ' has' : '')}
                 aria-pressed={isSelected}
                 onClick={() => { setSelectedDate(isSelected ? '' : d.iso); setFilter('all'); }}
               >
-                <span className="wd">{d.label}</span>
-                <span className="dn">{d.num}</span>
-                <span className="cnt">{d.count > 0 ? d.count + ' ' + t('session_sfx') : '—'}</span>
+                <span className="wc-wd">{d.label}</span>
+                <span className="wc-num">{d.num}</span>
+                <span className="wc-dots">
+                  {d.items.slice(0, 4).map(s => <i key={s.id} style={{ background: groupColor(s.group_id) }}/>)}
+                </span>
+                <span className="wc-count">{d.items.length ? `${d.items.length} ${t('session_sfx')}` : ''}</span>
               </button>
             );
           })}
         </div>
-      </div>
+      </section>
 
       <div className="toolbar filter-buttons">
         <div className="pill-row">
@@ -350,12 +394,11 @@ export function SessionsScreen({ onMark }) {
         });
         const tomorrowIso = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return toLocalISO(d); })();
         const yesterdayIso = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return toLocalISO(d); })();
-        const dayLabel = (iso) => {
+        const relLabel = (iso) => {
           if (iso === today) return t('sessions_filter_today');
           if (iso === tomorrowIso) return t('day_tomorrow');
           if (iso === yesterdayIso) return t('day_yesterday');
-          const [y, m, dd] = String(iso).split('-').map(Number);
-          return weekdayShort(new Date(y, (m || 1) - 1, dd || 1), lang);
+          return '';
         };
 
         if (list.length === 0) {
@@ -368,12 +411,22 @@ export function SessionsScreen({ onMark }) {
             <div className="agenda">
               {byDay.map((day) => {
                 const [y, m, dd] = String(day.date).split('-').map(Number);
+                const dayDate = new Date(y, (m || 1) - 1, dd || 1);
+                const rel = relLabel(day.date);
                 return (
-                  <section key={day.date} className={'agenda-day' + (day.date === today ? ' is-today' : '')}>
+                  <section key={day.date} className={'agenda-day' + (day.date === today ? ' is-today' : day.date < today ? ' is-past' : '')}>
                     <div className="agenda-date">
-                      <b>{dd || '—'}</b>
-                      <span>{monthShort((m || 1) - 1, lang)} {y !== new Date().getFullYear() ? y : ''}</span>
-                      <em>{dayLabel(day.date)}</em>
+                      <div className="cal-leaf" aria-label={fmtDate(day.date)}>
+                        <span className="leaf-top">{monthShort((m || 1) - 1, lang)}{y !== new Date().getFullYear() ? ` ${y}` : ''}</span>
+                        <b className="leaf-num">{dd || '—'}</b>
+                        <span className="leaf-wd">{weekdayLong(dayDate, lang)}</span>
+                      </div>
+                      <div className="agenda-date-text">
+                        <b>{weekdayLong(dayDate, lang)}</b>
+                        <span>{fmtDate(day.date)}</span>
+                      </div>
+                      {rel && <em>{rel}</em>}
+                      <span className="agenda-count">{day.items.length} {t('session_sfx')}</span>
                     </div>
                     <div className="agenda-items">
                       {day.items.map((s) => {
@@ -381,18 +434,19 @@ export function SessionsScreen({ onMark }) {
                         return (
                           <div key={s.id} role="button" tabIndex={0}
                             className={'agenda-item ' + s._status}
-                            style={{ animationDelay: `${delay}ms` }}
+                            style={{ animationDelay: `${delay}ms`, '--group': groupColor(s.group_id) }}
                             onClick={() => onMark(s.id)}
                             onKeyDown={(e) => { if (e.key === 'Enter') onMark(s.id); }}>
                             <div className="agenda-time">
                               <b>{s.start_time?.slice(0, 5) || '--:--'}</b>
-                              <span>{s.end_time?.slice(0, 5) || ''}</span>
+                              <span>{s.end_time?.slice(0, 5) ? `— ${s.end_time.slice(0, 5)}` : ''}</span>
+                              {durationLabel(s.start_time, s.end_time, t) && <small><I.Timer size={12}/> {durationLabel(s.start_time, s.end_time, t)}</small>}
                             </div>
                             <span className="agenda-rail"/>
                             <div className="agenda-main">
                               <div className="title">{s.topic || '—'}</div>
                               <div className="meta">
-                                <span className="chip navy"><I.UsersFour size={13}/> {groupMap[s.group_id] || '—'}</span>
+                                <span className="group-tag"><i/>{groupMap[s.group_id] || '—'}</span>
                                 {s.station && <span><I.MapPin size={14}/> {s.station}</span>}
                               </div>
                             </div>
