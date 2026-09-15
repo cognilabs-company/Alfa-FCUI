@@ -1,17 +1,28 @@
 // @ts-nocheck
-// Site appearance (accent color + background tint), persisted in localStorage.
+// Site appearance (accent colour), persisted in localStorage.
 // Applied by injecting a <style> tag so each value can differ per theme —
 // a plain inline root style could not override [data-theme="dark"] tokens.
 //
-// Only --accent / --accent-contrast / --bg-base are injected; every other
-// accent-ish token (--accent-soft, --primary, --ring, nav, tabs, selection…)
-// derives from them in index.css via color-mix, so one swap re-skins the app.
+// Injected tokens: --accent (fill), --accent-contrast (text on the fill) and
+// --accent-ink (the accent made readable as text on light surfaces). Every
+// other accent-ish token derives from them in index.css via color-mix.
 
-const KEY = 'alpha_appearance';
+const KEY = 'alpha_appearance_v3';
 
-export const DEFAULT_APPEARANCE = { accent: '#C8202C' };
+const INK = '#0E1311';
 
-export const ACCENTS = ['#C8202C', '#2563EB', '#0E9F6E', '#7C3AED', '#DB2777', '#D97706', '#0891B2', '#101D42'];
+export const DEFAULT_APPEARANCE = { accent: '#C8F03C' };
+
+export const ACCENTS = [
+  '#C8F03C', // volt
+  '#3DDC97', // mint
+  '#34C6F4', // sky
+  '#3D6BFF', // electric blue
+  '#9B7BFF', // violet
+  '#FF5DA2', // pink
+  '#FF6B4A', // coral
+  '#FFB020', // amber
+];
 
 function hexToRgb(hex) {
   const h = hex.replace('#', '');
@@ -34,7 +45,7 @@ function mix(hexA, hexB, t) {
   return rgbToHex(a.map((v, i) => v + (b[i] - v) * t));
 }
 
-// WCAG-ish relative luminance, 0 (black) → 1 (white)
+// WCAG relative luminance, 0 (black) → 1 (white)
 function luminance(hex) {
   const [r, g, b] = hexToRgb(hex).map(v => {
     const c = v / 255;
@@ -43,18 +54,32 @@ function luminance(hex) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-// White or near-black text on top of the accent
-function contrastOn(hex) {
-  return luminance(hex) > 0.45 ? '#131A2C' : '#FFFFFF';
+function contrast(a, b) {
+  const la = luminance(a), lb = luminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
-// Dark surfaces swallow very dark accents (e.g. navy) — lift them toward
-// white until they read clearly, leave already-bright accents untouched.
+// Ink or white text on top of the accent — whichever reads better
+function contrastOn(hex) {
+  return contrast(hex, INK) >= contrast(hex, '#FFFFFF') ? INK : '#FFFFFF';
+}
+
+// Darken toward ink until the colour passes AA as text on white
+function inkFor(hex) {
+  let out = hex;
+  for (let t = 0; t <= 0.9 && contrast(out, '#FFFFFF') < 5.2; t += 0.04) {
+    out = mix(hex, INK, t);
+  }
+  return out;
+}
+
+// Dark surfaces swallow very dark accents — lift them until they read clearly
 function accentForDark(hex) {
-  const lum = luminance(hex);
-  if (lum >= 0.28) return hex;
-  const t = Math.min(0.55, (0.28 - lum) * 2.2 + 0.18);
-  return mix(hex, '#FFFFFF', t);
+  let out = hex;
+  for (let t = 0; t <= 0.8 && contrast(out, '#151B18') < 5; t += 0.05) {
+    out = mix(hex, '#FFFFFF', t);
+  }
+  return out;
 }
 
 export function loadAppearance() {
@@ -72,7 +97,7 @@ export function saveAppearance(a) {
 }
 
 export function isDefaultAppearance(a) {
-  return a.accent === DEFAULT_APPEARANCE.accent;
+  return String(a.accent).toLowerCase() === DEFAULT_APPEARANCE.accent.toLowerCase();
 }
 
 export function applyAppearance(a = loadAppearance()) {
@@ -88,21 +113,18 @@ export function applyAppearance(a = loadAppearance()) {
   }
   const acc = a.accent || DEFAULT_APPEARANCE.accent;
   const accDark = accentForDark(acc);
-  // One color drives everything: the page background is the accent washed
-  // almost to white (light) / almost to black (dark), so picking a color
-  // re-tints the whole canvas together with buttons, nav and rings.
-  const bgLight = mix(acc, '#F7F8FA', 0.95);
-  const bgDark = mix(accDark, '#0A0E1A', 0.93);
+  // html-qualified selectors outrank the stylesheet's :root / [data-theme]
+  // tokens no matter which <style> ends up later in <head>.
   el.textContent = `
-:root {
+html:root {
   --accent: ${acc};
   --accent-contrast: ${contrastOn(acc)};
-  --bg-base: ${bgLight};
+  --accent-ink: ${inkFor(acc)};
 }
-[data-theme="dark"] {
+html[data-theme="dark"] {
   --accent: ${accDark};
   --accent-contrast: ${contrastOn(accDark)};
-  --bg-base: ${bgDark};
+  --accent-ink: ${accDark};
 }
 `;
 }

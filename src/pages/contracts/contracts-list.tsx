@@ -71,7 +71,8 @@ import {
   apiGetAuditLogs,
 } from '@/shared/api';
 
-import { fmt, fmtDate } from '@/shared/lib/format';
+import { fmt, fmtDate, fmtMln } from '@/shared/lib/format';
+import { Pager } from '@/shared/ui/pager';
 import { Stat } from '@/shared/ui/stat';
 import { Modal } from '@/shared/ui/modal';
 
@@ -165,7 +166,7 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
       onToast?.(t('toast_contract_terminated'));
       loadActive({ page: 1 });
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     }
   }
 
@@ -181,16 +182,16 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
       </div>
 
       {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 14 }}>
-          <Stat label={t('all')} value={stats.total || 0} icon={I.FileText} />
+        <div className="stat-grid" style={{ marginBottom: 16 }}>
+          <Stat feature label={t('all')} value={stats.total || 0} icon={I.FileText} />
           <Stat label={t('status_active')} value={stats.active || 0} tone="success" icon={I.Check} />
           <Stat label={t('status_terminated')} value={stats.terminated || 0} tone="danger" icon={I.XCircle} />
           <Stat label={t('status_cancelled')} value={stats.expired || 0} tone="warning" icon={I.Clock} />
-          <Stat label={t('contracts_total_monthly')} value={`${fmt.format(stats.total_monthly_fee || 0)} so'm`} tone="navy" icon={I.Wallet} />
+          <Stat label={t('contracts_total_monthly')} value={fmtMln(stats.total_monthly_fee || 0)} sub={`${fmt.format(stats.total_monthly_fee || 0)} so'm`} icon={I.Wallet} />
         </div>
       )}
 
-      <div className="seg" style={{ marginBottom: 12 }}>
+      <div className="seg" style={{ marginBottom: 14 }}>
         {[
           { key: 'active', labelKey: 'status_active' },
           { key: 'terminated', labelKey: 'status_terminated' },
@@ -207,7 +208,7 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
 
       <div className="table-wrap">
         <div className="table-toolbar">
-          <div className="search" style={{ maxWidth: 320 }}>
+          <div className="search">
             <span className="icon-l"><I.Search size={15} /></span>
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('contracts_search')} />
           </div>
@@ -223,13 +224,13 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
               ]}
             />
           )}
-          <div style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--muted)' }}>{rows.length} {t('students_results')}</div>
+          <div className="toolbar-meta">{totalCount} {t('students_results')}</div>
         </div>
 
         {loading ? (
-          <div className="empty" style={{ padding: 32 }}>{t('loading')}</div>
+          <div className="empty loading" style={{ padding: 40 }}>{t('loading')}</div>
         ) : (
-          <table className="table">
+          <div className="table-scroll"><table className="table">
             <thead>
               <tr>
                 <th>{t('contracts_col_number')}</th>
@@ -242,23 +243,23 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
             </thead>
             <tbody>
               {rows.length === 0 && (
-                <tr><td colSpan={7} style={{ padding: 18, color: 'var(--muted)' }}>{t('contracts_not_found')}</td></tr>
+                <tr className="static"><td colSpan={6} className="empty-cell">{t('contracts_not_found')}</td></tr>
               )}
               {rows.map((c) => (
                 <tr key={c.id} onClick={() => onOpenContract?.(c.id)} style={{ cursor: 'pointer' }}>
-                  <td style={{ fontWeight: 700 }}>{c.contract_number}</td>
-                  <td onClick={c.student_id ? e => { e.stopPropagation(); onNavigateToStudent?.(c.student_id); } : undefined}
-                    style={{ color: 'var(--text-2)', ...(c.student_id && onNavigateToStudent ? { cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'var(--muted)' } : {}) }}>
+                  <td style={{ fontWeight: 800, whiteSpace: 'nowrap' }}>{c.contract_number}</td>
+                  <td className="student-link" onClick={c.student_id ? e => { e.stopPropagation(); onNavigateToStudent?.(c.student_id); } : undefined}
+                    style={{ color: 'var(--text-2)', fontWeight: 650, ...(c.student_id && onNavigateToStudent ? { cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'var(--border-strong)', textUnderlineOffset: 3 } : {}) }}>
                     {c.customer_full_name ?? c.custom_fields?.customer?.full_name ?? '—'}
                   </td>
                   <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>
                     {fmtDate(c.contract_start_date ?? c.start_date)} <span style={{ color: 'var(--muted)' }}>→</span> {fmtDate(c.contract_end_date ?? c.end_date)}
                   </td>
-                  <td style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmt.format(c.monthly_fee_amount ?? c.monthly_fee ?? 0)} so'm</td>
+                  <td className="money">{fmt.format(c.monthly_fee_amount ?? c.monthly_fee ?? 0)} so'm</td>
                   <td>{statusChip(c.status, t)}</td>
                   <td onClick={e => e.stopPropagation()}>
                     {c.status === 'ACTIVE' && (
-                      <button className="btn ghost sm danger-ghost" onClick={() => openTerminate(c)}>
+                      <button className="btn sm danger-ghost" onClick={() => openTerminate(c)}>
                         <I.XCircle size={13} /> {t('contracts_terminate')}
                       </button>
                     )}
@@ -266,26 +267,14 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
 
-        {totalPages > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, padding: '10px 0' }}>
-            <button className="btn ghost sm" disabled={page <= 1} onClick={() => {
-              const p = page - 1;
-              setPage(p);
-              if (tab === 'terminated') loadTerminated({ page: p });
-              else loadActive({ page: p });
-            }}>‹ {t('prev')}</button>
-            <span style={{ lineHeight: '30px', fontSize: 13, color: 'var(--muted)' }}>{page} / {totalPages}</span>
-            <button className="btn ghost sm" disabled={page >= totalPages} onClick={() => {
-              const p = page + 1;
-              setPage(p);
-              if (tab === 'terminated') loadTerminated({ page: p });
-              else loadActive({ page: p });
-            }}>{t('next')} ›</button>
-          </div>
-        )}
+        <Pager page={page} totalPages={totalPages} total={totalCount} pageSize={PAGE_SIZE} onPage={(p) => {
+          setPage(p);
+          if (tab === 'terminated') loadTerminated({ page: p });
+          else loadActive({ page: p });
+        }}/>
       </div>
 
       {terminateModal && (

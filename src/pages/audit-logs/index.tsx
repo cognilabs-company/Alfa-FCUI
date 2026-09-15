@@ -74,6 +74,7 @@ import {
 import { fmt, fmtDateTime } from '@/shared/lib/format';
 import { Stat } from '@/shared/ui/stat';
 import { Modal, DetailGrid } from '@/shared/ui/modal';
+import { Pager } from '@/shared/ui/pager';
 
 
 function trOrNull(t, key) {
@@ -180,7 +181,7 @@ export function AuditLogsScreen() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+      <div className="toolbar">
         <SearchableSelect
           value={entityType}
           onChange={v => { setEntityType(v); setPage(1); }}
@@ -218,21 +219,22 @@ export function AuditLogsScreen() {
             ...usersList.map(u => ({ value: u.full_name, label: u.full_name })),
           ]}
         />
-        <div style={{ display: 'flex', gap: 0 }}>
-          <input placeholder={t('audit_search_input')} value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { setSearch(searchInput); setPage(1); } }} style={{ height: 36, padding: '0 10px', border: '1px solid var(--border)', borderRadius: '8px 0 0 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: 160 }} />
-          <button className="btn" style={{ borderRadius: '0 8px 8px 0', height: 36 }} onClick={() => { setSearch(searchInput); setPage(1); }}><I.Search size={14} /></button>
+        <div className="input-group">
+          <input className="input" placeholder={t('audit_search_input')} value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { setSearch(searchInput); setPage(1); } }} style={{ width: 180 }} />
+          <button className="btn" aria-label={t('audit_search_input')} onClick={() => { setSearch(searchInput); setPage(1); }}><I.Search size={15} /></button>
         </div>
         {hasFilters && (
-          <button className="btn ghost" onClick={() => { setEntityType(''); setAction(''); setFromDate(''); setToDate(''); setSearch(''); setSearchInput(''); setUserFilter(''); setPage(1); }} style={{ height: 36, fontSize: 13 }}>
-            <I.X size={13} /> {t('audit_clear_btn')}
+          <button className="btn ghost" onClick={() => { setEntityType(''); setAction(''); setFromDate(''); setToDate(''); setSearch(''); setSearchInput(''); setUserFilter(''); setPage(1); }}>
+            <I.X size={14} /> {t('audit_clear_btn')}
           </button>
         )}
       </div>
 
-      {loading ? (
-        <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>
+      {loading && rows.length === 0 ? (
+        <div className="empty loading" style={{ padding: 48 }}>{t('loading')}</div>
       ) : (
-        <div className="table-wrap">
+        <div className={'table-wrap' + (loading ? ' is-loading' : '')}>
+          <div className="table-scroll">
           <table className="table">
             <thead>
               <tr>
@@ -246,12 +248,12 @@ export function AuditLogsScreen() {
             </thead>
             <tbody>
               {rows.length === 0 && (
-                <tr><td colSpan={6} style={{ padding: 18, color: 'var(--muted)' }}>{loadError || t('audit_not_found')}</td></tr>
+                <tr className="static"><td colSpan={6} className="empty-cell" style={loadError ? { color: 'var(--danger)' } : undefined}>{loadError || t('audit_not_found')}</td></tr>
               )}
               {rows.map(r => (
-                <tr key={r.id} className={detail?.id === r.id ? 'selected' : undefined} style={{ cursor: 'pointer' }} onClick={() => setDetail(r)}>
+                <tr key={r.id} className={detail?.id === r.id ? 'selected' : undefined} onClick={() => setDetail(r)}>
                   <td style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontSize: 12.5 }}>{fmtDateTime(r.created_at)}</td>
-                  <td style={{ fontSize: 13 }}>{r.user_full_name || `#${r.user_id || '—'}`}</td>
+                  <td style={{ fontSize: 13, fontWeight: 700 }}>{r.user_full_name || `#${r.user_id || '—'}`}</td>
                   <td>{actionChip(r.action)}</td>
                   <td><span className="chip">{trOrNull(t, 'audit_ent_' + r.entity_type) || r.entity_type || '—'}</span></td>
                   <td style={{ fontSize: 13 }}>{r.entity_label || (r.entity_id ? `#${r.entity_id}` : '—')}</td>
@@ -260,14 +262,8 @@ export function AuditLogsScreen() {
               ))}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12, alignItems: 'center' }}>
-          <button className="btn ghost" disabled={page <= 1} onClick={() => setPage(p => p - 1)} style={{ padding: '4px 14px' }}>‹ {t('prev')}</button>
-          <span style={{ fontSize: 13, color: 'var(--muted)' }}>{page} / {totalPages}</span>
-          <button className="btn ghost" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} style={{ padding: '4px 14px' }}>{t('next')} ›</button>
+          </div>
+          {totalPages > 1 && <Pager page={page} totalPages={totalPages} onPage={setPage} total={totalCount} pageSize={50}/>}
         </div>
       )}
 
@@ -293,8 +289,8 @@ export function AuditLogsScreen() {
           )}
           {detail.extra && (
             <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: 10.5, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, marginBottom: 6 }}>{t('audit_detail_extra')}</div>
-              <pre style={{ fontSize: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', padding: 10, borderRadius: 'var(--radius-sm)', overflowX: 'auto', margin: 0 }}>{typeof detail.extra === 'string' ? detail.extra : JSON.stringify(detail.extra, null, 2)}</pre>
+              <div className="section-label">{t('audit_detail_extra')}</div>
+              <pre style={{ fontSize: 12, lineHeight: 1.55, background: 'var(--ink)', color: '#DDE5DF', padding: 14, borderRadius: 14, overflowX: 'auto', margin: 0, fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace' }}>{typeof detail.extra === 'string' ? detail.extra : JSON.stringify(detail.extra, null, 2)}</pre>
             </div>
           )}
         </Modal>

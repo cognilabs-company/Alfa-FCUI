@@ -7,115 +7,111 @@ import { getInitials } from '@/shared/lib/avatar';
 import { revealFrom } from '@/shared/lib/view-transition';
 import { ACCENTS, DEFAULT_APPEARANCE, loadAppearance, saveAppearance, applyAppearance, isDefaultAppearance } from '@/shared/lib/appearance';
 
+/** Open state + close on outside click / Escape for a popover anchored in `ref`. */
+function usePopover() {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    if (!open) return;
+    function onDown(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    function onKey(e) { if (e.key === 'Escape') setOpen(false); }
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  return { open, setOpen, ref };
+}
+
 export function Topbar({ crumbs, role, onRoleSwitch, canSwitchRole, theme, onTheme, onSignOut, user, onNavigate, onMenu }) {
   const I = Icon;
   const { t, lang, setLang } = useT();
-  const [open, setOpen] = React.useState(false);
+  const userMenu = usePopover();
   const fullName = user?.full_name || user?.name || user?.email || 'Alpha User';
   const initials = getInitials(fullName);
 
   return (
-    <div className="topbar">
+    <header className="topbar">
       <button className="icon-btn mobile-menu-button" onClick={onMenu} aria-label="Open navigation">
         <I.Menu size={18}/>
       </button>
-      <div className="crumbs">
+      <nav className="crumbs" aria-label="Breadcrumb">
         {crumbs.map((c, i) => (
           <React.Fragment key={i}>
-            {i > 0 && <I.ChevronRight size={14}/>}
+            {i > 0 && <I.ChevronRight size={13}/>}
             <span className={i === crumbs.length - 1 ? 'current' : ''}>{t(c) || c}</span>
           </React.Fragment>
         ))}
-      </div>
-      <div className="topbar-actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <ActionDropdown
-          value={lang}
-          title={lang === 'ru' ? 'Язык' : 'Til'}
-          triggerClass="language-button"
-          triggerStyle={{ height: 38, padding: '0 10px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 6 }}
-          trigger={<>{lang === 'ru' ? 'RU' : 'UZ'} <I.ChevronDown size={13}/></>}
-          items={[
-            { value: 'uz', label: "O'zbekcha" },
-            { value: 'ru', label: 'Русский' },
-          ]}
-          onSelect={(v, e) => revealFrom(e, () => setLang(v))}
-        />
+      </nav>
+      <div className="topbar-actions">
+        <LanguageMenu lang={lang} onSelect={(v, e) => revealFrom(e, () => setLang(v))}/>
         <AppearancePanel t={t}/>
-        <button className="icon-btn" title={lang === 'ru' ? 'Тема' : 'Tema'}
+        <button className="icon-btn" title={t('theme_toggle')} aria-label={t('theme_toggle')}
           onClick={(e) => revealFrom(e, () => onTheme(theme === 'dark' ? 'light' : 'dark'))}>
-          {theme === 'dark' ? <I.Sun size={16}/> : <I.Moon size={16}/>}
+          {theme === 'dark' ? <I.Sun size={17}/> : <I.Moon size={17}/>}
         </button>
-        <div style={{ position: 'relative' }}>
-          <button className="user-chip" onClick={() => setOpen(!open)}>
+        <div ref={userMenu.ref} style={{ position: 'relative' }}>
+          <button className="user-chip" onClick={() => userMenu.setOpen(o => !o)} aria-haspopup="menu" aria-expanded={userMenu.open}>
             <div className="avatar">{initials}</div>
-            <div className="user-chip-details" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.15 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 600 }}>{fullName}</span>
-              <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{role}</span>
+            <div className="user-chip-details">
+              <span className="name">{fullName}</span>
+              <span className="role">{role}</span>
             </div>
             <span className="user-chip-chevron"><I.ChevronDown size={14}/></span>
           </button>
-          {open && (
-            <div style={{
-              position: 'absolute', right: 0, top: '110%', width: 240,
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              borderRadius: 12, boxShadow: 'var(--shadow-lg)', zIndex: 50, padding: 6,
-            }} onMouseLeave={() => setOpen(false)}>
+          {userMenu.open && (
+            <div className="popover" role="menu" style={{ width: 250 }}>
               {canSwitchRole && <>
-                <div style={{ padding: '10px 12px 6px', fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('topbar_switch_role')}</div>
+                <div className="popover-label">{t('topbar_switch_role')}</div>
                 {Object.keys(ROLE_PERMISSIONS).map(r => (
-                  <div key={r}
-                    onClick={() => { onRoleSwitch(r); setOpen(false); }}
-                    style={{
-                      padding: '8px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 13,
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      background: r === role ? 'var(--selected)' : 'transparent',
-                      fontWeight: r === role ? 600 : 500,
-                    }}>
-                    <Icon.User size={14} color="var(--muted)"/>
-                    {r}
-                    {r === role && <Icon.Check size={14} color="var(--accent)" style={{ marginLeft: 'auto' }}/>}
-                  </div>
+                  <button key={r} type="button" role="menuitemradio" aria-checked={r === role}
+                    className={'menu-item' + (r === role ? ' selected' : '')}
+                    onClick={() => { onRoleSwitch(r); userMenu.setOpen(false); }}>
+                    <Icon.User size={15}/>
+                    <span style={{ flex: 1 }}>{r}</span>
+                    {r === role && <Icon.Check size={15}/>}
+                  </button>
                 ))}
-                <div style={{ height: 1, background: 'var(--border)', margin: '6px 0' }}></div>
+                <div className="menu-sep"></div>
               </>}
-              <div className="menu-item danger" onClick={onSignOut}>
-                <Icon.Logout size={14}/> {t('topbar_logout')}
-              </div>
+              <button type="button" role="menuitem" className="menu-item danger" onClick={onSignOut}>
+                <Icon.Logout size={15}/> {t('topbar_logout')}
+              </button>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </header>
   );
 }
 
-function ActionDropdown({ trigger, items, value, onSelect, title, triggerClass = 'icon-btn', triggerStyle, width = 168 }) {
-  const [open, setOpen] = React.useState(false);
-  const ref = React.useRef(null);
-  React.useEffect(() => {
-    function close(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, []);
+function LanguageMenu({ lang, onSelect }) {
+  const I = Icon;
+  const menu = usePopover();
+  const items = [
+    { value: 'uz', short: 'UZ', label: "O'zbekcha" },
+    { value: 'ru', short: 'RU', label: 'Русский' },
+  ];
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button type="button" className={triggerClass} style={triggerStyle} title={title} onClick={() => setOpen(o => !o)}>
-        {trigger}
+    <div ref={menu.ref} style={{ position: 'relative' }}>
+      <button type="button" className="language-button" title={lang === 'ru' ? 'Язык' : 'Til'}
+        aria-haspopup="menu" aria-expanded={menu.open} onClick={() => menu.setOpen(o => !o)}>
+        {lang === 'ru' ? 'RU' : 'UZ'} <I.ChevronDown size={13}/>
       </button>
-      {open && (
-        <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', minWidth: width, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: 'var(--shadow-lg)', zIndex: 60, padding: 6 }}>
+      {menu.open && (
+        <div className="popover" role="menu" style={{ minWidth: 176 }}>
           {items.map(it => {
-            const selected = it.value === value;
+            const selected = it.value === lang;
             return (
-              <div key={it.value}
-                onClick={(e) => { setOpen(false); if (!selected) onSelect(it.value, e); }}
-                style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 10, background: selected ? 'var(--selected)' : 'transparent', fontWeight: selected ? 600 : 500 }}
-                onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'var(--hover)'; }}
-                onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}>
-                {it.icon}
+              <button key={it.value} type="button" role="menuitemradio" aria-checked={selected}
+                className={'menu-item' + (selected ? ' selected' : '')}
+                onClick={(e) => { menu.setOpen(false); if (!selected) onSelect(it.value, e); }}>
+                <span className="kbd" style={{ minWidth: 26, textAlign: 'center' }}>{it.short}</span>
                 <span style={{ flex: 1 }}>{it.label}</span>
-                {selected && <Icon.Check size={14} color="var(--accent)"/>}
-              </div>
+                {selected && <Icon.Check size={15}/>}
+              </button>
             );
           })}
         </div>
@@ -126,49 +122,40 @@ function ActionDropdown({ trigger, items, value, onSelect, title, triggerClass =
 
 function AppearancePanel({ t }) {
   const I = Icon;
-  const [open, setOpen] = React.useState(false);
+  const panel = usePopover();
   const [prefs, setPrefs] = React.useState(() => loadAppearance());
-  const ref = React.useRef(null);
 
-  React.useEffect(() => {
-    function close(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, []);
-
-  function update(next, e, animate = true) {
+  function update(next, e) {
     const merged = { ...prefs, ...next };
     setPrefs(merged);
     saveAppearance(merged);
-    if (animate) revealFrom(e, () => applyAppearance(merged));
-    else applyAppearance(merged);
+    revealFrom(e, () => applyAppearance(merged));
   }
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button type="button" className="icon-btn" title={t('appearance_title')} onClick={() => setOpen(o => !o)}>
-        <I.Palette size={16}/>
+    <div ref={panel.ref} style={{ position: 'relative' }}>
+      <button type="button" className="icon-btn" title={t('appearance_title')} aria-label={t('appearance_title')}
+        aria-expanded={panel.open} onClick={() => panel.setOpen(o => !o)}>
+        <I.Palette size={17}/>
         {!isDefaultAppearance(prefs) && <span className="dot" style={{ background: prefs.accent }}/>}
       </button>
-      {open && (
-        <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', width: 264, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow-lg)', zIndex: 60, padding: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>{t('appearance_accent')}</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      {panel.open && (
+        <div className="popover" style={{ width: 236, padding: 8 }}>
+          <div className="popover-label">{t('appearance_accent')}</div>
+          <div className="swatches">
             {ACCENTS.map(c => {
               const active = prefs.accent.toLowerCase() === c.toLowerCase();
               return (
-                <button key={c} type="button" onClick={(e) => update({ accent: c }, e)} title={c}
-                  style={{ width: 26, height: 26, borderRadius: '50%', background: c, border: 'none', cursor: 'pointer',
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    outline: active ? '2px solid var(--text)' : '2px solid transparent', outlineOffset: 2,
-                    transition: 'transform 120ms ease', transform: active ? 'scale(1.08)' : 'scale(1)' }}>
-                  {active && <I.Check size={13} color="#fff"/>}
+                <button key={c} type="button" className={'swatch' + (active ? ' active' : '')}
+                  onClick={(e) => update({ accent: c }, e)} title={c} aria-label={c} aria-pressed={active}
+                  style={{ background: c }}>
+                  {active && <I.Check size={15} color="#0E1311" strokeWidth={2.6}/>}
                 </button>
               );
             })}
           </div>
           {!isDefaultAppearance(prefs) && (
-            <button type="button" className="btn ghost sm" style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}
+            <button type="button" className="btn ghost sm block" style={{ marginTop: 2 }}
               onClick={(e) => update({ ...DEFAULT_APPEARANCE }, e)}>
               {t('appearance_reset')}
             </button>

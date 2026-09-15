@@ -72,11 +72,13 @@ import {
   apiGetAuditLogs,
 } from '@/shared/api';
 
-import { fmt, fmtDateTime } from '@/shared/lib/format';
+import { fmt, fmtDateTime, fmtMln, monthLabel } from '@/shared/lib/format';
+import { Pager } from '@/shared/ui/pager';
 import { Stat } from '@/shared/ui/stat';
 
-const MONTH_UZ = ['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
-function monthName(n) { return MONTH_UZ[(n - 1) % 12] || `Oy ${n}`; }
+
+// 1-based month number → localized label
+function monthName(n) { return monthLabel((Number(n) - 1) % 12) || String(n); }
 function todayDateTimeLocal() {
   const d = new Date();
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -118,6 +120,7 @@ export function TransactionsScreen({ onToast } = {}) {
   const [assignTxId, setAssignTxId] = React.useState(null);
   const [assignForm, setAssignForm] = React.useState({ student_id: '', contract_id: '' });
   const [assigning, setAssigning] = React.useState(false);
+  const loadedOnce = React.useRef(false);
 
   async function loadData() {
     setLoading(true);
@@ -199,7 +202,7 @@ export function TransactionsScreen({ onToast } = {}) {
       a.href = url; a.download = `transactions-${new Date().toISOString().slice(0, 10)}.xlsx`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch (e) { alert('Export xatoligi: ' + e.message); }
+    } catch (e) { onToast?.(e.message, 'error'); }
   }
 
   async function openDetail(id, rowData = null) {
@@ -263,7 +266,7 @@ export function TransactionsScreen({ onToast } = {}) {
 
   async function submitManual() {
     if (!manualForm.contract_number || !manualForm.amount || manualForm.payment_months.length === 0) {
-      onToast?.(t('toast_tx_required')); return;
+      onToast?.(t('toast_tx_required'), 'error'); return;
     }
     setManualSaving(true);
     try {
@@ -292,7 +295,7 @@ export function TransactionsScreen({ onToast } = {}) {
       setShowManual(false); setManualWithProof(false);
       setManualForm({ contract_number: '', amount: '', payment_months: [], source: 'cash', comment: '', payment_year: new Date().getFullYear(), paid_at: todayDateTimeLocal(), proof_file: null });
       onToast?.(t('toast_tx_added')); loadData();
-    } catch (e) { onToast?.(e.message); }
+    } catch (e) { onToast?.(e.message, 'error'); }
     finally { setManualSaving(false); }
   }
 
@@ -317,27 +320,39 @@ export function TransactionsScreen({ onToast } = {}) {
   const pageTotal = rows.reduce((s, r) => s + (r.amount || 0), 0);
   const colCount = scope === 'unassigned' ? 8 : 7;
 
-  if (loading) return <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>;
+  // Full-page loader only for the first fetch; filter changes keep the
+  // filter bar (and any open date picker) mounted and dim the table instead.
+  if (loading && !loadedOnce.current) return <div className="empty loading" style={{ padding: 64 }}>{t('loading')}</div>;
+  if (!loading) loadedOnce.current = true;
 
   return (
     <div>
       <div className="page-head">
         <div>
           <h1 className="page-title">{t('transactions_title')}</h1>
-          <div className="page-sub">{totalCount} ta {t('nav_transactions').toLowerCase()} · {fmt.format(pageTotal)} so'm</div>
+          <div className="page-sub">{totalCount} · {t('nav_transactions').toLowerCase()} · {fmt.format(pageTotal)} so'm</div>
         </div>
         <div className="page-actions">
-          <button className="btn primary" onClick={() => { setManualForm(p => ({ ...p, paid_at: p.paid_at || todayDateTimeLocal() })); setShowManual(true); }}><I.Plus size={15} /> {t('add')}</button>
           {selectedIds.length > 0 && (
-            <button className="btn ghost danger-ghost" onClick={handleBulkDelete} disabled={deleting}>
+            <button className="btn danger-ghost" onClick={handleBulkDelete} disabled={deleting}>
               <I.Trash2 size={15} /> {t('delete')} ({selectedIds.length})
             </button>
           )}
           <button className="btn" onClick={handleExport}><I.Download size={15} /> {t('export')}</button>
+          <button className="btn primary" onClick={() => { setManualForm(p => ({ ...p, paid_at: p.paid_at || todayDateTimeLocal() })); setShowManual(true); }}><I.Plus size={15} /> {t('add')}</button>
         </div>
       </div>
 
-      <div className="filter-buttons" style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+      {stats && (
+        <div className="grid-4" style={{ marginBottom: 16 }}>
+          <Stat feature label={t('tx_stat_total_paid')} value={fmtMln(stats.total_paid || 0)} sub={`${fmt.format(stats.total_paid || 0)} so'm`} icon={I.Wallet} />
+          <Stat label={t('tx_stat_success_count')} value={stats.successful_transactions || 0} tone="success" icon={I.Check} />
+          <Stat label="Click" value={stats.click_transactions || 0} icon={I.CreditCard} />
+          <Stat label="Payme" value={stats.payme_transactions || 0} icon={I.CreditCard} />
+        </div>
+      )}
+
+      <div className="toolbar filter-buttons">
         <SearchableSelect
           value={scope}
           onChange={v => { setScope(v); setPage(1); }}
@@ -364,30 +379,22 @@ export function TransactionsScreen({ onToast } = {}) {
             { value: 'cancelled', label: t('tx_st_cancelled') },
           ]}
         />
-        <input type="number" placeholder={t('year_label')} value={paymentYear} onChange={e => { setPaymentYear(e.target.value); setPage(1); }} style={{ height: 36, padding: '0 10px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: 80 }} />
+        <input className="input" type="number" placeholder={t('year_label')} value={paymentYear} onChange={e => { setPaymentYear(e.target.value); setPage(1); }} style={{ width: 96 }} />
         <DateInput value={fromDate} onChange={v => { setFromDate(v); setPage(1); }} placeholder={t('cal_from')} />
         <DateInput value={toDate} onChange={v => { setToDate(v); setPage(1); }} placeholder={t('cal_to')} />
         {(source || statusFilter || fromDate || toDate || paymentYear) && (
-          <button className="btn ghost" onClick={() => { setSource(''); setStatusFilter(''); setFromDate(''); setToDate(''); setPaymentYear(''); setPage(1); }} style={{ height: 36, fontSize: 13 }}>
-            <I.X size={13} /> {t('clear_filters')}
+          <button className="btn ghost" onClick={() => { setSource(''); setStatusFilter(''); setFromDate(''); setToDate(''); setPaymentYear(''); setPage(1); }}>
+            <I.X size={14} /> {t('clear_filters')}
           </button>
         )}
       </div>
 
-      {stats && (
-        <div className="grid-4" style={{ marginBottom: 14 }}>
-          <Stat label={t('tx_stat_total_paid')} value={`${fmt.format(stats.total_paid || 0)} so'm`} tone="success" icon={I.Wallet} />
-          <Stat label={t('tx_stat_success_count')} value={stats.successful_transactions || 0} tone="navy" icon={I.Check} />
-          <Stat label="Click" value={stats.click_transactions || 0} icon={I.CreditCard} />
-          <Stat label="Payme" value={stats.payme_transactions || 0} icon={I.CreditCard} />
-        </div>
-      )}
-
-      <div className="table-wrap">
+      <div className={'table-wrap' + (loading ? ' is-loading' : '')}>
+        <div className="table-scroll">
         <table className="table">
           <thead>
             <tr>
-              <th style={{ width: 36, padding: '0 8px' }}>
+              <th style={{ width: 36 }}>
                 <input type="checkbox" checked={allSelected} onChange={e => setSelectedIds(e.target.checked ? rows.map(r => r.id) : [])} />
               </th>
               <th>{t('transactions_col_date')}</th><th>{t('transactions_col_student')}</th><th>{t('transactions_col_source')}</th><th>{t('tx_months_col')}</th>
@@ -397,25 +404,25 @@ export function TransactionsScreen({ onToast } = {}) {
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={colCount} style={{ padding: 18, color: 'var(--muted)' }}>{loadError || t('tx_not_found_msg')}</td></tr>
+              <tr className="static"><td colSpan={colCount} className="empty-cell" style={loadError ? { color: 'var(--danger)' } : undefined}>{loadError || t('tx_not_found_msg')}</td></tr>
             )}
             {rows.map(tx => {
               const st = statusLabel(tx.status);
               const checked = selectedIds.includes(tx.id);
               return (
-                <tr key={tx.id} className={checked ? 'selected' : undefined}>
-                  <td style={{ padding: '0 8px' }} onClick={e => e.stopPropagation()}>
+                <tr key={tx.id} className={checked ? 'selected' : undefined} onClick={() => openDetail(tx.id, tx)}>
+                  <td onClick={e => e.stopPropagation()}>
                     <input type="checkbox" checked={checked} onChange={e => setSelectedIds(p => e.target.checked ? [...p, tx.id] : p.filter(x => x !== tx.id))} />
                   </td>
-                  <td style={{ fontVariantNumeric: 'tabular-nums', cursor: 'pointer', fontSize: 12.5 }} onClick={() => openDetail(tx.id, tx)}>{fmtDateTime(tx.paid_at || tx.created_at)}</td>
-                  <td style={{ cursor: 'pointer' }} onClick={() => openDetail(tx.id, tx)}>{tx.student_full_name || `#${tx.student_id || '—'}`}</td>
-                  <td style={{ cursor: 'pointer' }} onClick={() => openDetail(tx.id, tx)}><span className="chip">{sourceLabel(tx.source)}</span></td>
-                  <td style={{ color: 'var(--muted)', fontSize: 12.5, cursor: 'pointer' }} onClick={() => openDetail(tx.id, tx)}>{(tx.payment_months || []).map(m => monthName(m)).join(', ') || '—'}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums', cursor: 'pointer' }} onClick={() => openDetail(tx.id, tx)}>{fmt.format(tx.amount || 0)} so'm</td>
-                  <td style={{ cursor: 'pointer' }} onClick={() => openDetail(tx.id, tx)}><span className={'chip' + (st.cls ? ` ${st.cls}` : '')}>{st.text}</span></td>
+                  <td className="num" style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>{fmtDateTime(tx.paid_at || tx.created_at)}</td>
+                  <td style={{ fontWeight: 700 }}>{tx.student_full_name || `#${tx.student_id || '—'}`}</td>
+                  <td><span className="chip">{sourceLabel(tx.source)}</span></td>
+                  <td className="muted" style={{ fontSize: 12.5 }}>{(tx.payment_months || []).map(m => monthName(m)).join(', ') || '—'}</td>
+                  <td className="money" style={{ textAlign: 'right' }}>{fmt.format(tx.amount || 0)} so'm</td>
+                  <td><span className={'chip' + (st.cls ? ` ${st.cls}` : '')}><span className="chip-dot"></span>{st.text}</span></td>
                   {scope === 'unassigned' && (
-                    <td>
-                      <button className="btn ghost" style={{ padding: '3px 10px', fontSize: 12 }} onClick={() => setAssignTxId(tx.id)}>{t('tx_assign_btn')}</button>
+                    <td onClick={e => e.stopPropagation()}>
+                      <button className="btn sm soft" onClick={() => setAssignTxId(tx.id)}>{t('tx_assign_btn')}</button>
                     </td>
                   )}
                 </tr>
@@ -423,15 +430,9 @@ export function TransactionsScreen({ onToast } = {}) {
             })}
           </tbody>
         </table>
-      </div>
-
-      {totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12, alignItems: 'center' }}>
-          <button className="btn ghost" disabled={page <= 1} onClick={() => setPage(p => p - 1)} style={{ padding: '4px 14px' }}>‹ {t('prev')}</button>
-          <span style={{ fontSize: 13, color: 'var(--muted)' }}>{page} / {totalPages}</span>
-          <button className="btn ghost" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} style={{ padding: '4px 14px' }}>{t('next')} ›</button>
         </div>
-      )}
+        <Pager page={page} totalPages={totalPages} onPage={setPage} total={totalCount} pageSize={50}/>
+      </div>
 
       {/* Detail modal */}
       {detail && (
@@ -442,18 +443,18 @@ export function TransactionsScreen({ onToast } = {}) {
           footer={!detailLoading ? (
             <>
               {detail.status !== 'cancelled' && detail.status !== 'failed' && (
-                <button className="btn ghost" style={{ color: 'var(--warning)' }} onClick={() => handleCancel(detail.id)}>
+                <button className="btn warning-ghost" onClick={() => handleCancel(detail.id)}>
                   <I.XCircle size={14} /> {t('tx_cancel_action')}
                 </button>
               )}
-              <button className="btn ghost danger-ghost" onClick={() => handleDelete(detail.id)}>
+              <button className="btn danger-ghost" onClick={() => handleDelete(detail.id)}>
                 <I.Trash2 size={14} /> {t('delete')}
               </button>
             </>
           ) : undefined}
         >
           {detailLoading ? (
-            <div className="empty" style={{ padding: 24 }}>{t('loading')}</div>
+            <div className="empty loading" style={{ padding: 24 }}>{t('loading')}</div>
           ) : (
             <>
               <DetailGrid items={[
@@ -472,7 +473,7 @@ export function TransactionsScreen({ onToast } = {}) {
               ]} />
               {detail.settlement_document_url && (
                 <div style={{ marginTop: 12 }}>
-                  <a href={detail.settlement_document_url} target="_blank" rel="noopener noreferrer" className="btn ghost" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--accent)' }}>
+                  <a href={detail.settlement_document_url} target="_blank" rel="noopener noreferrer" className="btn soft sm">
                     <I.File size={13} /> {t('tx_view_document')}
                   </a>
                 </div>
@@ -497,7 +498,7 @@ export function TransactionsScreen({ onToast } = {}) {
             </>
           }
         >
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div className="form-stack">
             <div className="field">
               <label>{t('tx_st_id')}</label>
               <input type="number" value={assignForm.student_id} onChange={e => setAssignForm(p => ({ ...p, student_id: e.target.value }))} placeholder={t('tx_st_id')} />
@@ -524,24 +525,24 @@ export function TransactionsScreen({ onToast } = {}) {
             </>
           }
         >
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 13, cursor: 'pointer' }}>
+          <label className="check-line" style={{ marginBottom: 14 }}>
             <input type="checkbox" checked={manualWithProof} onChange={e => setManualWithProof(e.target.checked)} />
             {t('tx_proof_toggle')}
           </label>
-          <div className="form-row" style={{ gap: 10 }}>
+          <div className="form-row">
               <div className="field col-span-2">
                 <label>{t('tx_ct_no_label')}</label>
                 <input value={manualForm.contract_number} onChange={e => setManualForm(p => ({ ...p, contract_number: e.target.value }))} placeholder="1-2026" />
                 {(manualContractLoading || manualContractError || manualContractMatches.length > 0 || manualForm.contract_number.trim().length >= 2) && (
-                  <div style={{ marginTop: 8, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-2)', overflow: 'hidden' }}>
+                  <div className="suggest">
                     {manualContractLoading && (
-                      <div style={{ padding: '9px 10px', fontSize: 12.5, color: 'var(--muted)' }}>{t('tx_contract_searching')}</div>
+                      <div className="suggest-msg">{t('tx_contract_searching')}</div>
                     )}
                     {!manualContractLoading && manualContractError && (
-                      <div style={{ padding: '9px 10px', fontSize: 12.5, color: 'var(--danger)' }}>{manualContractError}</div>
+                      <div className="suggest-msg" style={{ color: 'var(--danger)' }}>{manualContractError}</div>
                     )}
                     {!manualContractLoading && !manualContractError && manualContractMatches.length === 0 && manualForm.contract_number.trim().length >= 2 && (
-                      <div style={{ padding: '9px 10px', fontSize: 12.5, color: 'var(--muted)' }}>{t('tx_contract_not_found')}</div>
+                      <div className="suggest-msg">{t('tx_contract_not_found')}</div>
                     )}
                     {!manualContractLoading && manualContractMatches.map((contract) => {
                       const customerName = contract.custom_fields?.customer?.full_name || contract.customer_full_name || '';
@@ -560,22 +561,13 @@ export function TransactionsScreen({ onToast } = {}) {
                             amount: String(contract.monthly_fee || ''),
                             paid_at: p.paid_at || todayDateTimeLocal(),
                           }))}
-                          style={{
-                            width: '100%',
-                            border: 0,
-                            borderBottom: '1px solid var(--border)',
-                            background: 'transparent',
-                            color: 'var(--text)',
-                            padding: '9px 10px',
-                            textAlign: 'left',
-                            cursor: 'pointer',
-                          }}
+                          className="suggest-item"
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                            <strong style={{ fontSize: 13 }}>{displayName}</strong>
-                            <span style={{ fontSize: 12, fontWeight: 700 }}>{contract.contract_number || '-'}</span>
+                          <div className="row1">
+                            <strong>{displayName}</strong>
+                            <span className="chip">{contract.contract_number || '-'}</span>
                           </div>
-                          <div style={{ marginTop: 3, display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 11.5, color: 'var(--muted)' }}>
+                          <div className="row2">
                             {customerName && studentName && <span>{t('contracts_client_label')}: {customerName}</span>}
                             <span>{t('transactions_col_student')} ID: #{contract.student_id || '-'}</span>
                             <span>{fmt.format(contract.monthly_fee || 0)} so'm</span>
@@ -614,16 +606,20 @@ export function TransactionsScreen({ onToast } = {}) {
               </div>
               <div className="field col-span-2">
                 <label>{t('tx_months_select_label')}</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
-                  {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
-                    <label key={m} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, padding: '5px 4px', borderRadius: 6, border: manualForm.payment_months.includes(m) ? '1px solid var(--accent-border)' : '1px solid var(--border)', background: manualForm.payment_months.includes(m) ? 'var(--accent-soft)' : 'var(--surface)', color: manualForm.payment_months.includes(m) ? 'var(--accent)' : 'var(--text)', cursor: 'pointer', fontWeight: manualForm.payment_months.includes(m) ? 700 : 400 }}>
-                      <input type="checkbox" checked={manualForm.payment_months.includes(m)} onChange={e => setManualForm(p => ({ ...p, payment_months: e.target.checked ? [...p.payment_months, m] : p.payment_months.filter(x => x !== m) }))} style={{ display: 'none' }} />
-                      {monthName(m)}
-                    </label>
-                  ))}
+                <div className="choice-grid months">
+                  {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => {
+                    const on = manualForm.payment_months.includes(m);
+                    return (
+                      <label key={m} className={'choice' + (on ? ' on' : '')} style={{ position: 'relative' }}>
+                        <input type="checkbox" checked={on} onChange={e => setManualForm(p => ({ ...p, payment_months: e.target.checked ? [...p.payment_months, m] : p.payment_months.filter(x => x !== m) }))} />
+                        {on && <I.Check size={13} strokeWidth={2.6}/>}
+                        {monthName(m)}
+                      </label>
+                    );
+                  })}
                 </div>
                 {manualForm.payment_months.length > 0 && (
-                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{t('tx_selected_months')}: {manualForm.payment_months.map(m => monthName(m)).join(', ')}</div>
+                  <div className="hint">{t('tx_selected_months')}: {manualForm.payment_months.map(m => monthName(m)).join(', ')}</div>
                 )}
               </div>
               <div className="field col-span-2">

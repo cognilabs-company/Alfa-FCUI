@@ -14,7 +14,9 @@ import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal, DetailGrid } from '@/shared/ui/modal';
 import { useT } from '@/shared/i18n/lang';
 import { avatarColor } from '@/shared/lib/avatar';
-import { fmtDate, fmtDateTime } from '@/shared/lib/format';
+import { fmt, fmtDate, fmtDateTime, monthLabel } from '@/shared/lib/format';
+import { DateInput } from '@/shared/ui/date-picker';
+import { statusChip } from '@/pages/contracts/status-chip';
 import { calcAge, fullName, normalizeStatus } from './lib';
 
 export function StudentProfile({ studentId, onBack }) {
@@ -78,7 +80,7 @@ export function StudentProfile({ studentId, onBack }) {
     }).catch(() => {}).finally(() => setLoading(false));
   }, [studentId]);
 
-  if (loading) return <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>;
+  if (loading) return <div className="empty loading" style={{ padding: 64 }}>{t('loading')}</div>;
   if (!info) return <div className="empty" style={{ padding: 48 }}>{t('students_not_found')}</div>;
 
   const s = info.student;
@@ -96,52 +98,38 @@ export function StudentProfile({ studentId, onBack }) {
 
   return (
     <div>
-      <button className="btn ghost sm" onClick={onBack} style={{ marginBottom: 14 }}><I.ArrowLeft size={14}/> {t('profile_back')}</button>
+      <button className="btn ghost sm back-link" onClick={onBack}><I.ArrowLeft size={15}/> {t('profile_back')}</button>
 
-      <div className="card" style={{ marginBottom: 16, overflow: 'hidden' }}>
-        <div style={{
-          padding: 22,
-          background: 'linear-gradient(135deg, #101D42 0%, #173A78 55%, #1F4C9A 100%)',
-          position: 'relative',
-        }}>
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 36%), radial-gradient(circle at left center, rgba(245,185,33,0.14), transparent 28%)',
-            pointerEvents: 'none',
-          }} />
-          <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', gap: 18, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0, flex: '1 1 420px' }}>
-              <div className="avatar xl" style={{ background: avatarColor(s.id), border: '4px solid rgba(255,255,255,0.18)', boxShadow: '0 10px 30px rgba(0,0,0,0.22)', fontSize: 28 }}>
-                {s.first_name[0]}{s.last_name[0]}
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
-                  {studentStatus === 'active' && <span className="chip success" style={{ background: 'rgba(30, 138, 92, 0.15)', color: 'white', borderColor: 'rgba(255,255,255,0.12)' }}><span className="chip-dot" style={{ background: '#7EE2B8' }}></span>{t('profile_active_student')}</span>}
-                  {studentStatus === 'inactive' && <span className="chip warning" style={{ background: 'rgba(245,185,33,0.15)', color: 'white', borderColor: 'rgba(255,255,255,0.12)' }}><span className="chip-dot" style={{ background: '#F5B921' }}></span>{t('status_inactive')}</span>}
-                  {studentStatus === 'archived' && <span className="chip" style={{ background: 'rgba(255,255,255,0.12)', color: 'white', borderColor: 'rgba(255,255,255,0.12)' }}><span className="chip-dot"></span>{t('status_archived')}</span>}
-                  {studentStatus === 'deleted' && <span className="chip danger" style={{ background: 'rgba(200,32,44,0.22)', color: 'white', borderColor: 'rgba(255,255,255,0.16)' }}><span className="chip-dot" style={{ background: '#FF8D95' }}></span>{t('status_deleted')}</span>}
-                  {attendances.length > 0 && (
-                    <span className="chip navy" style={{ background: 'rgba(255,255,255,0.12)', color: 'white', borderColor: 'rgba(255,255,255,0.12)' }}>{t('profile_attendance_label')} {Math.round((presentCount / attendances.length) * 100)}%</span>
-                  )}
-                </div>
-                <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: '-0.01em', color: 'white', lineHeight: 1.15 }}>{name}</h1>
-                <div style={{ display: 'flex', gap: 10, marginTop: 8, fontSize: 13, color: 'rgba(255,255,255,0.78)', flexWrap: 'wrap' }}>
-                  <span>{age} {t('students_years')} ({fmtDate(s.date_of_birth)})</span>
-                  {group && <><span>·</span><span>{group.name}</span></>}
-                  {coach && <><span>·</span><span>{t('profile_coach')}: {coach.full_name}</span></>}
-                </div>
-              </div>
+      <section className="profile-hero">
+        <div className="who">
+          <div className="avatar xl" style={{ background: avatarColor(s.id) }}>
+            {s.first_name?.[0]}{s.last_name?.[0]}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div className="chips">
+              {studentStatus === 'active' && <span className="chip success"><span className="chip-dot"></span>{t('profile_active_student')}</span>}
+              {studentStatus === 'inactive' && <span className="chip warning"><span className="chip-dot"></span>{t('status_inactive')}</span>}
+              {studentStatus === 'archived' && <span className="chip"><span className="chip-dot"></span>{t('status_archived')}</span>}
+              {studentStatus === 'deleted' && <span className="chip danger"><span className="chip-dot"></span>{t('status_deleted')}</span>}
+              {attendances.length > 0 && (
+                <span className="chip solid">{t('profile_attendance_label')} {Math.round((presentCount / attendances.length) * 100)}%</span>
+              )}
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              <button className="btn sm" onClick={() => setShowEditModal(true)}><I.Edit size={13}/> {t('edit')}</button>
-              {contract && <button className="btn sm" onClick={() => setTab('contract')}><I.FileText size={13}/> {t('profile_contract')}</button>}
-              {studentStatus === 'deleted' && <button className="btn sm danger" onClick={() => setShowHardDeleteModal(true)}><I.Trash2 size={13}/> {t('student_full_delete')}</button>}
+            <h1>{name}</h1>
+            <div className="facts">
+              <span>{age} {t('students_years')} · {fmtDate(s.date_of_birth)}</span>
+              {group && <span>{group.name}</span>}
+              {coach && <span>{t('profile_coach')}: {coach.full_name}</span>}
             </div>
           </div>
         </div>
-      </div>
+
+        <div className="actions">
+          <button className="btn" onClick={() => setShowEditModal(true)}><I.Edit size={15}/> {t('edit')}</button>
+          {contract && <button className="btn" onClick={() => setTab('contract')}><I.FileText size={15}/> {t('profile_contract')}</button>}
+          {studentStatus === 'deleted' && <button className="btn danger" onClick={() => setShowHardDeleteModal(true)}><I.Trash2 size={15}/> {t('student_full_delete')}</button>}
+        </div>
+      </section>
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="tabs">
@@ -152,14 +140,14 @@ export function StudentProfile({ studentId, onBack }) {
             { id: 'transactions', labelKey: 'profile_payments' },
             { id: 'files', labelKey: 'profile_files' },
           ].map(tb => (
-            <div key={tb.id} className={'tab' + (tab === tb.id ? ' active' : '')} onClick={() => setTab(tb.id)}>
+            <button key={tb.id} type="button" className={'tab' + (tab === tb.id ? ' active' : '')} onClick={() => setTab(tb.id)}>
               {t(tb.labelKey)}
-            </div>
+            </button>
           ))}
         </div>
 
         {tab === 'overview' && (
-          <div style={{ padding: 22, display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 22 }}>
+          <div className="split" style={{ padding: 20, gap: 22 }}>
             <div>
               <div className="card-title" style={{ marginBottom: 14 }}>{t('profile_personal')}</div>
               <DetailGrid items={[
@@ -190,27 +178,24 @@ export function StudentProfile({ studentId, onBack }) {
                   { l: t('profile_total_trainings'), v: String(attendances.length), sub: t('profile_this_season') },
                   { l: t('profile_present_absent'), v: `${presentCount}/${absentCount}`, sub: t('profile_attendance_label') },
                   { l: t('profile_late'), v: String(lateCount), sub: t('profile_last_records') },
-                  { l: t('profile_monthly_fee'), v: contract ? `${contract.monthly_fee.toLocaleString()} so'm` : '—', sub: t('profile_contract_label') },
+                  { l: t('profile_monthly_fee'), v: contract ? `${fmt.format(contract.monthly_fee ?? contract.monthly_fee_amount ?? 0)} so'm` : '—', sub: t('profile_contract_label') },
                 ].map(it => (
                   <div key={it.l} className="list-row">
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{it.l}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{it.sub}</div>
+                    <div className="grow">
+                      <div className="title" style={{ fontSize: 13 }}>{it.l}</div>
+                      <div className="subtitle">{it.sub}</div>
                     </div>
-                    <div style={{ fontSize: 18, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{it.v}</div>
+                    <div className="big">{it.v}</div>
                   </div>
                 ))}
                 {attendanceReport && (
                   <div className="list-row">
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t('profile_official_report')}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>attendance/students/{studentId}</div>
+                    <div className="grow">
+                      <div className="title" style={{ fontSize: 13 }}>{t('profile_official_report')}</div>
+                      <div className="subtitle">{attendanceReport.present_count || 0} / {attendanceReport.absent_count || 0} / {attendanceReport.late_count || 0}</div>
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 700, textAlign: 'right' }}>
-                      {attendanceReport.total_sessions || 0} sessiya
-                      <div style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--muted)' }}>
-                        {attendanceReport.present_count || 0} / {attendanceReport.absent_count || 0} / {attendanceReport.late_count || 0}
-                      </div>
+                    <div className="big">
+                      {attendanceReport.total_sessions || 0} <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--muted)', fontWeight: 700 }}>{t('sessions_sfx_short')}</span>
                     </div>
                   </div>
                 )}
@@ -220,40 +205,38 @@ export function StudentProfile({ studentId, onBack }) {
         )}
 
         {tab === 'attendance' && (
-          <div style={{ padding: 22 }}>
+          <div style={{ padding: 20 }}>
             <div className="card-title" style={{ marginBottom: 14 }}>{t('profile_last_trainings')} {Math.min(attendances.length, 14)} {t('profile_last_trainings_suffix')}</div>
             {attendances.length === 0 && <div className="empty">{t('profile_no_attendance')}</div>}
-            <div className="attendance-strip" style={{ display: 'grid', gridTemplateColumns: 'repeat(14, 1fr)', gap: 6 }}>
+            <div className="attendance-strip">
               {attendances.slice(0, 14).map((a, i) => {
-                const color = a.status === 'present' ? 'var(--success)' : a.status === 'absent' ? 'var(--danger)' : 'var(--brand-gold)';
-                const label = a.status === 'present' ? '✓' : a.status === 'absent' ? '✗' : 'L';
+                const kind = a.status === 'present' ? 'present' : a.status === 'absent' ? 'absent' : 'late';
+                const label = kind === 'present' ? '✓' : kind === 'absent' ? '✗' : 'L';
                 return (
-                  <div key={i} title={a.status} style={{ aspectRatio: '1', borderRadius: 6, background: color, opacity: 0.85, color: a.status === 'late' ? 'rgba(0,0,0,0.6)' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
-                    {label}
-                  </div>
+                  <div key={i} title={a.status} className={'att-cell ' + kind}>{label}</div>
                 );
               })}
             </div>
-            <div style={{ display: 'flex', gap: 18, marginTop: 16, fontSize: 12.5 }}>
-              <span style={{ color: 'var(--success)', fontWeight: 600 }}>● {t('profile_present')} {presentCount}</span>
-              <span style={{ color: 'var(--warning)', fontWeight: 600 }}>● {t('profile_late_chip')} {lateCount}</span>
-              <span style={{ color: 'var(--danger)', fontWeight: 600 }}>● {t('profile_absent')} {absentCount}</span>
+            <div className="legend" style={{ marginTop: 16 }}>
+              <span style={{ color: 'var(--success)' }}><i style={{ background: 'var(--success)' }}/> {t('profile_present')} {presentCount}</span>
+              <span style={{ color: 'var(--warning)' }}><i style={{ background: 'var(--warning)' }}/> {t('profile_late_chip')} {lateCount}</span>
+              <span style={{ color: 'var(--danger)' }}><i style={{ background: 'var(--danger)' }}/> {t('profile_absent')} {absentCount}</span>
             </div>
           </div>
         )}
 
         {tab === 'contract' && (
-          <div className="grid-2" style={{ padding: 22, gap: 18 }}>
+          <div className="grid-2" style={{ padding: 20, gap: 18 }}>
             <div>
               <div className="card-title" style={{ marginBottom: 14 }}>{t('profile_current_contract')}</div>
               {!contract && <div className="empty">{t('profile_contract_not_found')}</div>}
               {contract && (
                 <DetailGrid items={[
                   { label: t('contracts_number'), value: contract.contract_number },
-                  { label: t('contracts_status'), value: <span className="chip success"><span className="chip-dot"></span>{t('status_active')}</span> },
+                  { label: t('contracts_status'), value: contract.status ? statusChip(contract.status, t) : <span className="chip success"><span className="chip-dot"></span>{t('status_active')}</span> },
                   { label: t('contracts_start_date'), value: fmtDate(contract.start_date) },
                   { label: t('contracts_end_date'), value: fmtDate(contract.end_date) },
-                  { label: t('contracts_monthly_fee'), value: `${contract.monthly_fee.toLocaleString()} so'm` },
+                  { label: t('contracts_monthly_fee'), value: `${fmt.format(contract.monthly_fee ?? contract.monthly_fee_amount ?? 0)} so'm` },
                 ]}/>
               )}
               <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
@@ -283,7 +266,7 @@ export function StudentProfile({ studentId, onBack }) {
             </div>
             <div>
               <div className="card-title" style={{ marginBottom: 14 }}>{t('profile_parent')}</div>
-              <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: 14, fontSize: 13.5 }}>
+              <div className="detail-item" style={{ fontSize: 13.5 }}>
                 {contract?.custom_fields?.customer ? (
                   <>
                     <div style={{ fontWeight: 600, marginBottom: 6 }}>{contract.custom_fields.customer.full_name || '—'}</div>
@@ -297,21 +280,21 @@ export function StudentProfile({ studentId, onBack }) {
         )}
 
         {tab === 'transactions' && (
-          <div style={{ padding: 22 }}>
+          <div style={{ padding: 20 }}>
             {transactions.length === 0 && <div className="empty">{t('profile_no_payments')}</div>}
             {transactions.length > 0 && (
               <div className="table-wrap">
               <table className="table">
                 <thead>
-                  <tr><th>{t('profile_tx_date_time')}</th><th>{t('profile_tx_source')}</th><th>Oylar</th><th style={{ textAlign: 'right' }}>{t('profile_tx_amount')}</th><th>{t('profile_tx_status')}</th></tr>
+                  <tr><th>{t('profile_tx_date_time')}</th><th>{t('profile_tx_source')}</th><th>{t('tx_months_col')}</th><th style={{ textAlign: 'right' }}>{t('profile_tx_amount')}</th><th>{t('profile_tx_status')}</th></tr>
                 </thead>
                 <tbody>
                   {transactions.slice(0, 10).map(tx => (
                     <tr key={tx.id}>
                       <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>{fmtDateTime(tx.paid_at)}</td>
                       <td><span className="chip">{tx.source}</span></td>
-                      <td style={{ color: 'var(--muted)', fontSize: 12.5 }}>{tx.payment_months?.join(', ') || '—'}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{tx.amount.toLocaleString()} so'm</td>
+                      <td style={{ color: 'var(--muted)', fontSize: 12.5 }}>{tx.payment_months?.map(m => monthLabel(Number(m) - 1) || m).join(', ') || '—'}</td>
+                      <td className="money" style={{ textAlign: 'right' }}>{fmt.format(tx.amount || 0)} so'm</td>
                       <td>
                         {tx.status === 'SETTLED' && <span className="chip success"><span className="chip-dot"></span>{t('tx_st_success')}</span>}
                         {tx.status === 'UNASSIGNED' && <span className="chip warning"><span className="chip-dot"></span>{t('tx_scope_unassigned')}</span>}
@@ -327,7 +310,7 @@ export function StudentProfile({ studentId, onBack }) {
         )}
 
         {/* tab === 'gatelogs' && (
-          <div style={{ padding: 22 }}>
+          <div style={{ padding: 20 }}>
             {gateLogs.length === 0 && <div className="empty">{t('profile_no_gate')}</div>}
             {gateLogs.slice(0, 30).map(log => (
               <div key={log.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
@@ -349,7 +332,7 @@ export function StudentProfile({ studentId, onBack }) {
         ) */}
 
         {tab === 'files' && (
-          <div className="grid-3" style={{ padding: 22, gap: 14 }}>
+          <div className="grid-3" style={{ padding: 20, gap: 14 }}>
             {[
               { name: t('file_photo_label'), urlKey: 'photo_url', icon: 'Camera', apiKey: 'photo', accept: 'image/*', uploadFn: apiUploadStudentPhoto },
               { name: t('file_passport_label'), urlKey: 'passport_url', icon: 'File', apiKey: 'passport', accept: 'image/*,.pdf', uploadFn: apiUploadStudentPassport },
@@ -359,17 +342,17 @@ export function StudentProfile({ studentId, onBack }) {
               const url = s[f.urlKey];
               const uploading = uploadingFile === f.apiKey;
               return (
-                <div key={f.apiKey} style={{ padding: 16, border: '1px solid var(--border)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <div style={{ width: 42, height: 42, borderRadius: 8, background: url ? 'var(--success-soft)' : 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: url ? 'var(--success)' : 'var(--muted)', flexShrink: 0 }}>
+                <div key={f.apiKey} className={'file-tile' + (url ? ' has' : '')}>
+                  <div className="head">
+                    <div className="ic">
                       <Ic size={20}/>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{f.name}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{url ? t('file_available') : t('file_missing')}</div>
+                      <div style={{ fontWeight: 750, fontSize: 13.5, marginBottom: 2 }}>{f.name}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: url ? 'var(--success)' : 'var(--muted)' }}>{url ? t('file_available') : t('file_missing')}</div>
                     </div>
                     {url && (
-                      <button className="icon-btn" style={{ width: 30, height: 30 }} disabled={downloadingFile === f.apiKey} title={t('download_btn')}
+                      <button className="icon-btn" disabled={downloadingFile === f.apiKey} title={t('download_btn')} aria-label={t('download_btn')}
                         onClick={async () => {
                           setDownloadingFile(f.apiKey);
                           try {
@@ -388,11 +371,11 @@ export function StudentProfile({ studentId, onBack }) {
                             setDownloadingFile(null);
                           }
                         }}>
-                        {downloadingFile === f.apiKey ? <span style={{ fontSize: 10, fontWeight: 700 }}>...</span> : <I.Download size={13}/>}
+                        {downloadingFile === f.apiKey ? <span style={{ fontSize: 10, fontWeight: 700 }}>...</span> : <I.Download size={15}/>}
                       </button>
                     )}
                   </div>
-                  <label className="btn ghost sm" style={{ cursor: uploading ? 'not-allowed' : 'pointer', justifyContent: 'center', opacity: uploading ? 0.6 : 1 }}>
+                  <label className="btn sm block" style={{ cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? 0.6 : 1 }}>
                     {uploading ? t('loading') : <><I.Upload size={13}/> {url ? t('reupload_btn') : t('upload_btn')}</>}
                     <input type="file" style={{ display: 'none' }} accept={f.accept} disabled={uploading} onChange={async (e) => {
                       const file = e.target.files?.[0];
@@ -450,6 +433,7 @@ export function StudentProfile({ studentId, onBack }) {
       {showEditModal && info && (
         <Modal
           onClose={() => { if (!editLoading) setShowEditModal(false); }}
+          size="lg"
           title={`${t('edit')} — ${t('students_title')}`}
           footer={<>
             <button className="btn ghost" onClick={() => setShowEditModal(false)} disabled={editLoading}>{t('cancel')}</button>
@@ -495,8 +479,8 @@ export function StudentProfile({ studentId, onBack }) {
                 }
               }} disabled={editLoading}>{editLoading ? t('saving') : t('save')}</button>
           </>}>
-          {editError && <div style={{ background: 'var(--danger-soft)', color: 'var(--danger)', padding: '10px 12px', borderRadius: 8, marginBottom: 14, fontSize: 13 }}>{editError}</div>}
-          <div style={{ display: 'grid', gap: 14 }}>
+          {editError && <div className="alert danger" style={{ marginBottom: 14 }}>{editError}</div>}
+          <div className="form-row">
             {[
               [t('student_new_first_name'), 'first_name'],
               [t('student_new_last_name'), 'last_name'],
@@ -509,12 +493,16 @@ export function StudentProfile({ studentId, onBack }) {
             ].map(([label, field]) => (
               <div key={field} className="field">
                 <label>{label}</label>
-                <input
-                  type={field === 'date_of_birth' ? 'date' : field === 'height' || field === 'weight' ? 'number' : 'text'}
-                  value={editForm[field] || ''}
-                  onChange={(e) => setEditForm(p => ({ ...p, [field]: e.target.value }))}
-                  disabled={editLoading}
-                />
+                {field === 'date_of_birth' ? (
+                  <DateInput value={editForm.date_of_birth || ''} onChange={v => setEditForm(p => ({ ...p, date_of_birth: v }))}/>
+                ) : (
+                  <input
+                    type={field === 'height' || field === 'weight' ? 'number' : 'text'}
+                    value={editForm[field] || ''}
+                    onChange={(e) => setEditForm(p => ({ ...p, [field]: e.target.value }))}
+                    disabled={editLoading}
+                  />
+                )}
               </div>
             ))}
             <div className="field">

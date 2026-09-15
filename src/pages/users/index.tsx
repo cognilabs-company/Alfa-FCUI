@@ -73,6 +73,27 @@ import {
 import { fmt } from '@/shared/lib/format';
 import { Stat } from '@/shared/ui/stat';
 import { Modal } from '@/shared/ui/modal';
+import { menuPosition } from '@/shared/ui/pager';
+import { avatarColor, getInitials } from '@/shared/lib/avatar';
+
+/** Toggle-chip picker for role ids (replaces the Ctrl-click multi-select). */
+function RolePicker({ roles, value, onChange }) {
+  const I = Icon;
+  const ids = (value || []).map(Number);
+  return (
+    <div className="choice-grid">
+      {roles.map(r => {
+        const on = ids.includes(Number(r.id));
+        return (
+          <button key={r.id} type="button" className={'choice' + (on ? ' on' : '')} aria-pressed={on}
+            onClick={() => onChange(on ? ids.filter(x => x !== Number(r.id)) : [...ids, Number(r.id)])}>
+            {on ? <I.Check size={14} strokeWidth={2.6}/> : <I.Plus size={14}/>} {r.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 const ALL_PERMS = [
   { code: 'students:view', label: "O'quvchilarni ko'rish" },
@@ -126,7 +147,7 @@ function getPermGroups(perms) {
 function PermSelector({ ids, onChange, permissions }) {
   const groups = getPermGroups(permissions);
   return (
-    <div style={{ maxHeight: 270, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+    <div className="perm-list">
       {groups.map(g => {
         const groupIds = g.items.map(p => p.id);
         const allChecked = groupIds.length > 0 && groupIds.every(id => ids.includes(id));
@@ -135,19 +156,21 @@ function PermSelector({ ids, onChange, permissions }) {
           onChange(e.target.checked ? [...new Set([...ids, ...groupIds])] : ids.filter(id => !groupIds.includes(id)));
         }
         return (
-          <div key={g.label}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4, padding: '7px 0 3px', cursor: 'pointer' }}>
+          <div key={g.label} className="perm-group">
+            <label className="check-line">
               <input type="checkbox" checked={allChecked} ref={el => { if (el) el.indeterminate = someChecked && !allChecked; }} onChange={toggleGroup} />
               {g.label}
             </label>
+            <div className="perm-items">
             {g.items.map(p => (
-              <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, paddingLeft: 20, paddingBottom: 4, cursor: 'pointer' }}>
+              <label key={p.id} className="check-line">
                 <input type="checkbox" checked={ids.includes(p.id)} onChange={e => {
                   onChange(e.target.checked ? [...ids, p.id] : ids.filter(x => x !== p.id));
                 }} />
                 <span>{p.description}</span>
               </label>
             ))}
+            </div>
           </div>
         );
       })}
@@ -254,7 +277,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
       onToast?.(t('toast_perms_saved'));
       load();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     } finally {
       setSavingPerms(false);
     }
@@ -286,14 +309,14 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
 
   // Role CRUD
   async function createRole() {
-    if (!newRole.name.trim()) { onToast?.(t('toast_role_name_required')); return; }
+    if (!newRole.name.trim()) { onToast?.(t('toast_role_name_required'), 'error'); return; }
     try {
       await apiCreateRole({ name: newRole.name, description: newRole.description, permission_ids: newRole.permission_ids });
       setNewRole({ name: '', description: '', permission_ids: [] });
       onToast?.(t('toast_role_created'));
       load();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     }
   }
 
@@ -312,7 +335,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
       onToast?.(t('toast_role_updated'));
       load();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     }
   }
 
@@ -323,7 +346,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
       onToast?.(t('toast_role_deleted'));
       load();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     }
   }
 
@@ -338,7 +361,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
       onToast?.(t('toast_user_deleted'));
       load();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     } finally {
       setDeletingUserId(null);
     }
@@ -354,7 +377,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
       onToast?.(t('toast_user_deleted'));
       load();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     } finally {
       setBulkDeleting(false);
     }
@@ -374,7 +397,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
   }
 
   async function saveEditUser() {
-    if (!editUserForm.full_name || !editUserForm.phone) { onToast?.(t('toast_required_fields')); return; }
+    if (!editUserForm.full_name || !editUserForm.phone) { onToast?.(t('toast_required_fields'), 'error'); return; }
     setSavingEditUser(true);
     try {
       const payload = {
@@ -394,14 +417,14 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
       onToast?.(t('toast_user_updated'));
       load();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     } finally {
       setSavingEditUser(false);
     }
   }
 
   async function createUser() {
-    if (!userForm.full_name || !userForm.phone || !userForm.password) { onToast?.(t('toast_required_fields')); return; }
+    if (!userForm.full_name || !userForm.phone || !userForm.password) { onToast?.(t('toast_required_fields'), 'error'); return; }
     setSavingUser(true);
     try {
       const res = await apiCreateUser({
@@ -421,7 +444,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
       onToast?.(t('toast_user_created'));
       load();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     } finally {
       setSavingUser(false);
     }
@@ -442,7 +465,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
     }
   }
 
-  if (loading) return <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>;
+  if (loading) return <div className="empty loading" style={{ padding: 64 }}>{t('loading')}</div>;
 
   return (
     <div>
@@ -465,13 +488,14 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
 
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="tabs">
-          <div className={'tab' + (tab === 'users' ? ' active' : '')} onClick={() => setTab('users')}>{t('users_tab_users')}</div>
-          <div className={'tab' + (tab === 'roles' ? ' active' : '')} onClick={() => setTab('roles')}>{t('users_tab_roles')}</div>
+          <button type="button" className={'tab' + (tab === 'users' ? ' active' : '')} onClick={() => setTab('users')}><I.Users size={15}/> {t('users_tab_users')} <span className="chip" style={{ height: 20 }}>{users.length}</span></button>
+          <button type="button" className={'tab' + (tab === 'roles' ? ' active' : '')} onClick={() => setTab('roles')}><I.Shield size={15}/> {t('users_tab_roles')} <span className="chip" style={{ height: 20 }}>{visibleRoles.length}</span></button>
         </div>
       </div>
 
       {tab === 'users' && (
         <div className="table-wrap">
+          <div className="table-scroll">
           <table className="table">
             <thead>
               <tr>
@@ -486,17 +510,22 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
               </tr>
             </thead>
             <tbody>
-              {users.length === 0 && <tr><td colSpan={6} style={{ padding: 18, color: 'var(--muted)' }}>{t('users_not_found')}</td></tr>}
+              {users.length === 0 && <tr className="static"><td colSpan={6} className="empty-cell">{t('users_not_found')}</td></tr>}
               {users.map((u) => {
                 const isSelected = selectedIds.includes(u.id);
                 return (
-                  <tr key={u.id} className={isSelected ? 'selected' : undefined}>
+                  <tr key={u.id} className={'static' + (isSelected ? ' selected' : '')}>
                     <td>
                       {!u.is_super_admin && (
                         <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(u.id)} />
                       )}
                     </td>
-                    <td style={{ fontWeight: 600 }}>{u.full_name}</td>
+                    <td>
+                      <div className="row-name">
+                        <div className="avatar sm" style={{ background: u.is_super_admin ? 'var(--text)' : avatarColor(u.id) }}>{getInitials(u.full_name)}</div>
+                        <div className="meta"><span className="name">{u.full_name}</span></div>
+                      </div>
+                    </td>
                     <td style={{ fontSize: 12.5, color: 'var(--text-2)' }}>
                       <div>{u.phone || '—'}</div>
                       {u.email && <div style={{ color: 'var(--muted)', fontSize: 11.5 }}>{u.email}</div>}
@@ -512,20 +541,19 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
                           : <span className="chip">—</span>
                       }
                     </td>
-                    <td>{u.status === 'active' ? <span className="chip success">{t('users_active_chip')}</span> : <span className="chip">{t('users_inactive_chip')}</span>}</td>
+                    <td>{u.status === 'active' ? <span className="chip success"><span className="chip-dot"></span>{t('users_active_chip')}</span> : <span className="chip"><span className="chip-dot"></span>{t('users_inactive_chip')}</span>}</td>
                     <td style={{ position: 'relative', overflow: 'visible' }}>
-                      <button className="icon-btn" style={{ width: 30, height: 30 }} onClick={(e) => {
+                      <button className="icon-btn plain" aria-label="Actions" onClick={(e) => {
                         e.stopPropagation();
                         if (openMenuUserId === u.id) {
                           setOpenMenuUserId(null);
                         } else {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setMenuPos({ x: rect.right - 160, y: rect.bottom + 4 });
+                          setMenuPos(menuPosition(e.currentTarget, u.is_super_admin ? 1 : 3));
                           setOpenMenuUserId(u.id);
                         }
-                      }}><I.More size={15} /></button>
+                      }}><I.More size={16} /></button>
                       {openMenuUserId === u.id && (
-                        <div className="menu" style={{ position: 'fixed', minWidth: 160, top: menuPos.y, left: menuPos.x }} onClick={e => e.stopPropagation()}>
+                        <div className="menu" style={{ position: 'fixed', top: menuPos.y, left: menuPos.x }} onClick={e => e.stopPropagation()}>
                           <button className="menu-item" onClick={() => openEditUser(u)}>
                             <I.Edit size={14} /> {t('edit')}
                           </button>
@@ -547,20 +575,21 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       {tab === 'roles' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
+        <div className="split">
           <div className="table-wrap">
             <table className="table">
               <thead><tr><th>{t('users_role_name_col')}</th><th>{t('users_perms_col')}</th><th style={{ width: 72 }}></th></tr></thead>
               <tbody>
-                {visibleRoles.length === 0 && <tr><td colSpan={3} style={{ padding: 18, color: 'var(--muted)' }}>{t('users_role_no_found')}</td></tr>}
+                {visibleRoles.length === 0 && <tr className="static"><td colSpan={3} className="empty-cell">{t('users_role_no_found')}</td></tr>}
                 {visibleRoles.map((r) => (
-                  <tr key={r.id}>
+                  <tr key={r.id} className="static">
                     <td>
-                      <div style={{ fontWeight: 600 }}>{r.name}</div>
+                      <div style={{ fontWeight: 750 }}>{r.name}</div>
                       {r.description && <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 1 }}>{r.description}</div>}
                     </td>
                     <td>
@@ -568,18 +597,18 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
                         ? <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>
                         : <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                             {(r.permissions || []).slice(0, 5).map(p => (
-                              <span key={p.id} style={{ fontSize: 10.5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 6px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{p.description}</span>
+                              <span key={p.id} className="perm-tag">{p.description}</span>
                             ))}
                             {(r.permissions || []).length > 5 && (
-                              <span style={{ fontSize: 10.5, color: 'var(--muted)', padding: '1px 2px', alignSelf: 'center' }}>+{(r.permissions || []).length - 5} ta</span>
+                              <span className="perm-tag" style={{ background: 'var(--text)', color: 'var(--bg)' }}>+{(r.permissions || []).length - 5}</span>
                             )}
                           </div>
                       }
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="icon-btn" style={{ width: 30, height: 30 }} onClick={() => openEditRole(r)}><I.Edit size={14} /></button>
-                        <button className="icon-btn danger" style={{ width: 30, height: 30 }} onClick={() => removeRole(r.id)}><I.Trash2 size={15} /></button>
+                        <button className="icon-btn plain" aria-label={t('edit')} title={t('edit')} onClick={() => openEditRole(r)}><I.Edit size={15} /></button>
+                        <button className="icon-btn plain danger" aria-label={t('delete')} title={t('delete')} onClick={() => removeRole(r.id)}><I.Trash2 size={15} /></button>
                       </div>
                     </td>
                   </tr>
@@ -588,8 +617,8 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
             </table>
           </div>
 
-          <div className="card" style={{ padding: 16 }}>
-            <div className="card-title" style={{ marginBottom: 10 }}>{t('users_new_role_card')}</div>
+          <div className="card" style={{ padding: 20 }}>
+            <div className="card-title" style={{ marginBottom: 14 }}>{t('users_new_role_card')}</div>
             <div className="field" style={{ marginBottom: 10 }}>
               <label>{t('users_role_name_req')}</label>
               <input value={newRole.name} onChange={(e) => setNewRole((p) => ({ ...p, name: e.target.value }))} placeholder="" />
@@ -598,13 +627,13 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
               <label>{t('users_role_desc')}</label>
               <input value={newRole.description} onChange={(e) => setNewRole((p) => ({ ...p, description: e.target.value }))} placeholder="" />
             </div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{t('users_perms_label')}</div>
+            <div className="section-label" style={{ marginTop: 4 }}>{t('users_perms_label')}</div>
             <PermSelector
               ids={newRole.permission_ids}
               onChange={ids => setNewRole(p => ({ ...p, permission_ids: ids }))}
               permissions={permissions}
             />
-            <button className="btn primary" style={{ marginTop: 12 }} onClick={createRole}><I.Check size={14} /> {t('save')}</button>
+            <button className="btn primary block" style={{ marginTop: 14 }} onClick={createRole}><I.Check size={15} /> {t('save')}</button>
           </div>
         </div>
       )}
@@ -650,16 +679,10 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
             </div>
             <div className="field col-span-2">
               <label>{t('users_role_select_label')}</label>
-              <select multiple value={userForm.role_ids} onChange={e => {
-                const vals = Array.from(e.target.selectedOptions).map(o => Number(o.value));
-                setUserForm(p => ({ ...p, role_ids: vals }));
-              }} style={{ height: 100 }}>
-                {visibleRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </select>
-              <div className="hint">{t('users_ctrl_hint')}</div>
+              <RolePicker roles={visibleRoles} value={userForm.role_ids} onChange={ids => setUserForm(p => ({ ...p, role_ids: ids }))}/>
             </div>
             <div className="field col-span-2">
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label className="check-line">
                 <input type="checkbox" checked={userForm.is_super_admin} onChange={e => setUserForm(p => ({ ...p, is_super_admin: e.target.checked }))} />
                 Super Admin
               </label>
@@ -710,13 +733,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
             {!editingUser.is_super_admin && (
               <div className="field col-span-2">
                 <label>{t('users_tab_roles')}</label>
-                <select multiple value={editUserForm.role_ids} onChange={e => {
-                  const vals = Array.from(e.target.selectedOptions).map(o => Number(o.value));
-                  setEditUserForm(p => ({ ...p, role_ids: vals }));
-                }} style={{ height: 100 }}>
-                  {visibleRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
-                <div className="hint">{t('users_ctrl_hint')}</div>
+                <RolePicker roles={visibleRoles} value={editUserForm.role_ids} onChange={ids => setEditUserForm(p => ({ ...p, role_ids: ids }))}/>
               </div>
             )}
           </div>
@@ -746,9 +763,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
               <>
                 {basePerms.length > 0 && (
                   <div style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-                      {t('users_perms_from_roles')}
-                    </div>
+                    <div className="section-label">{t('users_perms_from_roles')}</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                       {basePerms.map(p => (
                         <span key={p.id} className="chip navy" style={{ fontSize: 10.5 }}>{p.description}</span>
@@ -756,10 +771,8 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
                     </div>
                   </div>
                 )}
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-                  {t('users_perms_extra')}
-                </div>
-                <div className="hint" style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 8 }}>{t('users_perms_hint')}</div>
+                <div className="section-label" style={{ marginBottom: 4 }}>{t('users_perms_extra')}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 600, marginBottom: 10 }}>{t('users_perms_hint')}</div>
                 <PermSelector
                   ids={permExtraIds}
                   onChange={setPermExtraIds}
@@ -791,7 +804,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
             <label>{t('users_role_desc')}</label>
             <input value={editingRole.description || ''} onChange={e => setEditingRole(p => ({ ...p, description: e.target.value }))} />
           </div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{t('users_perms_label')}</div>
+          <div className="section-label" style={{ marginTop: 4 }}>{t('users_perms_label')}</div>
           <PermSelector
             ids={editingRole.permission_ids}
             onChange={ids => setEditingRole(p => ({ ...p, permission_ids: ids }))}

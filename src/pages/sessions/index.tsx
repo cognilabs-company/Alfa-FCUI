@@ -16,10 +16,11 @@ import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal } from '@/shared/ui/modal';
 import { useT } from '@/shared/i18n/lang';
 import { avatarColor } from '@/shared/lib/avatar';
-import { fmtDate } from '@/shared/lib/format';
+import { fmtDate, todayISO, toLocalISO, weekdayShort } from '@/shared/lib/format';
+import { Pager, menuPosition } from '@/shared/ui/pager';
 
 function sessionStatus(session_date) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   if (session_date === today) return 'today';
   if (session_date > today) return 'upcoming';
   return 'completed';
@@ -28,8 +29,8 @@ function sessionStatus(session_date) {
 
 export function SessionsScreen({ onMark }) {
   const I = Icon;
-  const { t } = useT();
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const { t, lang } = useT();
+  const todayIso = todayISO();
   const [activeTab, setActiveTab] = React.useState('sessions');
   const [sessions, setSessions] = React.useState([]);
   const [groups, setGroups] = React.useState([]);
@@ -57,6 +58,10 @@ export function SessionsScreen({ onMark }) {
   });
 
   const today = todayIso;
+  const loadedOnce = React.useRef(false);
+  const SESSIONS_PAGE = 20;
+  const [page, setPage] = React.useState(1);
+  React.useEffect(() => { setPage(1); }, [filter, selectedDate, groupFilter]);
 
   React.useEffect(() => {
     setLoading(true);
@@ -117,16 +122,17 @@ export function SessionsScreen({ onMark }) {
   for (let i = -3; i <= 3; i++) {
     const d = new Date();
     d.setDate(d.getDate() + i);
-    const iso = d.toISOString().slice(0, 10);
+    const iso = toLocalISO(d);
     days.push({
       date: d, iso,
-      label: ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'][(d.getDay() + 6) % 7],
+      label: weekdayShort(d, lang),
       num: d.getDate(),
       count: sessions.filter(s => s.session_date === iso).length,
     });
   }
 
-  if (loading) return <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>;
+  if (loading && !loadedOnce.current) return <div className="empty loading" style={{ padding: 64 }}>{t('loading')}</div>;
+  if (!loading) loadedOnce.current = true;
 
   function openEditSession(s) {
     setEditingSession(s);
@@ -221,7 +227,7 @@ export function SessionsScreen({ onMark }) {
         <div className="page-actions">
           {activeTab === 'sessions' && (
             <>
-              <button className={'btn' + (filter === 'week' ? ' primary' : '')} onClick={() => setFilter('week')}>
+              <button className={'btn' + (filter === 'week' ? ' dark' : '')} onClick={() => setFilter('week')}>
                 <I.Calendar size={15}/> {t('filter_week')}
               </button>
               <button className="btn primary" onClick={() => setShowCreate(true)}><I.Plus size={15}/> {t('sessions_new')}</button>
@@ -248,10 +254,10 @@ export function SessionsScreen({ onMark }) {
           <div className="table-wrap">
             <div className="table-toolbar">
               <SearchableGroupSelect value={attGroupFilter} onChange={v => setAttGroupFilter(v)} groups={groups} />
-              <div style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--muted)' }}>{myAttendances.length} yozuv</div>
+              <div className="toolbar-meta">{myAttendances.length} {t('records_sfx')}</div>
             </div>
             {attendancesLoading ? (
-              <div className="empty" style={{ padding: 32 }}>{t('loading')}</div>
+              <div className="empty loading" style={{ padding: 32 }}>{t('loading')}</div>
             ) : (
               <table className="table">
                 <thead>
@@ -284,47 +290,43 @@ export function SessionsScreen({ onMark }) {
 
       {activeTab === 'sessions' && (
       <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
-        <SearchableGroupSelect value={groupFilter} onChange={v => setGroupFilter(v)} groups={groups} />
-        {groupFilter && <button className="btn sm ghost" onClick={() => setGroupFilter('')}><I.X size={13}/> {t('clear_filters')}</button>}
-      </div>
       <div className="card" style={{ marginBottom: 16, padding: 14 }}>
-        <div className="week-calendar" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8 }}>
+        <div className="week-calendar">
           {days.map(d => {
             const isToday = d.iso === today;
             const isSelected = d.iso === selectedDate;
             return (
-              <div
+              <button
                 key={d.iso}
-                onClick={() => { setSelectedDate(d.iso); setFilter('all'); }}
-                style={{
-                  padding: 12,
-                  borderRadius: 10,
-                  border: isSelected ? '1px solid var(--accent)' : '1px solid transparent',
-                  background: isSelected ? 'var(--selected)' : isToday ? 'var(--primary)' : 'var(--surface-2)',
-                  color: isSelected ? 'var(--text)' : isToday ? 'white' : 'var(--text)',
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                }}
+                type="button"
+                className={'week-day' + (isSelected ? ' selected' : isToday ? ' today' : '')}
+                aria-pressed={isSelected}
+                onClick={() => { setSelectedDate(isSelected ? '' : d.iso); setFilter('all'); }}
               >
-                <div style={{ fontSize: 11, opacity: isSelected ? 0.8 : isToday ? 0.8 : 0.6, fontWeight: 600, textTransform: 'uppercase' }}>{d.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 700, margin: '4px 0' }}>{d.num}</div>
-                <div style={{ fontSize: 11, opacity: isSelected ? 0.85 : isToday ? 0.85 : 0.7 }}>{d.count > 0 ? d.count + ' ' + t('session_sfx') : '—'}</div>
-              </div>
+                <span className="wd">{d.label}</span>
+                <span className="dn">{d.num}</span>
+                <span className="cnt">{d.count > 0 ? d.count + ' ' + t('session_sfx') : '—'}</span>
+              </button>
             );
           })}
         </div>
       </div>
 
-      <div className="filter-buttons" style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-        {[['today', t('sessions_filter_today')], ['upcoming', t('sessions_filter_upcoming')], ['past', t('sessions_filter_completed')], ['all', t('sessions_filter_all')]].map(([k, l]) => (
-          <button key={k} onClick={() => setFilter(k)} className={'btn sm ' + (filter === k ? '' : 'ghost')} style={{ background: filter === k ? 'var(--selected)' : 'transparent' }}>{l}</button>
-        ))}
-        {selectedDate && (
-          <button className="btn sm ghost" onClick={() => setSelectedDate('')}>
-            {t('sessions_date_filter')}: {selectedDate} <I.X size={13}/>
-          </button>
-        )}
+      <div className="toolbar filter-buttons">
+        <div className="pill-row">
+          {[['today', t('sessions_filter_today')], ['upcoming', t('sessions_filter_upcoming')], ['past', t('sessions_filter_completed')], ['all', t('sessions_filter_all')]].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setFilter(k)} className={'pill' + (filter === k ? ' active' : '')}>{l}</button>
+          ))}
+          {selectedDate && (
+            <button type="button" className="date-tag" onClick={() => setSelectedDate('')}>
+              {fmtDate(selectedDate)} <I.X size={13}/>
+            </button>
+          )}
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <SearchableGroupSelect value={groupFilter} onChange={v => setGroupFilter(v)} groups={groups} />
+          {groupFilter && <button className="btn sm ghost" onClick={() => setGroupFilter('')}><I.X size={13}/> {t('clear_filters')}</button>}
+        </div>
       </div>
 
       <div className="table-wrap">
@@ -340,10 +342,10 @@ export function SessionsScreen({ onMark }) {
                 </td>
               </tr>
             )}
-            {list.slice(0, 20).map(s => (
+            {list.slice((page - 1) * SESSIONS_PAGE, page * SESSIONS_PAGE).map(s => (
               <tr key={s.id} onClick={() => onMark(s.id)}>
-                <td style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtDate(s.session_date)}</td>
-                <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{s.start_time} – {s.end_time}</td>
+                <td style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{fmtDate(s.session_date)}</td>
+                <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 750, whiteSpace: 'nowrap' }}>{s.start_time?.slice(0, 5)} – {s.end_time?.slice(0, 5)}</td>
                 <td>{s.topic}</td>
                 <td><span className="chip navy">{groupMap[s.group_id] || '—'}</span></td>
                 <td style={{ color: 'var(--muted)' }}>{s.station || '—'}</td>
@@ -353,10 +355,10 @@ export function SessionsScreen({ onMark }) {
                   {s._status === 'upcoming' && <span className="chip"><span className="chip-dot"></span>{t('sessions_upcoming_chip')}</span>}
                 </td>
                 <td style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-                  <button className="icon-btn" style={{ width: 30, height: 30 }} onClick={(e) => {
+                  <button className="icon-btn plain" aria-label="Actions" onClick={(e) => {
                     if (openMenuSessionId === s.id) { setOpenMenuSessionId(null); return; }
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setMenuPos({ x: rect.right - 160, y: rect.bottom + 4 });
+
+                    setMenuPos(menuPosition(e.currentTarget, 3));
                     setOpenMenuSessionId(s.id);
                   }}><I.More size={15}/></button>
                   {openMenuSessionId === s.id && (
@@ -380,6 +382,7 @@ export function SessionsScreen({ onMark }) {
             ))}
           </tbody>
         </table>
+        {list.length > SESSIONS_PAGE && <Pager page={page} totalPages={Math.ceil(list.length / SESSIONS_PAGE)} onPage={setPage} total={list.length} pageSize={SESSIONS_PAGE}/>}
       </div>
 
       {showCreate && (
@@ -405,7 +408,7 @@ export function SessionsScreen({ onMark }) {
                   {[...newSession.session_dates].sort().map(d => (
                     <button key={d} type="button"
                       onClick={() => setNewSession(p => ({ ...p, session_dates: p.session_dates.filter(x => x !== d) }))}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'var(--selected)', color: 'var(--accent)', fontWeight: 600, cursor: 'pointer', fontSize: 12.5 }}>
+                      className="date-tag">
                       {fmtDate(d)} <I.X size={12}/>
                     </button>
                   ))}

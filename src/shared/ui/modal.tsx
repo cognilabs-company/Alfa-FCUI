@@ -29,14 +29,14 @@ export function Modal({ open = true, onClose, title, subtitle, size, footer, chi
       <div className={'modal' + (size ? ' ' + size : '')} role="dialog" aria-modal="true">
         {(title || onClose) && (
           <div className="modal-header">
-            <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ minWidth: 0, flex: '1 1 200px' }}>
               {title && <h3 className="modal-title">{title}</h3>}
               {subtitle && <div className="modal-sub">{subtitle}</div>}
             </div>
             {headerExtra}
             {onClose && (
-              <button className="icon-btn" onClick={onClose} aria-label="Close">
-                <Icon.X size={16} />
+              <button className="icon-btn plain modal-close" onClick={onClose} aria-label="Close">
+                <Icon.X size={17} />
               </button>
             )}
           </div>

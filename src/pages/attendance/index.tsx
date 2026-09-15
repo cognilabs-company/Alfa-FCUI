@@ -15,6 +15,7 @@ import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
 import { avatarColor } from '@/shared/lib/avatar';
 import { fmtDate } from '@/shared/lib/format';
+import { Stat } from '@/shared/ui/stat';
 
 export function AttendanceMark({ sessionId, onBack }) {
   const I = Icon;
@@ -110,20 +111,20 @@ export function AttendanceMark({ sessionId, onBack }) {
     }
   }
 
-  if (loading) return <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>;
+  if (loading) return <div className="empty loading" style={{ padding: 64 }}>{t('loading')}</div>;
   if (!session) return <div className="empty" style={{ padding: 48 }}>{t('not_found')}</div>;
 
   return (
     <div>
-      <button className="btn ghost sm" onClick={onBack} style={{ marginBottom: 14 }}><I.ArrowLeft size={14}/> {t('sessions_tab_sessions')}</button>
+      <button className="btn ghost sm back-link" onClick={onBack}><I.ArrowLeft size={15}/> {t('sessions_tab_sessions')}</button>
 
       <div className="page-head">
         <div>
           <h1 className="page-title">{session.topic}</h1>
-          <div className="page-sub" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <span><I.Calendar size={12} style={{ verticalAlign: -2 }}/> {fmtDate(session.session_date)}</span>
-            <span><I.Clock size={12} style={{ verticalAlign: -2 }}/> {session.start_time} – {session.end_time}</span>
-            {session.station && <span><I.MapPin size={12} style={{ verticalAlign: -2 }}/> {session.station}</span>}
+          <div className="page-sub" style={{ display: 'flex', gap: '6px 16px', flexWrap: 'wrap' }}>
+            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><I.Calendar size={14}/> {fmtDate(session.session_date)}</span>
+            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><I.Clock size={14}/> {session.start_time?.slice(0, 5)} – {session.end_time?.slice(0, 5)}</span>
+            {session.station && <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><I.MapPin size={14}/> {session.station}</span>}
           </div>
         </div>
         <div className="page-actions">
@@ -134,55 +135,40 @@ export function AttendanceMark({ sessionId, onBack }) {
       </div>
 
       <div className="grid-4" style={{ marginBottom: 16 }}>
-        <div className="stat" style={{ padding: 14 }}>
-          <div className="stat-label">{t('total')}</div>
-          <div className="stat-value" style={{ fontSize: 22 }}>{students.length}</div>
-        </div>
-        <div className="stat" style={{ padding: 14, background: 'var(--success-soft)', borderColor: 'transparent' }}>
-          <div className="stat-label" style={{ color: 'var(--success)' }}>{t('att_present')}</div>
-          <div className="stat-value" style={{ color: 'var(--success)', fontSize: 22 }}>{counts.present}</div>
-        </div>
-        <div className="stat" style={{ padding: 14, background: 'var(--warning-soft)', borderColor: 'transparent' }}>
-          <div className="stat-label" style={{ color: 'var(--warning)' }}>{t('att_late')}</div>
-          <div className="stat-value" style={{ color: 'var(--warning)', fontSize: 22 }}>{counts.late}</div>
-        </div>
-        <div className="stat" style={{ padding: 14, background: 'var(--danger-soft)', borderColor: 'transparent' }}>
-          <div className="stat-label" style={{ color: 'var(--danger)' }}>{t('att_absent')}</div>
-          <div className="stat-value" style={{ color: 'var(--danger)', fontSize: 22 }}>{counts.absent}</div>
-        </div>
+        <Stat feature label={t('profile_attendance')} value={students.length ? `${Math.round(counts.present / students.length * 100)}%` : '—'} icon={I.Activity}/>
+        <Stat label={t('att_present')} value={counts.present} sub={`${t('total')}: ${students.length}`} tone="success" icon={I.Check}/>
+        <Stat label={t('att_late')} value={counts.late} tone="warning" icon={I.Clock}/>
+        <Stat label={t('att_absent')} value={counts.absent} tone="danger" icon={I.X}/>
       </div>
 
-      {students.length > 0 && (
-        <div className="card" style={{ marginBottom: 14, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{t('att_mark_all')}</span>
-          <button className="btn sm" disabled={saving} onClick={() => markAll('present')}>
-            <I.Check size={13} color="var(--success)"/> {t('att_btn_present')}
-          </button>
-          <button className="btn sm" disabled={saving} onClick={() => markAll('absent')}>
-            <I.X size={13} color="var(--danger)"/> {t('att_btn_absent')}
-          </button>
-          <div style={{ flex: 1 }}></div>
-          {students.length > 0 && <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{t('att_attendance_label')} <strong style={{ color: 'var(--text)' }}>{Math.round(counts.present / students.length * 100)}%</strong></span>}
-        </div>
-      )}
-
-      {students.length === 0 && <div className="empty">{t('att_no_students')}</div>}
+      {students.length === 0 && <div className="card empty">{t('att_no_students')}</div>}
 
       {students.length > 0 && (
         <div className="table-wrap">
+          <div className="table-toolbar">
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-2)' }}>{t('att_mark_all')}</span>
+            <button className="btn sm" disabled={saving} onClick={() => markAll('present')}>
+              <I.Check size={14} color="var(--success)"/> {t('att_btn_present')}
+            </button>
+            <button className="btn sm" disabled={saving} onClick={() => markAll('absent')}>
+              <I.X size={14} color="var(--danger)"/> {t('att_btn_absent')}
+            </button>
+            <span className="toolbar-meta">{students.length} {t('nav_students').toLowerCase()}</span>
+          </div>
+          <div className="table-scroll">
           <table className="table">
             <thead>
-              <tr><th>{t('att_col_student')}</th><th style={{ width: 380, textAlign: 'center' }}>{t('att_col_status')}</th><th>{t('att_col_comment')}</th></tr>
+              <tr><th>{t('att_col_student')}</th><th style={{ width: 340 }}>{t('att_col_status')}</th><th>{t('att_col_comment')}</th></tr>
             </thead>
             <tbody>
               {students.map(s => {
                 const m = marks[s.id] || 'present';
                 const name = `${s.first_name} ${s.last_name}`;
                 return (
-                  <tr key={s.id} style={{ cursor: 'default' }}>
+                  <tr key={s.id} className="static">
                     <td>
                       <div className="row-name">
-                        <div className="avatar sm" style={{ background: avatarColor(s.id) }}>{s.first_name[0]}{s.last_name[0]}</div>
+                        <div className="avatar sm" style={{ background: avatarColor(s.id) }}>{s.first_name?.[0]}{s.last_name?.[0]}</div>
                         <div className="meta">
                           <span className="name">{name}</span>
                           <span className="sub">#{String(s.id).padStart(4, '0')}</span>
@@ -190,43 +176,45 @@ export function AttendanceMark({ sessionId, onBack }) {
                       </div>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
+                      <div className="att-toggle" role="radiogroup" aria-label={name}>
                         {[
-                          { k: 'present', l: t('att_btn_present'), color: 'var(--success)', soft: 'var(--success-soft)', icon: 'Check' },
-                          { k: 'late', l: t('att_btn_late'), color: 'var(--warning)', soft: 'var(--warning-soft)', icon: 'Clock' },
-                          { k: 'absent', l: t('att_btn_absent'), color: 'var(--danger)', soft: 'var(--danger-soft)', icon: 'X' },
+                          { k: 'present', l: t('att_btn_present'), icon: 'Check' },
+                          { k: 'late', l: t('att_btn_late'), icon: 'Clock' },
+                          { k: 'absent', l: t('att_btn_absent'), icon: 'X' },
                         ].map(b => {
                           const Ic = I[b.icon];
                           const sel = m === b.k;
                           return (
-                            <button key={b.k} disabled={rowSaving[s.id]} onClick={() => setMark(s.id, b.k)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: '1px solid ' + (sel ? b.color : 'var(--border)'), background: sel ? b.soft : 'var(--surface)', color: sel ? b.color : 'var(--text-2)', fontWeight: sel ? 700 : 500, fontSize: 12.5, cursor: 'pointer', opacity: rowSaving[s.id] ? 0.6 : 1 }}>
-                              <Ic size={13}/> {b.l}
+                            <button key={b.k} type="button" role="radio" aria-checked={sel}
+                              className={b.k + (sel ? ' on' : '')}
+                              disabled={rowSaving[s.id]} onClick={() => setMark(s.id, b.k)}>
+                              <Ic size={14}/> {b.l}
                             </button>
                           );
                         })}
                       </div>
                     </td>
                     <td>
-                      <input placeholder={m !== 'present' ? t('att_placeholder_reason') : t('att_placeholder_optional')} value={comments[s.id] || ''} onChange={e => setComments({ ...comments, [s.id]: e.target.value })} style={{ width: '100%', height: 32, border: '1px solid var(--border)', borderRadius: 6, padding: '0 10px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}/>
+                      <input className="input" placeholder={m !== 'present' ? t('att_placeholder_reason') : t('att_placeholder_optional')} value={comments[s.id] || ''} onChange={e => setComments({ ...comments, [s.id]: e.target.value })}/>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       {/* Konspekt upload */}
-      <div className="card" style={{ marginTop: 16, padding: 18 }}>
+      <div className="card" style={{ marginTop: 16, padding: 20 }}>
         <div className="card-title" style={{ marginBottom: 12 }}>Konspekt</div>
         {session.konspekt_url && (
-          <div style={{ marginBottom: 12, padding: 10, background: 'var(--surface-2)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <I.FileText size={15} color="var(--accent)" />
-            <a href={session.konspekt_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: 13, fontWeight: 600 }}>{t('konspekt_view')}</a>
-          </div>
+          <a className="alert info" href={session.konspekt_url} target="_blank" rel="noopener noreferrer" style={{ marginBottom: 12, textDecoration: 'none', alignItems: 'center' }}>
+            <I.FileText size={16}/> {t('konspekt_view')}
+          </a>
         )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="form-row">
           <div className="field">
             <label>{t('konspekt_file_label')}</label>
             <input type="file" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png" onChange={e => setKonspektFile(e.target.files?.[0] || null)} />

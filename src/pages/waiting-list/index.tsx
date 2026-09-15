@@ -73,6 +73,7 @@ import {
 import { fmt, fmtDate } from '@/shared/lib/format';
 import { Stat } from '@/shared/ui/stat';
 import { Modal, DetailGrid } from '@/shared/ui/modal';
+import { Pager } from '@/shared/ui/pager';
 
 export function WaitingListScreen({ onToast } = {}) {
   const I = Icon;
@@ -159,7 +160,7 @@ export function WaitingListScreen({ onToast } = {}) {
 
   async function save() {
     if (!form.student_first_name.trim() || !form.student_last_name.trim() || !form.birth_year) {
-      onToast?.(t('toast_required'));
+      onToast?.(t('toast_required'), 'error');
       return;
     }
     setSaving(true);
@@ -182,7 +183,7 @@ export function WaitingListScreen({ onToast } = {}) {
       setShowModal(false);
       loadList();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     } finally {
       setSaving(false);
     }
@@ -195,7 +196,7 @@ export function WaitingListScreen({ onToast } = {}) {
       onToast?.(t('toast_candidate_deleted'));
       loadList();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     }
   }
 
@@ -223,24 +224,26 @@ export function WaitingListScreen({ onToast } = {}) {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="toolbar">
         <SearchableGroupSelect value={groupFilter} onChange={v => { setGroupFilter(v); setPage(1); }} groups={groups} />
         <input
+          className="input"
           type="number" placeholder={t('wl_birth_year')} value={birthYearFilter}
           onChange={e => { setBirthYearFilter(e.target.value); setPage(1); }}
-          style={{ height: 36, padding: '0 10px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: 130 }}
+          style={{ width: 140 }}
         />
         {(groupFilter || birthYearFilter) && (
-          <button className="btn sm ghost" onClick={() => { setGroupFilter(''); setBirthYearFilter(''); setPage(1); }}>
-            <I.X size={13}/> {t('wl_clear')}
+          <button className="btn ghost" onClick={() => { setGroupFilter(''); setBirthYearFilter(''); setPage(1); }}>
+            <I.X size={14}/> {t('wl_clear')}
           </button>
         )}
       </div>
 
-      {loading ? (
-        <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>
+      {loading && rows.length === 0 ? (
+        <div className="empty loading" style={{ padding: 48 }}>{t('loading')}</div>
       ) : (
-        <div className="table-wrap">
+        <div className={'table-wrap' + (loading ? ' is-loading' : '')}>
+          <div className="table-scroll">
           <table className="table">
             <thead>
               <tr>
@@ -255,12 +258,12 @@ export function WaitingListScreen({ onToast } = {}) {
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 && <tr><td colSpan={8} style={{ padding: 18, color: 'var(--muted)' }}>{t('waiting_not_found')}</td></tr>}
+              {rows.length === 0 && <tr className="static"><td colSpan={8} className="empty-cell">{t('waiting_not_found')}</td></tr>}
               {rows.map((r) => {
                 const p = Number(r.priority || 0);
                 return (
-                  <tr key={r.id}>
-                    <td style={{ fontWeight: 600 }}>{r.student_first_name} {r.student_last_name}</td>
+                  <tr key={r.id} className="static">
+                    <td style={{ fontWeight: 750 }}>{r.student_first_name} {r.student_last_name}</td>
                     <td style={{ fontSize: 12.5 }}>
                       {(r.father_name || r.father_phone) && (
                         <div><span style={{ color: 'var(--muted)' }}>{t('wl_father_name')}:</span> {r.father_name || '—'} {r.father_phone ? `· ${r.father_phone}` : ''}</div>
@@ -273,7 +276,7 @@ export function WaitingListScreen({ onToast } = {}) {
                     <td style={{ fontVariantNumeric: 'tabular-nums' }}>{r.birth_year || '—'}</td>
                     <td>{groupMap[r.group_id] || (r.group_id ? `#${r.group_id}` : '—')}</td>
                     <td>
-                      <span className={'chip' + (p >= 8 ? ' danger' : p >= 4 ? ' warning' : ' success')} style={{ fontSize: 11.5, fontWeight: 700 }}>
+                      <span className={'chip' + (p >= 8 ? ' danger' : p >= 4 ? ' warning' : ' success')} style={{ minWidth: 30, justifyContent: 'center', fontFamily: 'var(--font-display)', fontWeight: 600 }}>
                         {p}
                       </span>
                     </td>
@@ -283,8 +286,8 @@ export function WaitingListScreen({ onToast } = {}) {
                     <td style={{ color: 'var(--muted)', fontSize: 12.5, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.notes || '—'}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="icon-btn" style={{ width: 30, height: 30 }} title={t('edit')} onClick={() => openEdit(r)}><I.Edit size={13} /></button>
-                        <button className="icon-btn danger" style={{ width: 30, height: 30 }} title={t('delete')} onClick={() => remove(r.id)}><I.Trash size={13} /></button>
+                        <button className="icon-btn plain" title={t('edit')} aria-label={t('edit')} onClick={() => openEdit(r)}><I.Edit size={15} /></button>
+                        <button className="icon-btn plain danger" title={t('delete')} aria-label={t('delete')} onClick={() => remove(r.id)}><I.Trash size={15} /></button>
                       </div>
                     </td>
                   </tr>
@@ -292,13 +295,8 @@ export function WaitingListScreen({ onToast } = {}) {
               })}
             </tbody>
           </table>
-          {totalPages > 1 && (
-            <div style={{ display: 'flex', gap: 6, padding: '12px 16px', borderTop: '1px solid var(--border)', alignItems: 'center' }}>
-              <button className="btn sm ghost" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>‹ {t('prev')}</button>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{page} / {totalPages} · {t('total')}: {totalCount}</span>
-              <button className="btn sm ghost" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('next')} ›</button>
-            </div>
-          )}
+          </div>
+          {totalPages > 1 && <Pager page={page} totalPages={totalPages} onPage={setPage} total={totalCount} pageSize={50}/>}
         </div>
       )}
 
@@ -312,7 +310,7 @@ export function WaitingListScreen({ onToast } = {}) {
               <button className="btn ghost" onClick={() => { setShowNextModal(false); openEdit(nextEntry); }}>
                 <I.Edit size={13}/> {t('edit')}
               </button>
-              <button className="btn ghost danger-ghost" onClick={() => { setShowNextModal(false); remove(nextEntry.id); }}>
+              <button className="btn danger-ghost" onClick={() => { setShowNextModal(false); remove(nextEntry.id); }}>
                 <I.Trash size={13}/> {t('delete')}
               </button>
             </>
@@ -320,18 +318,18 @@ export function WaitingListScreen({ onToast } = {}) {
         >
           {nextEntry ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ padding: '12px 14px', background: 'var(--success-soft)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--success)' }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--success)' }}>{nextEntry.student_first_name} {nextEntry.student_last_name}</div>
-                <div style={{ fontSize: 13, color: 'var(--text)', marginTop: 2 }}>{t('wl_birth_year')}: {nextEntry.birth_year || '—'} · {t('wl_priority')}: <strong>{nextEntry.priority ?? 0}</strong></div>
+              <div className="stat feature">
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600, color: 'var(--accent)', letterSpacing: '-0.02em' }}>{nextEntry.student_first_name} {nextEntry.student_last_name}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(238,242,236,0.72)' }}>{t('wl_birth_year')}: {nextEntry.birth_year || '—'} · {t('wl_priority')}: <strong>{nextEntry.priority ?? 0}</strong></div>
               </div>
               <DetailGrid items={[
                 nextEntry.father_name && {
                   label: t('wl_father_name'),
-                  value: <>{nextEntry.father_name}{nextEntry.father_phone && <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--accent)' }}>{nextEntry.father_phone}</div>}</>,
+                  value: <>{nextEntry.father_name}{nextEntry.father_phone && <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--accent-ink)' }}>{nextEntry.father_phone}</div>}</>,
                 },
                 nextEntry.mother_name && {
                   label: t('wl_mother_name'),
-                  value: <>{nextEntry.mother_name}{nextEntry.mother_phone && <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--accent)' }}>{nextEntry.mother_phone}</div>}</>,
+                  value: <>{nextEntry.mother_name}{nextEntry.mother_phone && <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--accent-ink)' }}>{nextEntry.mother_phone}</div>}</>,
                 },
                 nextEntry.notes && { label: t('wl_notes'), value: nextEntry.notes },
                 { label: t('wl_added_date'), value: fmtDate(nextEntry.created_at) },

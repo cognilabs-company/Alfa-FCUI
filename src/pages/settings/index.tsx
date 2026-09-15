@@ -81,6 +81,13 @@ export function SettingsScreen({ theme, setTheme } = {}) {
   const [rawSettings, setRawSettings] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
+  // inline result banner instead of blocking alert() dialogs
+  const [notice, setNotice] = React.useState(null);
+  React.useEffect(() => {
+    if (!notice) return;
+    const id = setTimeout(() => setNotice(null), 3500);
+    return () => clearTimeout(id);
+  }, [notice]);
   const [activeTab, setActiveTab] = React.useState('general');
 
   // admin / archive
@@ -142,9 +149,9 @@ export function SettingsScreen({ theme, setTheme } = {}) {
     setSaving(true);
     try {
       await apiUpdateSettings(settings);
-      alert(t('toast_settings_saved'));
+      setNotice({ ok: true, text: t('toast_settings_saved') });
     } catch (e) {
-      alert(e.message);
+      setNotice({ ok: false, text: e.message });
     } finally {
       setSaving(false);
     }
@@ -183,9 +190,9 @@ export function SettingsScreen({ theme, setTheme } = {}) {
       else await apiUnarchiveYear(year);
       const aRes = await apiGetArchiveStats(year);
       setArchiveStats(aRes?.data || null);
-      alert(action === 'archive' ? t('toast_archived') : t('toast_unarchived'));
+      setNotice({ ok: true, text: action === 'archive' ? t('toast_archived') : t('toast_unarchived') });
     } catch (e) {
-      alert(e.message);
+      setNotice({ ok: false, text: e.message });
     }
   }
 
@@ -205,7 +212,7 @@ export function SettingsScreen({ theme, setTheme } = {}) {
     }
   }
 
-  if (loading) return <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>;
+  if (loading) return <div className="empty loading" style={{ padding: 64 }}>{t('loading')}</div>;
 
   const isSavingTab = ['general', 'billing', 'integrations'].includes(activeTab);
 
@@ -225,8 +232,14 @@ export function SettingsScreen({ theme, setTheme } = {}) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 14 }}>
-        <div className="card" style={{ padding: 10, height: 'fit-content', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {notice && (
+        <div className={'alert ' + (notice.ok ? 'success' : 'danger')} role="status" style={{ marginBottom: 14 }}>
+          {notice.ok ? <I.Check size={16}/> : <I.AlertTriangle size={16}/>} <span>{notice.text}</span>
+        </div>
+      )}
+
+      <div className="settings-layout">
+        <div className="card settings-nav">
           {tabDefs.map((tab) => {
             const Ic = tab.icon;
             const active = activeTab === tab.id;
@@ -238,25 +251,27 @@ export function SettingsScreen({ theme, setTheme } = {}) {
           })}
         </div>
 
-        <div className="card" style={{ padding: 20 }}>
+        <div className="card" style={{ padding: 22, minWidth: 0 }}>
 
           {activeTab === 'general' && (
             <div>
+              {rawSettings.length === 0 && <div className="empty">{t('settings_no_data')}</div>}
               {rawSettings.length > 0 && (
-                <div style={{ marginTop: 20 }}>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>{t('settings_all_settings')}</div>
+                <div>
+                  <div className="section-label">{t('settings_all_settings')}</div>
                   <div className="table-wrap">
                     <table className="table">
                       <thead><tr><th>{t('settings_col_key')}</th><th>{t('settings_col_value')}</th><th>{t('settings_col_desc')}</th></tr></thead>
                       <tbody>
                         {rawSettings.map((s) => (
-                          <tr key={s.id || s.key}>
-                            <td style={{ fontFamily: 'monospace', fontSize: 12.5, color: 'var(--muted)' }}>{s.key}</td>
+                          <tr key={s.id || s.key} className="static">
+                            <td><span className="kbd" style={{ fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: 12 }}>{s.key}</span></td>
                             <td>
                               <input
+                                className="input"
                                 value={settings[s.key] ?? s.value ?? ''}
                                 onChange={e => setVal(s.key, e.target.value)}
-                                style={{ width: '100%', height: 30, border: '1px solid var(--border)', borderRadius: 6, padding: '0 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}
+                                style={{ width: '100%', height: 36 }}
                               />
                             </td>
                             <td style={{ fontSize: 12, color: 'var(--muted)' }}>{s.description || '—'}</td>
@@ -280,7 +295,7 @@ export function SettingsScreen({ theme, setTheme } = {}) {
           )}
 
           {activeTab === 'integrations' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            <div className="form-stack">
               <div className="field"><label>Click merchant id</label><input value={settings.click_merchant_id || ''} onChange={(e) => setVal('click_merchant_id', e.target.value)} /></div>
               <div className="field"><label>Payme merchant id</label><input value={settings.payme_merchant_id || ''} onChange={(e) => setVal('payme_merchant_id', e.target.value)} /></div>
               <div className="field"><label>SMS provider token</label><input value={settings.sms_token || ''} onChange={(e) => setVal('sms_token', e.target.value)} /></div>
@@ -289,8 +304,8 @@ export function SettingsScreen({ theme, setTheme } = {}) {
 
           {activeTab === 'import' && (
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{t('settings_import_title')}</div>
-              <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>
+              <div className="card-title" style={{ marginBottom: 6 }}>{t('settings_import_title')}</div>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--muted)', marginBottom: 16 }}>
                 {t('settings_import_desc')}
               </div>
               <div className="grid-3" style={{ gap: 8, marginBottom: 20 }}>
@@ -308,8 +323,8 @@ export function SettingsScreen({ theme, setTheme } = {}) {
                   ['status', t('import_col_status'), false],
                   ['group_name', t('import_col_group'), false],
                 ].map(([key, label, required]) => (
-                  <div key={key} style={{ padding: '8px 12px', background: required ? 'var(--success-soft)' : 'var(--surface-2)', borderRadius: 8, border: '1px solid ' + (required ? 'transparent' : 'var(--border)') }}>
-                    <div style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: required ? 'var(--success)' : 'var(--text)' }}>{key}</div>
+                  <div key={key} className="detail-item" style={required ? { background: 'var(--accent-soft)' } : undefined}>
+                    <div style={{ fontSize: 12, fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontWeight: 700, color: 'var(--text)' }}>{key}</div>
                     <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{label}{required ? ' *' : ''}</div>
                   </div>
                 ))}
@@ -320,7 +335,7 @@ export function SettingsScreen({ theme, setTheme } = {}) {
                 <input type="file" accept=".xlsx,.xls,.csv" onChange={e => { setImportFile(e.target.files?.[0] || null); setImportResult(null); }} />
               </div>
               {importFile && (
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', marginBottom: 12 }}>
                   {t('settings_import_selected')}: <strong style={{ color: 'var(--text)' }}>{importFile.name}</strong> ({(importFile.size / 1024).toFixed(1)} KB)
                 </div>
               )}
@@ -329,7 +344,7 @@ export function SettingsScreen({ theme, setTheme } = {}) {
               </button>
 
               {importResult && (
-                <div style={{ marginTop: 16, padding: 14, borderRadius: 10, background: importResult.ok ? 'var(--success-soft)' : 'var(--danger-soft)', border: '1px solid ' + (importResult.ok ? 'var(--success)' : 'var(--danger)') }}>
+                <div className={'alert ' + (importResult.ok ? 'success' : 'danger')} style={{ marginTop: 16, display: 'block' }}>
                   {importResult.ok ? (
                     <div>
                       <div style={{ fontWeight: 700, color: 'var(--success)', marginBottom: 6 }}>{t('settings_import_ok')}</div>
@@ -357,28 +372,28 @@ export function SettingsScreen({ theme, setTheme } = {}) {
 
           {activeTab === 'backup' && (
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{t('settings_backup_title')}</div>
-              <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>{t('settings_backup_desc')}</div>
+              <div className="card-title" style={{ marginBottom: 6 }}>{t('settings_backup_title')}</div>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--muted)', marginBottom: 20 }}>{t('settings_backup_desc')}</div>
 
-              <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
                 <button className="btn primary" onClick={runBackup} disabled={backupRunning}>
                   <I.Save size={14} /> {backupRunning ? t('settings_backup_running') : t('settings_backup_btn')}
                 </button>
                 <button className="btn ghost" onClick={refreshBackupStatus} disabled={backupLoading}>
-                  <I.ArrowRight size={14} /> {t('settings_backup_refresh')}
+                  <I.RefreshCw size={14} /> {t('settings_backup_refresh')}
                 </button>
               </div>
 
               {backupMsg && (
-                <div style={{ marginBottom: 16, padding: '10px 14px', background: 'var(--success-soft)', border: '1px solid var(--success)', borderRadius: 8, fontSize: 13, color: 'var(--success)', fontWeight: 500 }}>
+                <div className="alert success" style={{ marginBottom: 16 }}>
                   {backupMsg}
                 </div>
               )}
 
-              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>{t('settings_backup_status_title')}</div>
+              <div className="section-label">{t('settings_backup_status_title')}</div>
 
               {backupLoading ? (
-                <div style={{ color: 'var(--muted)', fontSize: 13 }}>{t('loading')}</div>
+                <div className="empty loading">{t('loading')}</div>
               ) : backupStatus ? (
                 <DetailGrid
                   items={Object.entries(backupStatus).map(([k, v]) => ({
@@ -396,8 +411,8 @@ export function SettingsScreen({ theme, setTheme } = {}) {
 
           {activeTab === 'admin' && (
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>{t('settings_admin_title')}</div>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 16 }}>
+              <div className="card-title" style={{ marginBottom: 16 }}>{t('settings_admin_title')}</div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap' }}>
                 <div className="field" style={{ margin: 0 }}>
                   <label>{t('year_label')}</label>
                   <input type="number" value={adminYear} onChange={(e) => setAdminYear(e.target.value)} style={{ width: 120 }} />
@@ -406,9 +421,9 @@ export function SettingsScreen({ theme, setTheme } = {}) {
                 <button className="btn ghost" onClick={() => archiveYear('unarchive')} disabled={adminLoading}>{t('settings_unarchive_btn')}</button>
               </div>
 
-              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>{t('settings_archive_stats')}</div>
+              <div className="section-label">{t('settings_archive_stats')}</div>
               {adminLoading ? (
-                <div style={{ color: 'var(--muted)', fontSize: 13 }}>{t('loading')}</div>
+                <div className="empty loading">{t('loading')}</div>
               ) : archiveStats ? (
                 <DetailGrid
                   items={Object.entries(archiveStats).map(([k, v]) => ({

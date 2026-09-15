@@ -71,7 +71,7 @@ import {
   apiGetAuditLogs,
 } from '@/shared/api';
 
-import { fmt, fmtDate, fmtDateTime } from '@/shared/lib/format';
+import { fmt, fmtDate, fmtDateTime, monthLabel } from '@/shared/lib/format';
 import { Stat } from '@/shared/ui/stat';
 import { Modal, DetailGrid } from '@/shared/ui/modal';
 
@@ -100,6 +100,15 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
   const [editForm, setEditForm] = React.useState({ monthly_fee: '', customer_full_name: '', customer_passport_number: '', customer_address: '' });
   const [statusModal, setStatusModal] = React.useState(false);
   const [newStatus, setNewStatus] = React.useState('');
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  const moreRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!moreOpen) return;
+    const close = (e) => { if (moreRef.current && !moreRef.current.contains(e.target)) setMoreOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [moreOpen]);
 
   async function load() {
     if (!contractId) { setLoading(false); return; }
@@ -157,7 +166,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
       onToast?.(t('toast_contract_terminated'));
       load();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     } finally { setSaving(false); }
   }
 
@@ -170,7 +179,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
       onToast?.(t('toast_monthly_updated'));
       load();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     } finally { setSaving(false); }
   }
 
@@ -183,7 +192,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
       onToast?.(t('toast_dates_updated'));
       load();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     } finally { setSaving(false); }
   }
 
@@ -201,7 +210,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
       onToast?.(t('toast_contract_updated'));
       load();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     } finally { setSaving(false); }
   }
 
@@ -214,23 +223,54 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
       onToast?.(t('toast_status_updated'));
       load();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     } finally { setSaving(false); }
   }
 
-  if (loading) return <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>;
+  if (loading) return <div className="empty loading" style={{ padding: 64 }}>{t('loading')}</div>;
   if (!contract) return <div className="empty" style={{ padding: 48 }}>{t('contracts_not_found')}</div>;
 
   const cf = contract.custom_fields || {};
   const cust = cf.customer || {};
   const studentName = student ? `${student.first_name || ''} ${student.last_name || ''}`.trim() : `#${contract.student_id || '—'}`;
 
+  const openEdit = () => {
+    setMoreOpen(false);
+    setEditForm({
+      monthly_fee: String(contract.monthly_fee_amount ?? contract.monthly_fee ?? ''),
+      customer_full_name: contract.customer_full_name ?? cust.full_name ?? '',
+      customer_passport_number: contract.customer_passport_number ?? cust.passport_number ?? '',
+      customer_address: contract.customer_address ?? cust.address ?? '',
+    });
+    setEditModal(true);
+  };
+  const openDates = () => {
+    setMoreOpen(false);
+    setDatesForm({
+      start_date: contract.contract_start_date ?? contract.start_date ?? '',
+      end_date: contract.contract_end_date ?? contract.end_date ?? '',
+    });
+    setDatesModal(true);
+  };
+  const openStatus = () => { setMoreOpen(false); setNewStatus(contract.status); setStatusModal(true); };
+  const openTerminateModal = () => {
+    setMoreOpen(false);
+    setTerminateReason('');
+    const _n = new Date();
+    _n.setMinutes(_n.getMinutes() - _n.getTimezoneOffset());
+    setTerminateAt(_n.toISOString().slice(0, 16));
+    setTerminateModal(true);
+  };
+
   return (
     <div>
-      <button className="btn ghost sm" onClick={onBack} style={{ marginBottom: 14 }}><I.ArrowLeft size={14} /> {t('contracts_title')}</button>
+      <button className="btn ghost sm back-link" onClick={onBack}><I.ArrowLeft size={15} /> {t('contracts_title')}</button>
       <div className="page-head">
         <div>
-          <h1 className="page-title">{contract.contract_number}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <h1 className="page-title">{contract.contract_number}</h1>
+            {statusChip(contract.status, t)}
+          </div>
           <div className="page-sub">{t('contracts_detail_subtitle')}</div>
         </div>
         <div className="page-actions">
@@ -239,46 +279,46 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
               <I.User size={15} /> {studentName}
             </button>
           )}
-          <button className="btn ghost" onClick={() => {
-            setEditForm({
-              monthly_fee: String(contract.monthly_fee_amount ?? contract.monthly_fee ?? ''),
-              customer_full_name: contract.customer_full_name ?? cust.full_name ?? '',
-              customer_passport_number: contract.customer_passport_number ?? cust.passport_number ?? '',
-              customer_address: contract.customer_address ?? cust.address ?? '',
-            });
-            setEditModal(true);
-          }}>
+          <button className="btn" onClick={openEdit}>
             <I.Edit size={15} /> {t('edit')}
           </button>
-          <button className="btn ghost" onClick={() => {
-            setDatesForm({
-              start_date: contract.contract_start_date ?? contract.start_date ?? '',
-              end_date: contract.contract_end_date ?? contract.end_date ?? '',
-            });
-            setDatesModal(true);
-          }}>
-            <I.Calendar size={15} /> {t('contracts_change_dates_btn')}
-          </button>
-          {contract.status !== 'TERMINATED' && (
-            <button className="btn ghost" onClick={() => { setNewStatus(contract.status); setStatusModal(true); }}>
-              <I.ShieldOff size={15} /> {t('contracts_change_status_title')}
+          <div ref={moreRef} style={{ position: 'relative' }}>
+            <button className="btn" aria-haspopup="menu" aria-expanded={moreOpen} aria-label="More actions" onClick={() => setMoreOpen(o => !o)}>
+              <I.More size={16} /> <I.ChevronDown size={14} />
             </button>
-          )}
-          {contract.status === 'ACTIVE' && (
-            <button className="btn ghost danger-ghost" onClick={() => { setTerminateReason(''); const _n = new Date(); _n.setMinutes(_n.getMinutes() - _n.getTimezoneOffset()); setTerminateAt(_n.toISOString().slice(0, 16)); setTerminateModal(true); }}>
-              <I.XCircle size={15} /> {t('contracts_cancel_modal_title')}
-            </button>
-          )}
-          <button className="btn" onClick={openPdf}><I.FileText size={15} /> {t('contracts_pdf_open_btn')}</button>
+            {moreOpen && (
+              <div className="popover" role="menu" style={{ minWidth: 240 }}>
+                <button type="button" className="menu-item" onClick={openDates}>
+                  <I.Calendar size={15} /> {t('contracts_change_dates_btn')}
+                </button>
+                {contract.status !== 'TERMINATED' && (
+                  <button type="button" className="menu-item" onClick={openStatus}>
+                    <I.ShieldOff size={15} /> {t('contracts_change_status_title')}
+                  </button>
+                )}
+                <button type="button" className="menu-item" onClick={() => { setMoreOpen(false); openPdf(); }}>
+                  <I.FileText size={15} /> {t('contracts_pdf_open_btn')}
+                </button>
+                {contract.status === 'ACTIVE' && (
+                  <>
+                    <div className="menu-sep" />
+                    <button type="button" className="menu-item danger" onClick={openTerminateModal}>
+                      <I.XCircle size={15} /> {t('contracts_cancel_modal_title')}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           <button className="btn primary" onClick={regenerate} disabled={regenerating}>
             <I.RefreshCw size={15} /> {regenerating ? t('loading') : t('contracts_pdf_regen_btn')}
           </button>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
-        <div className="card" style={{ padding: 18 }}>
-          <div className="card-title" style={{ marginBottom: 12 }}>{t('contracts_info_card')}</div>
+      <div className="split">
+        <div className="card" style={{ padding: 20 }}>
+          <div className="card-title" style={{ marginBottom: 14 }}>{t('contracts_info_card')}</div>
           <DetailGrid items={[
             { label: t('contracts_contract_number_label'), value: contract.contract_number },
             { label: t('contracts_status'), value: statusChip(contract.status, t) },
@@ -291,8 +331,8 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
           ]} />
         </div>
 
-        <div className="card" style={{ padding: 18 }}>
-          <div className="card-title" style={{ marginBottom: 12 }}>{t('contracts_extra_card')}</div>
+        <div className="card" style={{ padding: 20 }}>
+          <div className="card-title" style={{ marginBottom: 14 }}>{t('contracts_extra_card')}</div>
           <div className="list-stack">
             {[
               [t('contracts_passport_label'), cust.passport_number || '—'],
@@ -307,9 +347,9 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
             ))}
           </div>
           {contract.termination_reason && (
-            <div style={{ marginTop: 10, padding: 10, background: 'var(--danger-soft)', borderRadius: 8, border: '1px solid var(--danger)' }}>
-              <div style={{ fontSize: 11, color: 'var(--danger)', fontWeight: 700 }}>{t('contracts_termination_reason_label')}</div>
-              <div style={{ fontSize: 13 }}>{contract.termination_reason}</div>
+            <div className="alert danger" style={{ marginTop: 10, display: 'block' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('contracts_termination_reason_label')}</div>
+              <div style={{ fontSize: 13.5, color: 'var(--text)', marginTop: 4 }}>{contract.termination_reason}</div>
             </div>
           )}
         </div>
@@ -317,7 +357,9 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
 
       {/* Payments & Debt section */}
       {(() => {
-        const successTx = transactions.filter(tx => tx.status === 'success' || tx.status === 'completed');
+        // student transactions come back as SETTLED / UNASSIGNED / CANCELLED; older rows use success / completed
+        const isPaid = st => ['success', 'completed', 'settled'].includes(String(st || '').toLowerCase());
+        const successTx = transactions.filter(tx => isPaid(tx.status));
         const totalPaid = successTx.reduce((s, tx) => s + (tx.amount || 0), 0);
         const months = contract.start_date && contract.end_date
           ? Math.max(1, Math.round((new Date(contract.end_date) - new Date(contract.start_date)) / (1000 * 60 * 60 * 24 * 30.4)))
@@ -327,67 +369,63 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
 
         const srcLabel = s => ({ cash: t('tx_src_cash'), bank: t('tx_src_bank'), click: 'Click', payme: 'Payme' }[s] || s || '—');
         const stChip = st => {
-          if (st === 'success' || st === 'completed') return <span className="chip success"><span className="chip-dot"></span>{t('tx_st_success')}</span>;
-          if (st === 'pending') return <span className="chip warning"><span className="chip-dot"></span>{t('tx_st_pending')}</span>;
-          if (st === 'cancelled') return <span className="chip danger"><span className="chip-dot"></span>{t('tx_st_cancelled')}</span>;
+          const s = String(st || '').toLowerCase();
+          if (isPaid(s)) return <span className="chip success"><span className="chip-dot"></span>{t('tx_st_success')}</span>;
+          if (s === 'pending') return <span className="chip warning"><span className="chip-dot"></span>{t('tx_st_pending')}</span>;
+          if (s === 'unassigned') return <span className="chip warning"><span className="chip-dot"></span>{t('tx_scope_unassigned')}</span>;
+          if (s === 'cancelled' || s === 'failed') return <span className="chip danger"><span className="chip-dot"></span>{t('tx_st_cancelled')}</span>;
           return <span className="chip">{st}</span>;
         };
 
         return (
           <div style={{ marginTop: 16 }}>
-            <div className="grid-3" style={{ marginBottom: 14 }}>
-              <div className="card" style={{ padding: 16 }}>
-                <div style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('tx_st_success')}</div>
-                <div style={{ fontSize: 22, fontWeight: 700, marginTop: 6, color: 'var(--success)' }}>{fmt.format(totalPaid)} <span style={{ fontSize: 13, fontWeight: 500 }}>so'm</span></div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{successTx.length} ta to'lov</div>
-              </div>
-              <div className="card" style={{ padding: 16 }}>
-                <div style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('contracts_monthly_fee')} × {months} oy</div>
-                <div style={{ fontSize: 22, fontWeight: 700, marginTop: 6 }}>{fmt.format(totalExpected)} <span style={{ fontSize: 13, fontWeight: 500 }}>so'm</span></div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{t('nav_contracts')} bo'yicha jami</div>
-              </div>
-              <div className="card" style={{ padding: 16 }}>
-                <div style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('rpt_debtors_col_debt') || 'Qarz'}</div>
-                <div style={{ fontSize: 22, fontWeight: 700, marginTop: 6, color: debt > 0 ? 'var(--danger)' : 'var(--success)' }}>
-                  {debt > 0 ? fmt.format(debt) : '0'} <span style={{ fontSize: 13, fontWeight: 500 }}>so'm</span>
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{debt > 0 ? "To'lanmagan" : 'Qarz yo\'q'}</div>
-              </div>
+            <div className="grid-3" style={{ marginBottom: 16 }}>
+              <Stat label={t('tx_st_success')} tone="success" icon={I.Check}
+                value={<>{fmt.format(totalPaid)} <small>so'm</small></>}
+                sub={`${successTx.length} ${t('contract_payments_sfx')}`} />
+              <Stat label={`${t('contracts_monthly_fee')} × ${months} ${t('contract_months_sfx')}`} icon={I.Wallet}
+                value={<>{fmt.format(totalExpected)} <small>so'm</small></>}
+                sub={t('contract_total_by')} />
+              <Stat label={t('rpt_debtors_col_debt')} tone={debt > 0 ? 'danger' : 'success'} icon={debt > 0 ? I.AlertTriangle : I.Check}
+                value={<span style={{ color: debt > 0 ? 'var(--danger)' : undefined }}>{debt > 0 ? fmt.format(debt) : '0'} <small>so'm</small></span>}
+                sub={debt > 0 ? t('contract_debt_unpaid') : t('contract_debt_none')} />
             </div>
 
             <div className="table-wrap">
-              <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 14 }}>
-                {t('nav_transactions')} <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 12.5 }}>({transactions.length})</span>
+              <div className="table-title">
+                {t('nav_transactions')} <small>({transactions.length})</small>
               </div>
               {txLoading ? (
-                <div style={{ padding: 24, color: 'var(--muted)', fontSize: 13 }}>{t('loading')}</div>
+                <div className="empty loading">{t('loading')}</div>
               ) : transactions.length === 0 ? (
-                <div style={{ padding: 24, color: 'var(--muted)', fontSize: 13, textAlign: 'center' }}>To'lovlar mavjud emas</div>
+                <div className="empty">{t('contract_no_payments')}</div>
               ) : (
+                <div className="table-scroll">
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>{t('contracts_col_number')}</th>
-                      <th>{t('contracts_monthly_fee')}</th>
-                      <th>{t('tx_src_label') || 'Manba'}</th>
-                      <th>{t('tx_pd_label') || 'Oy'}</th>
-                      <th>{t('audit_col_created') || 'Sana'}</th>
+                      <th>ID</th>
+                      <th>{t('tx_amount_col')}</th>
+                      <th>{t('transactions_col_source')}</th>
+                      <th>{t('tx_pd_label')}</th>
+                      <th>{t('audit_col_created')}</th>
                       <th>{t('contracts_col_status')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {transactions.map(tx => (
-                      <tr key={tx.id}>
-                        <td style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'var(--muted)', fontSize: 12.5 }}>#{tx.id}</td>
-                        <td style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{fmt.format(tx.amount || 0)} so'm</td>
-                        <td>{srcLabel(tx.source)}</td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>{tx.payment_month ? `${tx.payment_year || ''}/${String(tx.payment_month).padStart(2,'0')}` : '—'}</td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>{fmtDate(tx.created_at)}</td>
+                      <tr key={tx.id} className="static">
+                        <td className="muted num" style={{ fontWeight: 700, fontSize: 12.5 }}>#{tx.id}</td>
+                        <td className="money">{fmt.format(tx.amount || 0)} so'm</td>
+                        <td><span className="chip">{srcLabel(tx.source)}</span></td>
+                        <td className="num" style={{ fontSize: 12.5 }}>{tx.payment_month ? `${monthLabel(Number(tx.payment_month) - 1)} ${tx.payment_year || ''}` : '—'}</td>
+                        <td className="num" style={{ fontSize: 12.5 }}>{fmtDate(tx.created_at)}</td>
                         <td>{stChip(tx.status)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           </div>

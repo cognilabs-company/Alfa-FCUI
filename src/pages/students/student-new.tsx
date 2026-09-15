@@ -16,6 +16,7 @@ import { Modal } from '@/shared/ui/modal';
 import { useT } from '@/shared/i18n/lang';
 import { avatarColor } from '@/shared/lib/avatar';
 import { calcAge, fullName, normalizeStatus } from './lib';
+import { todayISO } from '@/shared/lib/format';
 
 export function StudentNew({ onBack, onCreated, onViewContract }) {
   const I = Icon;
@@ -35,7 +36,7 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
     pnfl: '', phone: '', ampula: 'O(+)', millati: "O'zbek", address: '', group_id: '',
     customer_full_name: '', customer_passport_number: '', customer_address: '',
     monthly_fee_amount: '500000', uniform_fee_amount: '',
-    contract_start_date: new Date().toISOString().slice(0, 10),
+    contract_start_date: todayISO(),
     contract_end_date: new Date().getFullYear() + '-12-31',
   });
   const [files, setFiles] = React.useState({ photo: null, passport: null, extra_file: null });
@@ -93,11 +94,11 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
 
   return (
     <div>
-      <button className="btn ghost sm" onClick={onBack} style={{ marginBottom: 14 }}><I.ArrowLeft size={14}/> {t('back_btn')}</button>
+      <button className="btn ghost sm back-link" onClick={onBack}><I.ArrowLeft size={15}/> {t('back_btn')}</button>
       <div className="page-head">
         <div>
           <h1 className="page-title">{t('new_student_title')}</h1>
-          <div className="page-sub">{t('new_student_sub')} · POST /students</div>
+          <div className="page-sub">{t('new_student_sub')}</div>
         </div>
       </div>
 
@@ -108,15 +109,16 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
           const done = step > n && stepValid[n];
           const incomplete = step > n && !stepValid[n];
           return (
-            <div key={n} className="stepper-step" onClick={() => setStep(n)} style={{ background: active ? 'var(--selected)' : 'transparent' }}>
-              <div style={{ width: 24, height: 24, borderRadius: '50%', background: done ? 'var(--success)' : incomplete ? 'var(--warning)' : active ? 'var(--primary)' : 'var(--surface-2)', color: done || incomplete || active ? 'white' : 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
-                {done ? <I.Check size={14}/> : incomplete ? '!' : n}
-              </div>
-              <div>
-                <div style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>{t('step_label')} {n}</div>
-                <div style={{ fontSize: 13, fontWeight: active ? 600 : 500 }}>{label}</div>
-              </div>
-            </div>
+            <button key={n} type="button"
+              className={'stepper-step' + (active ? ' active' : '') + (done ? ' done' : '') + (incomplete ? ' incomplete' : '')}
+              aria-current={active ? 'step' : undefined}
+              onClick={() => setStep(n)}>
+              <span className="step-num">{done ? <I.Check size={15} strokeWidth={2.6}/> : incomplete ? '!' : n}</span>
+              <span className="step-meta">
+                <small>{t('step_label')} {n}</small>
+                <span>{label}</span>
+              </span>
+            </button>
           );
         })}
       </div>
@@ -166,36 +168,37 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
                 { key: 'extra_file', label: t('file_extra_label'), desc: t('file_extra_desc'), icon: 'FileText' },
               ].map(f => {
                 const Ic = I[f.icon];
+                const picked = files[f.key];
                 return (
-                  <div key={f.key} className="dropzone" style={{ minHeight: 160 }}>
-                    <Ic size={28}/>
-                    <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>{f.label}</div>
-                    <div>{files[f.key] ? files[f.key].name : f.desc}</div>
+                  <div key={f.key} className={'dropzone' + (picked ? ' filled' : '')} style={{ minHeight: 180 }}>
+                    <span className="dropzone-icon">{picked ? <I.Check size={22}/> : <Ic size={22}/>}</span>
+                    <div style={{ fontWeight: 750, color: 'var(--text)', fontSize: 13.5 }}>{f.label}</div>
+                    <div>{picked ? picked.name : f.desc}</div>
                     <label className="btn sm" style={{ marginTop: 6, cursor: 'pointer' }}>
-                      <I.Upload size={13}/> {t('upload_btn')}
+                      <I.Upload size={14}/> {t('upload_btn')}
                       <input type="file" style={{ display: 'none' }} onChange={e => setFiles(p => ({ ...p, [f.key]: e.target.files[0] || null }))}/>
                     </label>
                   </div>
                 );
               })}
             </div>
-            <div style={{ marginTop: 14, padding: 14, background: 'var(--success-soft)', color: 'var(--success)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 12, fontSize: 13 }}>
+            <div className="alert success" style={{ marginTop: 14, alignItems: 'center' }}>
               <I.Check size={18}/>
               <div>
-                <div style={{ fontWeight: 600 }}>{t('new_student_ready_title')}</div>
-                <div style={{ opacity: 0.85 }}>{t('new_student_ready_desc')}</div>
+                <div style={{ fontWeight: 800 }}>{t('new_student_ready_title')}</div>
+                <div style={{ fontWeight: 600, opacity: 0.85 }}>{t('new_student_ready_desc')}</div>
               </div>
             </div>
             </div>
           )}
 
           {error && (
-            <div style={{ marginTop: 14, padding: '10px 14px', background: 'var(--danger-soft)', border: '1px solid var(--danger)', borderRadius: 8, fontSize: 13, color: 'var(--danger)' }}>
-              {error}
+            <div className="alert danger" role="alert" style={{ marginTop: 14 }}>
+              <I.AlertTriangle size={16}/> <span>{error}</span>
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', gap: 8, marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
             <button className="btn ghost" onClick={onBack}>{t('cancel')}</button>
             <div style={{ flex: 1 }}></div>
             {step > 1 && <button className="btn" onClick={() => setStep(step - 1)}><I.ArrowLeft size={14}/> {t('prev')}</button>}
@@ -234,11 +237,11 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
           )}
         </>}>
           <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '14px 0' }}>
-            <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <I.Check size={36} color="var(--success)"/>
+            <div style={{ width: 76, height: 76, borderRadius: 24, background: 'var(--accent)', color: 'var(--accent-contrast)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <I.Check size={38} strokeWidth={2.4}/>
             </div>
             <div>
-              <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>{t('contract_ready_title')}</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', marginBottom: 6 }}>{t('contract_ready_title')}</div>
               <div style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.5 }}>{t('contract_ready_desc')}</div>
             </div>
           </div>

@@ -19,20 +19,50 @@ import { ReportsScreen } from '@/pages/reports';
 import { WaitingListScreen } from '@/pages/waiting-list';
 import { AuditLogsScreen } from '@/pages/audit-logs';
 import { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSelect } from '@/shared/ui/tweaks-panel';
+import { BrandMark } from '@/shared/ui/logo';
 import { apiGetMe, apiLogout, getToken, setUnauthorizedHandler } from '@/shared/api';
 import { applyAppearance } from '@/shared/lib/appearance';
 import { LangProvider, useT } from '@/shared/i18n/lang';
 
 const __TWEAK_DEFAULTS = {
-  theme: 'light',
+  theme: localStorageGet('alpha_theme') || 'light',
   density: 'default',
-  accent: 'red',
+  accent: 'volt',
   role: 'Super Admin',
 };
 
+function localStorageGet(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function useMediaQuery(query) {
+  const [matches, setMatches] = React.useState(() => window.matchMedia(query).matches);
+  React.useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setMatches(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [query]);
+  return matches;
+}
+
+// Apply theme + accent before the first paint so the splash never flashes
+// the wrong palette.
+document.documentElement.setAttribute('data-theme', __TWEAK_DEFAULTS.theme);
+applyAppearance();
+
 export default function App() {
-  const [t, setTweak] = useTweaks(__TWEAK_DEFAULTS);
-  const T = { ...t, setTweak };
+  return (
+    <LangProvider>
+      <AppShell/>
+    </LangProvider>
+  );
+}
+
+function AppShell() {
+  const { t } = useT();
+  const [tw, setTweak] = useTweaks(__TWEAK_DEFAULTS);
+  const T = { ...tw, setTweak };
   const [loggedIn, setLoggedIn] = React.useState(() => !!getToken());
   const [currentUser, setCurrentUser] = React.useState(null);
   const [permissions, setPermissions] = React.useState([]);
@@ -42,9 +72,12 @@ export default function App() {
   const [sessionId, setSessionId] = React.useState(() => localStorage.getItem('alpha_session_id'));
   const [groupId, setGroupId] = React.useState(() => localStorage.getItem('alpha_group_id'));
   const [contractId, setContractId] = React.useState(() => localStorage.getItem('alpha_contract_id'));
-  const [navCollapsed, setNavCollapsed] = React.useState(false);
+  const [navCollapsed, setNavCollapsed] = React.useState(() => localStorageGet('alpha_nav') === 'collapsed');
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const [toast, setToast] = React.useState(null);
+  const toastTimer = React.useRef(null);
+  const contentRef = React.useRef(null);
+  const isNarrow = useMediaQuery('(max-width: 900px)');
 
   React.useEffect(() => {
     setUnauthorizedHandler(() => {
@@ -97,10 +130,19 @@ export default function App() {
     if (contractId == null) localStorage.removeItem('alpha_contract_id');
     else localStorage.setItem('alpha_contract_id', String(contractId));
   }, [contractId]);
-  React.useEffect(() => { document.documentElement.setAttribute('data-theme', T.theme); }, [T.theme]);
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-theme', T.theme);
+    try { localStorage.setItem('alpha_theme', T.theme); } catch { /* private mode */ }
+  }, [T.theme]);
   React.useEffect(() => { document.documentElement.setAttribute('data-density', T.density); }, [T.density]);
+  React.useEffect(() => {
+    try { localStorage.setItem('alpha_nav', navCollapsed ? 'collapsed' : 'expanded'); } catch { /* private mode */ }
+  }, [navCollapsed]);
 
-  React.useEffect(() => { applyAppearance(); }, []);
+  // Every route change starts at the top of the page
+  React.useEffect(() => { contentRef.current?.scrollTo?.(0, 0); }, [route, studentId, contractId, sessionId]);
+
+  React.useEffect(() => () => clearTimeout(toastTimer.current), []);
 
   function navigate(r) {
     setRoute(r);
@@ -110,9 +152,10 @@ export default function App() {
     setGroupId(null);
   }
 
-  function showToast(msg) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2400);
+  function showToast(msg, type = 'success') {
+    clearTimeout(toastTimer.current);
+    setToast({ msg, type, key: Date.now() });
+    toastTimer.current = setTimeout(() => setToast(null), type === 'error' ? 4200 : 2600);
   }
 
   function handleSignOut() {
@@ -124,16 +167,18 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <LangProvider>
-        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-          <div style={{ fontSize: 15, color: 'var(--muted)' }}>Загрузка...</div>
+      <div className="splash">
+        <div className="splash-inner">
+          <BrandMark size={64}/>
+          <div className="splash-bar" aria-hidden="true"/>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--frame-muted)' }}>{t('loading')}</span>
         </div>
-      </LangProvider>
+      </div>
     );
   }
 
   if (!loggedIn) {
-    return <LangProvider><LoginScreen onLogin={() => setLoggedIn(true)}/></LangProvider>;
+    return <LoginScreen onLogin={() => setLoggedIn(true)}/>;
   }
 
   let crumbKeys = ['app_name'];
@@ -160,8 +205,7 @@ export default function App() {
   if (route === 'audit-logs') crumbKeys.push('nav_audit_logs');
 
   return (
-    <LangProvider>
-    <div className="app" data-nav={navCollapsed ? 'collapsed' : 'expanded'}>
+    <div className="app" data-nav={navCollapsed && !isNarrow ? 'collapsed' : 'expanded'}>
       <Sidebar
         active={activeNav}
         onNav={(id) => {
@@ -169,63 +213,66 @@ export default function App() {
         }}
         role={T.role}
         userPermissions={permissions}
-        collapsed={navCollapsed}
+        collapsed={navCollapsed && !isNarrow}
         onToggle={() => mobileNavOpen ? setMobileNavOpen(false) : setNavCollapsed(!navCollapsed)}
         user={currentUser}
         mobileOpen={mobileNavOpen}
+        onSignOut={handleSignOut}
       />
       {mobileNavOpen && <button className="mobile-nav-backdrop" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)} />}
       <div className="main">
         <Topbar
           crumbs={crumbKeys}
           role={T.role}
-          onRoleSwitch={(r) => { T.setTweak('role', r); showToast(`Rol o'zgartirildi: ${r}`); }}
+          onRoleSwitch={(r) => { T.setTweak('role', r); showToast(`${t('toast_role_switched')}: ${r}`); }}
           canSwitchRole={!!(currentUser?.is_super_admin || currentUser?.roles?.some(r => normalizeRoleName(r.name) === 'Super Admin'))}
           theme={T.theme}
           onTheme={(th) => T.setTweak('theme', th)}
           onSignOut={handleSignOut}
           user={currentUser}
-          onMenu={() => { setNavCollapsed(false); setMobileNavOpen(true); }}
+          onMenu={() => setMobileNavOpen(true)}
           onNavigate={(type, id) => {
             if (type === 'student') { setStudentId(id); setRoute('students-profile'); }
           }}
         />
-        <div className="content">
-          {route === 'dashboard' && <Dashboard role={T.role} onNav={navigate} onOpenGroup={(id) => { setGroupId(id); setRoute('groups'); }}/>} 
+        <div className="content" ref={contentRef}>
+          {route === 'dashboard' && <Dashboard role={T.role} user={currentUser} onNav={navigate} onOpenGroup={(id) => { setGroupId(id); setRoute('groups'); }}/>}
           {route === 'students' && <StudentsList onOpen={(id) => { setStudentId(id); setRoute('students-profile'); }} onNew={() => setRoute('students-new')} onToast={showToast}/>}
-          {route === 'students-profile' && <StudentProfile studentId={studentId} onBack={() => navigate('students')}/>} 
-          {route === 'students-new' && <StudentNew onBack={() => navigate('students')} onCreated={() => { showToast("O'quvchi muvaffaqiyatli yaratildi"); navigate('students'); }} onViewContract={(cid) => { setContractId(cid); navigate('contracts-view'); }}/>}
+          {route === 'students-profile' && <StudentProfile studentId={studentId} onBack={() => navigate('students')}/>}
+          {route === 'students-new' && <StudentNew onBack={() => navigate('students')} onCreated={() => { showToast(t('toast_student_created')); navigate('students'); }} onViewContract={(cid) => { setContractId(cid); navigate('contracts-view'); }}/>}
           {route === 'groups' && <GroupsScreen onOpen={(id) => { setGroupId(id); }} selectedGroupId={groupId} onCloseGroup={() => setGroupId(null)} onToast={showToast} onOpenStudent={(id) => { setStudentId(id); setRoute('students-profile'); }} />}
-          {(route === 'sessions' || route === 'attendance') && <SessionsScreen onMark={(id) => { setSessionId(id); setRoute('attendance-mark'); }}/>} 
-          {route === 'attendance-mark' && <AttendanceMark sessionId={sessionId} onBack={() => navigate('sessions')}/>} 
-          {route === 'performance' && <PerformanceTable/>} 
+          {(route === 'sessions' || route === 'attendance') && <SessionsScreen onMark={(id) => { setSessionId(id); setRoute('attendance-mark'); }}/>}
+          {route === 'attendance-mark' && <AttendanceMark sessionId={sessionId} onBack={() => navigate('sessions')}/>}
+          {route === 'performance' && <PerformanceTable/>}
           {route === 'contracts' && <ContractsScreen onOpenContract={(id) => { setContractId(id); setRoute('contracts-view'); }} onNavigateToStudent={(id) => { setStudentId(id); setRoute('students-profile'); }} onToast={showToast}/>}
           {route === 'contracts-view' && <ContractView contractId={contractId} onBack={() => navigate('contracts')} onToast={showToast} onNavigateToStudent={(id) => { setStudentId(id); setRoute('students-profile'); }}/>}
-          {route === 'transactions' && <TransactionsScreen onToast={showToast}/>} 
-          {route === 'gate' && <GateScreen/>} 
+          {route === 'transactions' && <TransactionsScreen onToast={showToast}/>}
+          {route === 'gate' && <GateScreen/>}
           {(route === 'users' || route === 'roles') && (
             <UsersScreen
               initialView={route === 'roles' ? 'roles' : 'users'}
               onToast={showToast}
             />
           )}
-          {route === 'settings' && <SettingsScreen theme={T.theme} setTheme={(th) => T.setTweak('theme', th)}/>} 
+          {route === 'settings' && <SettingsScreen theme={T.theme} setTheme={(th) => T.setTweak('theme', th)}/>}
           {route === 'reports' && <ReportsScreen/>}
-          {route === 'reports-debtors' && <ReportsScreen initialTab="debtors"/>} 
+          {route === 'reports-debtors' && <ReportsScreen initialTab="debtors"/>}
           {route === 'waiting-list' && <WaitingListScreen onToast={showToast}/>}
           {route === 'audit-logs' && <AuditLogsScreen/>}
         </div>
       </div>
 
       {toast && (
-        <div className="toast">
-          <Icon.Check size={16} color="var(--success)"/> {toast}
+        <div key={toast.key} className={'toast' + (toast.type === 'error' ? ' error' : '')} role={toast.type === 'error' ? 'alert' : 'status'}>
+          <span className="toast-icon">
+            {toast.type === 'error' ? <Icon.AlertTriangle size={15}/> : <Icon.Check size={16}/>}
+          </span>
+          <span>{toast.msg}</span>
         </div>
       )}
 
       <AlphaTweaks T={T}/>
     </div>
-    </LangProvider>
   );
 }
 

@@ -11,6 +11,7 @@ import {
   apiChangeStudentGroup, apiGetContracts, apiGetStudent,
 } from '@/shared/api';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
+import { Pager, menuPosition } from '@/shared/ui/pager';
 import { useT } from '@/shared/i18n/lang';
 import { avatarColor } from '@/shared/lib/avatar';
 import { fmtDate } from '@/shared/lib/format';
@@ -46,6 +47,7 @@ export function StudentsList({ onOpen, onNew, onToast }) {
   // student_id -> contract_number. Source of truth for the row label + contract-number search.
   const [contractByStudent, setContractByStudent] = React.useState({});
   const PAGE_SIZE = 10;
+  const loadedOnce = React.useRef(false);
 
   async function loadStudents(overrides = {}) {
     setLoading(true);
@@ -154,7 +156,7 @@ export function StudentsList({ onOpen, onNew, onToast }) {
       onToast?.(t('toast_student_deleted'));
       loadStudents();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     }
   }
 
@@ -168,7 +170,7 @@ export function StudentsList({ onOpen, onNew, onToast }) {
       onToast?.(`${selected.length} ${t('toast_students_deleted')}`);
       loadStudents();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     } finally {
       setBulkDeleting(false);
     }
@@ -186,11 +188,14 @@ export function StudentsList({ onOpen, onNew, onToast }) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (e) {
-      alert('Export xatoligi: ' + e.message);
+      onToast?.(e.message, 'error');
     }
   }
 
-  if (loading && students.length === 0) return <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>;
+  // Full-page loader only for the very first fetch; later filter changes keep
+  // the toolbar mounted and dim the table instead.
+  if (loading && !loadedOnce.current) return <div className="empty loading" style={{ padding: 64 }}>{t('loading')}</div>;
+  if (!loading) loadedOnce.current = true;
 
   return (
     <div>
@@ -210,9 +215,9 @@ export function StudentsList({ onOpen, onNew, onToast }) {
         </div>
       </div>
 
-      <div className="table-wrap">
+      <div className={"table-wrap" + (loading ? " is-loading" : "")}>
         <div className="table-toolbar">
-          <div className="search" style={{ maxWidth: 320 }}>
+          <div className="search">
             <span className="icon-l"><I.Search size={15}/></span>
             <input value={q} onChange={e => setQ(e.target.value)} placeholder={t('students_search')}/>
           </div>
@@ -228,13 +233,12 @@ export function StudentsList({ onOpen, onNew, onToast }) {
             ]}
           />
           <SearchableGroupSelect value={groupId} onChange={v => { setGroupId(v === 'all' ? '' : v); setPage(1); }} groups={groups} placeholder={t('students_all_groups')} />
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted)', fontSize: 12.5 }}>
-            {selected.length > 0 && <span style={{ color: 'var(--text)', fontWeight: 600 }}>{selected.length} {t('students_selected')}</span>}
-            {loading && <span>{t('loading')}</span>}
+          <div className="toolbar-meta">
+            {selected.length > 0 && <span className="chip solid">{selected.length} {t('students_selected')}</span>}
             <span>{totalCount} {t('students_results')}</span>
           </div>
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll">
           <table className="table">
             <thead>
               <tr>
@@ -251,7 +255,7 @@ export function StudentsList({ onOpen, onNew, onToast }) {
             </thead>
             <tbody>
               {students.length === 0 && !loading && (
-                <tr><td colSpan={7} style={{ padding: 24, color: 'var(--muted)', textAlign: 'center' }}>{t('students_not_found')}</td></tr>
+                <tr className="static"><td colSpan={7} className="empty-cell">{t('students_not_found')}</td></tr>
               )}
               {students.map(s => {
                 const name = fullName(s);
@@ -265,7 +269,7 @@ export function StudentsList({ onOpen, onNew, onToast }) {
                     </td>
                     <td>
                       <div className="row-name">
-                        <div className="avatar sm" style={{ background: avatarColor(s.id) }}>{s.first_name[0]}{s.last_name[0]}</div>
+                        <div className="avatar sm" style={{ background: avatarColor(s.id) }}>{s.first_name?.[0]}{s.last_name?.[0]}</div>
                         <div className="meta">
                           <span className="name">{name}</span>
                           <span className="sub">{contractNo || '#' + String(s.id).padStart(4, '0')} · {age} {t('students_years')}</span>
@@ -282,13 +286,12 @@ export function StudentsList({ onOpen, onNew, onToast }) {
                       {normalizeStatus(s.status) === 'deleted' && <span className="chip danger"><span className="chip-dot"></span>{t('status_deleted')}</span>}
                     </td>
                     <td onClick={e => e.stopPropagation()} style={{ position: 'relative' }}>
-                      <button className="icon-btn" style={{ width: 32, height: 32, border: 'none', background: 'transparent' }} onClick={(e) => {
+                      <button className="icon-btn plain" aria-label="Actions" onClick={(e) => {
                         e.stopPropagation();
                         if (openMenuStudentId === s.id) {
                           setOpenMenuStudentId(null);
                         } else {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setMenuPos({ x: rect.right - 160, y: rect.bottom + 4 });
+                          setMenuPos(menuPosition(e.currentTarget, 2));
                           setOpenMenuStudentId(s.id);
                         }
                       }}><I.More size={16}/></button>
@@ -309,22 +312,7 @@ export function StudentsList({ onOpen, onNew, onToast }) {
             </tbody>
           </table>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderTop: '1px solid var(--border)', fontSize: 12.5, color: 'var(--muted)' }}>
-          <span>{totalCount === 0 ? '0 natija' : `${(page-1)*PAGE_SIZE+1} — ${Math.min(page*PAGE_SIZE, totalCount)} / ${totalCount}`}</span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button className="btn sm ghost" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><I.ChevronLeft size={14}/></button>
-            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-              const p = Math.max(1, page - 2) + i;
-              if (p > totalPages) return null;
-              return (
-                <button key={p} className={'btn sm ' + (page === p ? 'primary' : 'ghost')}
-                  style={{ minWidth: 32, justifyContent: 'center' }}
-                  onClick={() => setPage(p)}>{p}</button>
-              );
-            })}
-            <button className="btn sm ghost" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}><I.ChevronRight size={14}/></button>
-          </div>
-        </div>
+        <Pager page={page} totalPages={totalPages} onPage={setPage} total={totalCount} pageSize={PAGE_SIZE}/>
       </div>
 
     </div>

@@ -1,28 +1,30 @@
 // @ts-nocheck
 import React from 'react';
+import { Icon } from './icons';
 
-export function Stat({ label, value, sub, tone = 'default', icon: Ic }) {
-  const tones = {
-    default: { iconBg: 'var(--surface-2)', iconColor: 'var(--text-2)', val: 'var(--text)' },
-    success: { iconBg: 'var(--success-soft)', iconColor: 'var(--success)', val: 'var(--success)' },
-    warning: { iconBg: 'var(--warning-soft)', iconColor: 'var(--warning)', val: 'var(--warning)' },
-    danger: { iconBg: 'var(--danger-soft)', iconColor: 'var(--danger)', val: 'var(--danger)' },
-    navy: { iconBg: 'var(--navy-soft)', iconColor: 'var(--navy-ink)', val: 'var(--text)' },
-  };
-  const t = tones[tone] || tones.default;
-
+/**
+ * Scoreboard tile.
+ * tone: default | success | warning | danger | accent | navy (legacy alias of default)
+ * feature: dark "floodlight" variant for the headline number of a page.
+ */
+export function Stat({ label, value, sub, tone = 'default', icon: Ic, feature = false, onClick }) {
+  const toneClass = tone && tone !== 'default' && tone !== 'navy' ? ' tone-' + tone : '';
+  const interactive = typeof onClick === 'function';
   return (
-    <div className="stat">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+    <div
+      className={'stat' + toneClass + (feature ? ' feature' : '') + (interactive ? ' clickable' : '')}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={interactive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e); } } : undefined}
+    >
+      <div className="stat-head">
         <div className="stat-label">{label}</div>
-        {Ic && (
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: t.iconBg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Ic size={16} color={t.iconColor} />
-          </div>
-        )}
+        {Ic && <div className="stat-icon"><Ic size={18} /></div>}
       </div>
-      <div className="stat-value" style={{ color: t.val }}>{value}</div>
+      <div className="stat-value">{value}</div>
       {sub && <div className="stat-sub">{sub}</div>}
+      {interactive && <span className="stat-arrow"><Icon.ArrowRight size={16}/></span>}
     </div>
   );
 }

@@ -15,14 +15,14 @@ import { useCoachGroupsQuery, useGroupPerformanceTableQuery } from '@/features/p
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
 import { avatarColor } from '@/shared/lib/avatar';
-import { monthName } from '@/shared/lib/format';
+import { monthShort, todayISO } from '@/shared/lib/format';
 
 // compact "19 May" for narrow match-column headers
 function shortDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return String(iso);
-  return `${d.getDate()} ${monthName(d.getMonth())}`;
+  return `${d.getDate()} ${monthShort(d.getMonth())}`;
 }
 import { Modal } from '@/shared/ui/modal';
 
@@ -47,7 +47,7 @@ export function PerformanceTable() {
 
   // add match
   const [showAddMatch, setShowAddMatch] = React.useState(false);
-  const [newMatch, setNewMatch] = React.useState({ match_date: new Date().toISOString().slice(0, 10), opponent: '', tour_label: '' });
+  const [newMatch, setNewMatch] = React.useState({ match_date: todayISO(), opponent: '', tour_label: '' });
   const [savingMatch, setSavingMatch] = React.useState(false);
 
   // edit match (column)
@@ -111,7 +111,7 @@ export function PerformanceTable() {
         values: [],
       });
       setShowAddMatch(false);
-      setNewMatch({ match_date: new Date().toISOString().slice(0, 10), opponent: '', tour_label: '' });
+      setNewMatch({ match_date: todayISO(), opponent: '', tour_label: '' });
       exitEditMode();
       setTimeout(() => tableQuery.refetch(), 300);
     } catch (e) {
@@ -170,7 +170,7 @@ export function PerformanceTable() {
     const v = rawValue == null ? null : String(rawValue).toLowerCase().trim();
     switch (v) {
       case 'goal': case 'gol': return { bg: 'var(--success-soft)', color: 'var(--success)', label: '⚽', numericGoals: 1 };
-      case 'assist': case 'uzatma': return { bg: 'var(--navy-soft)', color: 'var(--navy-ink)', label: '↗', numericGoals: 0 };
+      case 'assist': case 'uzatma': return { bg: 'var(--info-soft)', color: 'var(--info)', label: '↗', numericGoals: 0 };
       case 'yellow': case 'sariq': return { bg: 'var(--warning-soft)', color: 'var(--warning)', label: '▢', numericGoals: 0 };
       case 'absent': case 'kelmagan': return { bg: 'var(--danger-soft)', color: 'var(--danger)', label: '✗', numericGoals: 0 };
       case null: case '': case 'played': return { bg: 'var(--surface-2)', color: 'var(--text-2)', label: '·', numericGoals: 0 };
@@ -182,7 +182,7 @@ export function PerformanceTable() {
     }
   }
 
-  if (groupsQuery.isLoading) return <div className="empty" style={{ padding: 48 }}>{t('perf_groups_loading')}</div>;
+  if (groupsQuery.isLoading) return <div className="empty loading" style={{ padding: 64 }}>{t('perf_groups_loading')}</div>;
   if (groupsQuery.isError) return <div className="empty" style={{ padding: 48, color: 'var(--danger)' }}>{t('perf_groups_error')}</div>;
   if (groups.length === 0) return <div className="empty" style={{ padding: 48 }}>{t('perf_groups_empty')}</div>;
 
@@ -211,7 +211,7 @@ export function PerformanceTable() {
             </>
           ) : (
             <>
-              <button className="btn ghost" onClick={enterEditMode} disabled={!selectedGroupId || matches.length === 0}>
+              <button className="btn" onClick={enterEditMode} disabled={!selectedGroupId || matches.length === 0}>
                 <I.Edit size={15}/> {t('edit')}
               </button>
               <button className="btn primary" onClick={() => setShowAddMatch(true)} disabled={!selectedGroupId}>
@@ -223,67 +223,71 @@ export function PerformanceTable() {
       </div>
 
       {editMode && (
-        <div style={{ marginBottom: 12, padding: '8px 14px', background: 'var(--warning-soft)', border: '1px solid var(--warning)', borderRadius: 8, fontSize: 13, color: 'var(--warning)', fontWeight: 600 }}>
-          {t('perf_edit_mode_hint')}
+        <div className="alert warning" style={{ marginBottom: 12 }}>
+          <I.Edit size={15}/> {t('perf_edit_mode_hint')}
         </div>
       )}
 
-      {tableQuery.isLoading && <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>}
-      {tableQuery.isError && <div className="empty" style={{ padding: 48, color: 'var(--danger)' }}>{t('perf_load_error')}</div>}
+      {tableQuery.isLoading && <div className="empty loading" style={{ padding: 48 }}>{t('loading')}</div>}
+      {tableQuery.isError && <div className="alert danger">{t('perf_load_error')}</div>}
 
       {!tableQuery.isLoading && !tableQuery.isError && matches.length === 0 && (
-        <div className="empty" style={{ padding: 48 }}>
-          <div>{t('perf_no_data')}</div>
-          <div style={{ fontSize: 12, marginTop: 8, color: 'var(--muted)' }}>{t('perf_add_match')}</div>
+        <div className="card empty" style={{ padding: 48 }}>
+          <div style={{ fontSize: 15, color: 'var(--text)', fontWeight: 750 }}>{t('perf_no_data')}</div>
+          <button className="btn primary" style={{ marginTop: 16 }} onClick={() => setShowAddMatch(true)} disabled={!selectedGroupId}>
+            <I.Plus size={15}/> {t('perf_add_match')}
+          </button>
         </div>
       )}
 
       {!tableQuery.isLoading && !tableQuery.isError && matches.length > 0 && rows.length === 0 && (
-        <div className="empty" style={{ padding: 48 }}>
-          <div>{t('perf_no_students')}</div>
-          <div style={{ fontSize: 12, marginTop: 8, color: 'var(--muted)' }}>{t('perf_check_students')}</div>
+        <div className="card empty" style={{ padding: 48 }}>
+          <div style={{ fontSize: 15, color: 'var(--text)', fontWeight: 750 }}>{t('perf_no_students')}</div>
+          <div style={{ fontSize: 13, marginTop: 8 }}>{t('perf_check_students')}</div>
         </div>
       )}
 
       {!tableQuery.isLoading && !tableQuery.isError && matches.length > 0 && (
         <>
           <div className="table-wrap" style={{ overflow: 'auto' }}>
-            <table className="table performance-table" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+            <table className="table performance-table">
               <thead>
                 <tr>
-                  <th style={{ position: 'sticky', left: 0, background: 'var(--surface-2)', zIndex: 2, minWidth: 220 }}>{t('field_student')}</th>
+                  <th>{t('field_student')}</th>
                   {matches.map(m => (
-                    <th key={m.id} style={{ textAlign: 'center', minWidth: editMode ? 110 : 90 }}>
-                      <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>{shortDate(m.match_date)}{m.tour_label ? ' · ' + m.tour_label : ''}</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', textTransform: 'none', letterSpacing: 0 }}>{m.opponent}</div>
+                    <th key={m.id} style={{ textAlign: 'center', minWidth: editMode ? 116 : 96, whiteSpace: 'normal' }}>
+                      <div style={{ fontSize: 10, color: 'var(--muted)' }}>{shortDate(m.match_date)}{m.tour_label ? ' · ' + m.tour_label : ''}</div>
+                      <div style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--text)', textTransform: 'none', letterSpacing: 0, marginTop: 2 }}>{m.opponent}</div>
                       {editMode && (
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginTop: 4 }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginTop: 6 }}>
                           <button
                             className="icon-btn"
-                            style={{ width: 22, height: 22 }}
+                            style={{ width: 26, height: 26 }}
                             title={t('btn_edit')}
+                            aria-label={t('btn_edit')}
                             onClick={() => openEditMatch(m)}
-                          ><I.Edit size={11}/></button>
+                          ><I.Edit size={12}/></button>
                           <button
                             className="icon-btn danger"
-                            style={{ width: 22, height: 22, opacity: deletingMatchId === m.id ? 0.5 : 1 }}
+                            style={{ width: 26, height: 26 }}
                             title={t('btn_delete')}
+                            aria-label={t('btn_delete')}
                             disabled={deletingMatchId === m.id}
                             onClick={() => handleDeleteMatch(m)}
-                          ><I.Trash size={11}/></button>
+                          ><I.Trash size={12}/></button>
                         </div>
                       )}
                     </th>
                   ))}
-                  <th style={{ textAlign: 'center', minWidth: 80, background: 'var(--surface-2)' }}>{t('total')}</th>
+                  <th className="total" style={{ minWidth: 80 }}>{t('total')}</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row, ri) => {
                   let goals = 0;
                   return (
-                    <tr key={row.student_id} style={{ cursor: editMode ? 'pointer' : 'default' }}>
-                      <td style={{ position: 'sticky', left: 0, background: 'var(--surface)', zIndex: 1, borderRight: '1px solid var(--border)' }}>
+                    <tr key={row.student_id} className={editMode ? undefined : 'static'}>
+                      <td>
                         <div className="row-name">
                           <div className="avatar sm" style={{ background: avatarColor(row.student_id) }}>
                             {row.student_name?.split(' ').map(p => p[0]).slice(0, 2).join('') || '??'}
@@ -300,19 +304,13 @@ export function PerformanceTable() {
                         goals += st.numericGoals;
                         return (
                           <td key={m.id} style={{ textAlign: 'center', padding: 4 }} onClick={editMode ? () => cycleCell(ri, mi) : undefined}>
-                            <div style={{
-                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                              gap: 3, minWidth: 44, height: 30, padding: '0 10px',
-                              background: st.bg, color: st.color, borderRadius: 6, fontSize: 13, fontWeight: 700,
-                              outline: editMode ? '1px dashed var(--border)' : 'none',
-                              cursor: editMode ? 'pointer' : 'default',
-                            }}>
+                            <div className={'perf-cell' + (editMode ? ' editable' : '')} style={{ background: st.bg, color: st.color }}>
                               {st.label}
                             </div>
                           </td>
                         );
                       })}
-                      <td style={{ textAlign: 'center', background: 'var(--surface-2)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{goals}</td>
+                      <td className="total" style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, fontVariantNumeric: 'tabular-nums' }}>{goals}</td>
                     </tr>
                   );
                 })}
@@ -320,17 +318,17 @@ export function PerformanceTable() {
             </table>
           </div>
 
-          <div style={{ marginTop: 14, padding: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', gap: 18, fontSize: 12.5, flexWrap: 'wrap' }}>
+          <div className="card legend" style={{ marginTop: 14, padding: '14px 18px', alignItems: 'center' }}>
             {[
               ['⚽', 'var(--success-soft)', 'var(--success)', t('perf_legend_goal')],
-              ['↗', 'var(--navy-soft)', 'var(--navy-ink)', t('perf_legend_assist')],
+              ['↗', 'var(--info-soft)', 'var(--info)', t('perf_legend_assist')],
               ['▢', 'var(--warning-soft)', 'var(--warning)', t('perf_legend_yellow')],
               ['✗', 'var(--danger-soft)', 'var(--danger)', t('perf_legend_absent')],
               ['·', 'var(--surface-2)', 'var(--text-2)', t('perf_legend_played')],
             ].map(([lbl, bg, clr, name]) => (
-              <span key={name}><span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 22, background: bg, color: clr, borderRadius: 4, marginRight: 6, fontWeight: 700 }}>{lbl}</span>{name}</span>
+              <span key={name} style={{ color: 'var(--text-2)' }}><span className="perf-cell" style={{ minWidth: 30, height: 24, padding: '0 6px', fontSize: 12, background: bg, color: clr }}>{lbl}</span>{name}</span>
             ))}
-            {editMode && <span style={{ marginLeft: 'auto', color: 'var(--muted)', fontStyle: 'italic' }}>{t('perf_edit_hint')}</span>}
+            {editMode && <span style={{ marginLeft: 'auto', color: 'var(--muted)' }}>{t('perf_edit_hint')}</span>}
           </div>
         </>
       )}

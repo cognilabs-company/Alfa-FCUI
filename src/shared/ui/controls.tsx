@@ -105,27 +105,22 @@ function SelectShell({ value, selectedLabel, placeholder, onSelect, options, sho
 
   return (
     <div className="searchable-select" style={{ position: 'relative', ...style }}>
-      <button ref={triggerRef} type="button" onClick={() => setOpen(o => !o)} style={{
-        height: 38, padding: '0 10px', border: '1px solid var(--border)', borderRadius: 10,
-        background: 'var(--surface)', color: 'var(--text)', fontSize: 13,
-        display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
-        minWidth, width: '100%', justifyContent: 'space-between', whiteSpace: 'nowrap',
-      }}>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedLabel ?? placeholder}</span>
-        <I.ChevronDown size={14} style={{ flexShrink: 0 }} />
+      <button ref={triggerRef} type="button" className={'select-trigger' + (open ? ' open' : '')}
+        aria-haspopup="listbox" aria-expanded={open}
+        onClick={() => setOpen(o => !o)} style={{ minWidth }}>
+        <span className={selectedLabel == null ? 'ph' : undefined}>{selectedLabel ?? placeholder}</span>
+        <I.ChevronDown size={15} />
       </button>
       <DropdownPanel open={open} triggerRef={triggerRef} panelRef={panelRef} direction={direction}>
         {showSearch && (
-          <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', borderRadius: 6, padding: '4px 8px' }}>
-              <I.Search size={13} color="var(--muted)" />
-              <input autoFocus value={q} onChange={e => setQ(e.target.value)}
-                placeholder={t('search_placeholder')}
-                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 12.5, flex: 1, color: 'var(--text)' }} />
+          <div className="select-search">
+            <div>
+              <I.Search size={14} color="var(--muted)" />
+              <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder={t('search_placeholder')} />
             </div>
           </div>
         )}
-        <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, padding: 4 }}>
+        <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, padding: 6 }} role="listbox">
           {filtered.map(o => {
             const isSelected = o.isAll
               ? (!value || value === 'all' || value === '')
@@ -133,14 +128,14 @@ function SelectShell({ value, selectedLabel, placeholder, onSelect, options, sho
             return (
               <div key={String(o.value)}
                 className={'menu-item' + (isSelected ? ' selected' : '')}
-                onClick={() => { onSelect(o); setOpen(false); setQ(''); }}
-                style={{ gap: 8, fontSize: 13 }}>
-                {isSelected ? <I.Check size={13} color="var(--accent)" style={{ flexShrink: 0 }} /> : <span style={{ width: 13, flexShrink: 0, display: 'inline-block' }} />}
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
+                role="option" aria-selected={isSelected}
+                onClick={() => { onSelect(o); setOpen(false); setQ(''); }}>
+                {isSelected ? <I.Check size={14} /> : <span style={{ width: 14, flexShrink: 0, display: 'inline-block' }} />}
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.label}</span>
               </div>
             );
           })}
-          {filtered.length === 0 && <div style={{ padding: '10px 12px', fontSize: 12.5, color: 'var(--muted)' }}>{t('not_found')}</div>}
+          {filtered.length === 0 && <div className="suggest-msg">{t('not_found')}</div>}
         </div>
       </DropdownPanel>
     </div>

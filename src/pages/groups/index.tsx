@@ -13,6 +13,7 @@ import {
 import { useCoachGroupsQuery, useGroupPerformanceTableQuery } from '@/features/performance-table/model/use-performance-table';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal, DetailGrid } from '@/shared/ui/modal';
+import { menuPosition } from '@/shared/ui/pager';
 import { useT } from '@/shared/i18n/lang';
 import { avatarColor } from '@/shared/lib/avatar';
 
@@ -128,7 +129,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
       onToast?.(`"${newGroup.name.trim()}" ${t('toast_group_added')}`);
       await loadData();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     } finally {
       setSaving(false);
     }
@@ -153,7 +154,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
       onToast?.(t('toast_group_updated'));
       await loadData();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     } finally {
       setSaving(false);
     }
@@ -167,7 +168,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
       onToast?.(`"${g.name}" ${t('toast_group_deleted')}`);
       await loadData();
     } catch (e) {
-      onToast?.(e.message);
+      onToast?.(e.message, 'error');
     }
   }
 
@@ -210,7 +211,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
     }
   }
 
-  if (loading) return <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>;
+  if (loading) return <div className="empty loading" style={{ padding: 64 }}>{t('loading')}</div>;
 
   const selectedGroup = groupDetail || groups.find(g => g.id === selectedGroupId) || null;
 
@@ -227,7 +228,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
               <I.Trash size={14}/> {bulkDeleting ? t('deleting') : `${selectedIds.length} ${t('delete')}`}
             </button>
           )}
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)', cursor: 'pointer', userSelect: 'none' }}>
+          <label className="check-line" style={{ marginRight: 6 }}>
             <input type="checkbox" checked={includeArchived} onChange={e => setIncludeArchived(e.target.checked)} />
             {t('groups_archived')}
           </label>
@@ -320,35 +321,49 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
             const coachName = coachMap[g.coach_id] || '—';
             const count = g.active_students_count ?? 0;
             const isSelected = selectedIds.includes(g.id);
+            const capacity = Number(g.capacity) > 0 ? Number(g.capacity) : null;
+            const pct = capacity ? Math.min(100, Math.round((count / capacity) * 100)) : null;
             return (
-              <div key={g.id} className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, outline: isSelected ? '2px solid var(--accent)' : 'none' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer', flex: 1 }} onClick={() => onOpen && onOpen(g.id)}>
-                    <input type="checkbox" checked={isSelected} onClick={e => e.stopPropagation()} onChange={() => toggleSelect(g.id)} style={{ marginTop: 3, flexShrink: 0 }} />
-                    <div>
-                      {g.description && <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{g.description}</div>}
-                      <div style={{ fontSize: 16, fontWeight: 700, marginTop: g.description ? 4 : 0 }}>{g.name}</div>
-                    </div>
-                  </div>
+              <div key={g.id} className={'card group-card' + (isSelected ? ' selected' : '')}>
+                <div className="gc-top">
+                  <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(g.id)} style={{ marginTop: 2 }} aria-label={g.name} />
+                  <button type="button" className="gc-open" onClick={() => onOpen && onOpen(g.id)}>
+                    {g.description && <div className="gc-eyebrow">{g.description}</div>}
+                    <div className="gc-name">{g.name}</div>
+                  </button>
                   <span className="chip success"><span className="chip-dot"></span>{t('status_active')}</span>
                 </div>
-                {g.coach_id && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => onOpen && onOpen(g.id)}>
-                    <div className="avatar sm" style={{ background: 'var(--primary)' }}>
-                      {coachName.split(' ').map(p => p[0]).slice(0, 2).join('')}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 600 }}>{coachName}</div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>{t('groups_coach_label2')}</div>
-                    </div>
+                <div>
+                  <div className="gc-count">
+                    <b>{count}</b>
+                    <span>{capacity ? `/ ${capacity} · ` : ''}{t('groups_active_students')}</span>
                   </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, alignItems: 'center' }}>
-                  <span style={{ color: 'var(--muted)' }}>{t('groups_active_students')}: <strong style={{ color: 'var(--text)' }}>{count}</strong></span>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button className="icon-btn" style={{ width: 28, height: 28 }} title={t('btn_edit')} onClick={() => openEdit(g)}><I.Edit size={13}/></button>
-                    <button className="icon-btn" style={{ width: 28, height: 28 }} title="Export" onClick={() => handleExport(g.id)}><I.Download size={13}/></button>
-                    <button className="icon-btn danger" style={{ width: 28, height: 28 }} title={t('btn_delete')} onClick={() => handleDeleteGroup(g)}><I.Trash size={13}/></button>
+                  {pct != null && (
+                    <div className={'progress' + (pct >= 95 ? ' red' : pct >= 75 ? ' gold' : '')} style={{ marginTop: 10 }}>
+                      <span style={{ width: pct + '%' }}></span>
+                    </div>
+                  )}
+                </div>
+                <div className="gc-foot">
+                  <div className="gc-coach">
+                    {g.coach_id ? (
+                      <>
+                        <div className="avatar sm" style={{ background: avatarColor(g.coach_id) }}>
+                          {coachName.split(' ').map(p => p[0]).slice(0, 2).join('')}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div className="n">{coachName}</div>
+                          <div className="r">{t('groups_coach_label2')}</div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="r">{t('groups_coach_none')}</div>
+                    )}
+                  </div>
+                  <div className="gc-actions">
+                    <button className="icon-btn plain" title={t('btn_edit')} aria-label={t('btn_edit')} onClick={() => openEdit(g)}><I.Edit size={15}/></button>
+                    <button className="icon-btn plain" title={t('export')} aria-label={t('export')} onClick={() => handleExport(g.id)}><I.Download size={15}/></button>
+                    <button className="icon-btn plain danger" title={t('btn_delete')} aria-label={t('btn_delete')} onClick={() => handleDeleteGroup(g)}><I.Trash size={15}/></button>
                   </div>
                 </div>
               </div>
@@ -385,10 +400,10 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
                     <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>{g.waiting_list_count ?? '—'}</td>
                     <td><span className="chip success">{t('status_active')}</span></td>
                     <td style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-                      <button className="icon-btn" style={{ width: 30, height: 30 }} onClick={(e) => {
+                      <button className="icon-btn plain" aria-label="Actions" onClick={(e) => {
                         if (openMenuGroupId === g.id) { setOpenMenuGroupId(null); return; }
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setMenuPos({ x: rect.right - 160, y: rect.bottom + 4 });
+
+                        setMenuPos(menuPosition(e.currentTarget, 4));
                         setOpenMenuGroupId(g.id);
                       }}><I.More size={15}/></button>
                       {openMenuGroupId === g.id && (

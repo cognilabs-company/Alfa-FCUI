@@ -71,7 +71,7 @@ import {
   apiGetAuditLogs,
 } from '@/shared/api';
 
-import { fmt } from '@/shared/lib/format';
+import { fmt, fmtMln, monthLabel, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
 import { Stat } from '@/shared/ui/stat';
 
 export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
@@ -93,9 +93,10 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
   const [loadError, setLoadError] = React.useState('');
   const [financeFrom, setFinanceFrom] = React.useState(() => {
     const d = new Date(); d.setMonth(d.getMonth() - 1);
-    return d.toISOString().slice(0, 10);
+    return toLocalISO(d);
   });
-  const [financeTo, setFinanceTo] = React.useState(new Date().toISOString().slice(0, 10));
+  const [financeTo, setFinanceTo] = React.useState(todayISO());
+  const loadedOnce = React.useRef(false);
 
   React.useEffect(() => {
     let mounted = true;
@@ -153,7 +154,10 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
       .finally(() => setPayersLoading(false));
   }, [tab, payersYear, payersMonth]);
 
-  if (loading) return <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>;
+  // Only the first load replaces the page; changing the finance range keeps
+  // the tabs and date pickers mounted.
+  if (loading && !loadedOnce.current) return <div className="empty loading" style={{ padding: 64 }}>{t('loading')}</div>;
+  if (!loading) loadedOnce.current = true;
 
   const safeSummary = summary || {};
 
@@ -228,43 +232,37 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
             { id: 'debtors', label: t('rpt_debtors') },
             { id: 'payers', label: t('rpt_payers') },
           ].map(tb => (
-            <div key={tb.id} className={'tab' + (tab === tb.id ? ' active' : '')} onClick={() => setTab(tb.id)}>{tb.label}</div>
+            <button key={tb.id} type="button" className={'tab' + (tab === tb.id ? ' active' : '')} onClick={() => setTab(tb.id)}>{tb.label}</button>
           ))}
         </div>
       </div>
 
-      {loadError && <div style={{ marginBottom: 12, padding: '10px 14px', background: 'var(--warning-soft)', borderRadius: 8, fontSize: 13, color: 'var(--warning)', fontWeight: 500 }}>{loadError}</div>}
+      {loadError && <div className="alert warning" style={{ marginBottom: 14 }}><I.AlertTriangle size={16}/> <span>{loadError}</span></div>}
 
       {tab === 'dashboard' && (
         <div className="grid-4" style={{ marginBottom: 16 }}>
-          {[
-            { label: t('rpt_active_students'), value: safeSummary.active_students ?? '—', icon: I.Users, color: 'var(--text)', iconBg: 'var(--surface-2)' },
-            { label: t('rpt_today_revenue'), value: safeSummary.today_revenue != null ? `${fmt.format(safeSummary.today_revenue)} so'm` : '—', icon: I.TrendingUp, color: 'var(--success)', iconBg: 'var(--success-soft)' },
-            {
-              label: t('rpt_debtors_count_lbl'), value: safeSummary.total_debtors ?? '—', icon: I.AlertTriangle, color: 'var(--danger)', iconBg: 'var(--danger-soft)',
-              sub: (safeSummary.total_debt ?? safeSummary.total_outstanding ?? safeSummary.outstanding_debt) != null
-                ? `${fmt.format(safeSummary.total_debt ?? safeSummary.total_outstanding ?? safeSummary.outstanding_debt)} so'm ${t('rpt_total_debt')}`
-                : null,
-            },
-            { label: t('rpt_today_sessions'), value: safeSummary.today_sessions ?? '—', icon: I.Calendar, color: 'var(--text)', iconBg: 'var(--surface-2)' },
-          ].map((item) => (
-            <div key={item.label} className="stat">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span className="stat-label">{item.label}</span>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: item.iconBg || 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.color, flexShrink: 0 }}>
-                  <item.icon size={18} />
-                </div>
-              </div>
-              <div className="stat-value" style={{ color: item.color }}>{item.value}</div>
-              {item.sub && <div style={{ fontSize: 12, color: item.color, opacity: 0.75, fontVariantNumeric: 'tabular-nums' }}>{item.sub}</div>}
-            </div>
-          ))}
+          <Stat feature label={t('rpt_active_students')} value={safeSummary.active_students ?? '—'} icon={I.Users} />
+          <Stat label={t('rpt_today_revenue')} tone="success" icon={I.TrendingUp}
+            value={safeSummary.today_revenue != null ? fmtMln(safeSummary.today_revenue) : '—'}
+            sub={safeSummary.today_revenue != null ? `${fmt.format(safeSummary.today_revenue)} so'm` : null} />
+          <Stat label={t('rpt_debtors_count_lbl')} tone="danger" icon={I.AlertTriangle}
+            value={safeSummary.total_debtors ?? '—'}
+            sub={(safeSummary.total_debt ?? safeSummary.total_outstanding ?? safeSummary.outstanding_debt) != null
+              ? `${fmt.format(safeSummary.total_debt ?? safeSummary.total_outstanding ?? safeSummary.outstanding_debt)} so'm ${t('rpt_total_debt')}`
+              : null} />
+          <Stat label={t('rpt_today_sessions')} icon={I.Calendar} value={safeSummary.today_sessions ?? '—'} />
         </div>
       )}
 
       {tab === 'finance' && (
         <div>
-          <div className="grid-4" style={{ marginBottom: 20 }}>
+          <div className="toolbar">
+            <DateInput value={financeFrom} onChange={setFinanceFrom} placeholder={t('cal_from')} />
+            <span style={{ color: 'var(--muted)', fontWeight: 700 }}>—</span>
+            <DateInput value={financeTo} onChange={setFinanceTo} placeholder={t('cal_to')} />
+            {loading && <span className="toolbar-meta">{t('loading')}</span>}
+          </div>
+          <div className="grid-4" style={{ marginBottom: 16 }}>
             {[
               {
                 label: t('rpt_total_income'),
@@ -288,38 +286,27 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
               },
             ].map((item) => (
               <div key={item.label} className="stat">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div className="stat-head">
                   <span className="stat-label">{item.label}</span>
-                  <item.icon size={15} color={item.color} />
+                  <span className="stat-icon" style={{ color: item.color }}><item.icon size={18} /></span>
                 </div>
-                <div className="stat-value" style={{ color: item.color, fontSize: 24 }}>{item.value}</div>
+                <div className="stat-value" style={{ fontSize: 22, color: item.color === 'var(--danger)' ? item.color : undefined }}>{item.value}</div>
               </div>
             ))}
           </div>
 
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-            <div className="field" style={{ margin: 0 }}>
-              <label style={{ fontSize: 12 }}>{t('rpt_from')}</label>
-              <DateInput value={financeFrom} onChange={setFinanceFrom} placeholder={t('cal_from')} />
-            </div>
-            <div className="field" style={{ margin: 0 }}>
-              <label style={{ fontSize: 12 }}>{t('rpt_to')}</label>
-              <DateInput value={financeTo} onChange={setFinanceTo} placeholder={t('cal_to')} />
-            </div>
-          </div>
-
           {financeReport ? (
-            <div className="card" style={{ padding: 16 }}>
+            <div className="card" style={{ padding: 20 }}>
               {financeReport.breakdown && Array.isArray(financeReport.breakdown) && financeReport.breakdown.length > 0 && (
                 <div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, marginBottom: 10 }}>{t('rpt_by_source_title')}</div>
+                  <div className="section-label">{t('rpt_by_source_title')}</div>
                   <div className="report-table-scroll">
                     <table className="table compact-report-table">
                       <thead><tr><th>{t('rpt_source_col')}</th><th style={{ textAlign: 'right' }}>{t('rpt_sum_col')}</th><th style={{ textAlign: 'right' }}>{t('rpt_count_col')}</th></tr></thead>
                       <tbody>
                         {financeReport.breakdown.map((b, i) => (
                           <tr key={i}>
-                            <td>{b.source || '—'}</td>
+                            <td><span className="chip">{b.source || '—'}</span></td>
                             <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt.format(b.total_amount || 0)} so'm</td>
                             <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{b.transaction_count || 0}</td>
                           </tr>
@@ -331,7 +318,7 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
               )}
               {financeReport.by_month && Array.isArray(financeReport.by_month) && financeReport.by_month.length > 0 && (
                 <div style={{ marginTop: 16 }}>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, marginBottom: 10 }}>{t('rpt_by_month_title')}</div>
+                  <div className="section-label">{t('rpt_by_month_title')}</div>
                   <div className="report-table-scroll">
                     <table className="table compact-report-table">
                       <thead><tr><th>{t('rpt_month_col')}</th><th style={{ textAlign: 'right' }}>{t('rpt_income_col')}</th><th style={{ textAlign: 'right' }}>{t('rpt_expected_col')}</th></tr></thead>
@@ -350,28 +337,35 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
               )}
             </div>
           ) : (
-            <div className="empty" style={{ padding: 48 }}>{t('rpt_finance_empty')}</div>
+            <div className="card empty" style={{ padding: 48 }}>{t('rpt_finance_empty')}</div>
           )}
         </div>
       )}
 
       {tab === 'attendance' && (
-        <div className="card" style={{ padding: 16 }}>
-          <div className="card-title" style={{ marginBottom: 12 }}>{t('rpt_att_groups')}</div>
+        <div className="card" style={{ padding: 20 }}>
+          <div className="card-title" style={{ marginBottom: 14 }}>{t('rpt_att_groups')}</div>
           {attendanceGroups.length === 0 ? (
             <div className="empty" style={{ padding: 18 }}>{t('rpt_att_not_found')}</div>
           ) : (
             <div className="grid-cards" style={{ gap: 12 }}>
               {attendanceGroups.map((g) => (
-                <div key={g.group_id || g.id} style={{ padding: 12, background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.group_name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
+                <div key={g.group_id || g.id} className="detail-item" style={{ padding: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
+                    <div style={{ fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.group_name}</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>{g.attendance_percentage || g.attendance_rate || 0}%</div>
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', margin: '4px 0 12px' }}>
                     {g.total_sessions} {t('nav_sessions').toLowerCase()} · {g.total_students} {t('nav_students').toLowerCase()}
                   </div>
-                  <div className="progress">
-                    <span style={{ width: `${g.attendance_percentage || g.attendance_rate || 0}%` }} />
-                  </div>
-                  <div style={{ fontSize: 12.5, marginTop: 6, fontWeight: 700 }}>{g.attendance_percentage || g.attendance_rate || 0}%</div>
+                  {(() => {
+                    const pct = Number(g.attendance_percentage || g.attendance_rate || 0);
+                    return (
+                      <div className={'progress' + (pct < 60 ? ' red' : pct < 80 ? ' gold' : ' green')}>
+                        <span style={{ width: `${pct}%` }} />
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
@@ -381,14 +375,15 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
 
       {tab === 'debtors' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div style={{ fontSize: 13, color: 'var(--muted)' }}>{debtors.length} {t('rpt_debtors_count_sfx')}</div>
-            <button className="btn" onClick={handleDebtorsExport}><I.Download size={15} /> Excel export</button>
+          <div className="toolbar">
+            <span className="chip danger">{debtors.length} {t('rpt_debtors_count_sfx')}</span>
+            <button className="btn" style={{ marginLeft: 'auto' }} onClick={handleDebtorsExport}><I.Download size={15} /> Excel</button>
           </div>
           {debtorsLoading ? (
-            <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>
+            <div className="empty loading" style={{ padding: 48 }}>{t('loading')}</div>
           ) : (
             <div className="table-wrap">
+              <div className="table-scroll">
               <table className="table">
                 <thead>
                   <tr>
@@ -402,11 +397,11 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
                 </thead>
                 <tbody>
                   {debtors.length === 0 && (
-                    <tr><td colSpan={6} style={{ padding: 18, color: 'var(--muted)' }}>{t('rpt_debtors_none')}</td></tr>
+                    <tr className="static"><td colSpan={6} className="empty-cell">{t('rpt_debtors_none')}</td></tr>
                   )}
                   {debtors.map((d, idx) => (
-                    <tr key={d.student_id || d.id || idx}>
-                      <td style={{ fontWeight: 600 }}>{d.student_name || `#${d.student_id || idx}`}</td>
+                    <tr key={d.student_id || d.id || idx} className="static">
+                      <td style={{ fontWeight: 750 }}>{d.student_name || `#${d.student_id || idx}`}</td>
                       <td style={{ color: 'var(--text-2)', fontSize: 12.5 }}>{d.contract_number || '—'}</td>
                       <td style={{ color: 'var(--text-2)' }}>{d.group_name || '—'}</td>
                       <td style={{ color: 'var(--text-2)', fontSize: 12.5 }}>{d.primary_phone || d.father_phone || '—'}</td>
@@ -418,13 +413,14 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
                           {(!d.overdue_months || d.overdue_months.length === 0) && <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
                         </div>
                       </td>
-                      <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--danger)', fontVariantNumeric: 'tabular-nums' }}>
+                      <td className="money" style={{ textAlign: 'right', color: 'var(--danger)' }}>
                         {fmt.format(d.debt_amount || Math.abs(d.debt || d.balance || 0))} so'm
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>
@@ -432,7 +428,7 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
 
       {tab === 'payers' && (
         <div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+          <div className="toolbar">
             <SearchableSelect
               value={String(payersYear)}
               onChange={v => setPayersYear(Number(v))}
@@ -444,18 +440,18 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
               onChange={v => setPayersMonth(v)}
               options={[
                 { value: '', label: t('rpt_all_months') },
-                ...['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'].map((m, i) => ({ value: String(i + 1), label: m })),
+                ...Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: monthLabel(i) })),
               ]}
               style={{ minWidth: 140 }}
             />
-            <div style={{ flex: 1 }} />
-            <div style={{ fontSize: 13, color: 'var(--muted)' }}>{payers.length} {t('rpt_payers_count_sfx')}</div>
-            <button className="btn" onClick={handlePayersExport}><I.Download size={15} /> Excel export</button>
+            <span className="chip success" style={{ marginLeft: 'auto' }}>{payers.length} {t('rpt_payers_count_sfx')}</span>
+            <button className="btn" onClick={handlePayersExport}><I.Download size={15} /> Excel</button>
           </div>
           {payersLoading ? (
-            <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>
+            <div className="empty loading" style={{ padding: 48 }}>{t('loading')}</div>
           ) : (
             <div className="table-wrap">
+              <div className="table-scroll">
               <table className="table">
                 <thead>
                   <tr>
@@ -468,23 +464,22 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
                 </thead>
                 <tbody>
                   {payers.length === 0 && (
-                    <tr><td colSpan={5} style={{ padding: 18, color: 'var(--muted)' }}>{t('rpt_payers_none')}</td></tr>
+                    <tr className="static"><td colSpan={5} className="empty-cell">{t('rpt_payers_none')}</td></tr>
                   )}
                   {payers.map((p, idx) => {
-                    const MONTH_NAMES = ['','Yan','Fev','Mar','Apr','May','Iyn','Iyl','Avg','Sen','Okt','Noy','Dek'];
                     return (
-                      <tr key={p.student_id || idx}>
-                        <td style={{ fontWeight: 600 }}>{p.student_name || `#${p.student_id}`}</td>
+                      <tr key={p.student_id || idx} className="static">
+                        <td style={{ fontWeight: 750 }}>{p.student_name || `#${p.student_id}`}</td>
                         <td style={{ color: 'var(--text-2)', fontSize: 12.5 }}>{p.contract_number || '—'}</td>
                         <td style={{ color: 'var(--text-2)' }}>{p.group_name || '—'}</td>
                         <td>
                           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                             {(p.payment_months || []).map((m, mi) => (
-                              <span key={mi} className="chip success" style={{ fontSize: 11 }}>{MONTH_NAMES[m] || m}</span>
+                              <span key={mi} className="chip success" style={{ fontSize: 11 }}>{monthShort(Number(m) - 1) || m}</span>
                             ))}
                           </div>
                         </td>
-                        <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--success)', fontVariantNumeric: 'tabular-nums' }}>
+                        <td className="money" style={{ textAlign: 'right', color: 'var(--success)' }}>
                           {fmt.format(p.total_paid || 0)} so'm
                         </td>
                       </tr>
@@ -492,6 +487,7 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>

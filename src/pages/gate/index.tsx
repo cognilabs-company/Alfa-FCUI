@@ -71,13 +71,14 @@ import {
   apiGetAuditLogs,
 } from '@/shared/api';
 
-import { fmt, fmtDateTime } from '@/shared/lib/format';
+import { fmt, fmtDateTime, todayISO } from '@/shared/lib/format';
+import { Pager } from '@/shared/ui/pager';
 import { Stat } from '@/shared/ui/stat';
 
 export function GateLogsScreen() {
   const I = Icon;
   const { t } = useT();
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = todayISO();
   const [logs, setLogs] = React.useState([]);
   const [meta, setMeta] = React.useState({ total: 0, total_pages: 1, page: 1 });
   const [loading, setLoading] = React.useState(true);
@@ -135,25 +136,26 @@ export function GateLogsScreen() {
       <div className="grid-3" style={{ gap: 12, marginBottom: 14 }}>
         <Stat label={t('gate_allowed_chip')} value={allowedCount} tone="success" icon={I.LogIn} />
         <Stat label={t('gate_denied_chip')} value={deniedCount} tone="danger" icon={I.ShieldOff} />
-        <Stat label={t('gate_total_page_label')} value={meta.total} icon={I.Users} />
+        <Stat feature label={t('gate_total_page_label')} value={meta.total} icon={I.Users} />
       </div>
 
-      {error && <div style={{ marginBottom: 12, padding: '10px 14px', background: 'var(--danger-soft)', borderRadius: 8, fontSize: 13, color: 'var(--danger)' }}>{error}</div>}
+      {error && <div className="alert danger" style={{ marginBottom: 14 }}><I.AlertTriangle size={16}/> <span>{error}</span></div>}
 
       {loading ? (
-        <div className="empty" style={{ padding: 48 }}>{t('loading')}</div>
+        <div className="empty loading" style={{ padding: 48 }}>{t('loading')}</div>
       ) : (
         <div className="table-wrap">
+          <div className="table-scroll">
           <table className="table">
             <thead>
               <tr><th>{t('gate_student_col')}</th><th>{t('gate_status_col')}</th><th>{t('gate_reason_col')}</th><th>{t('gate_col_time')}</th></tr>
             </thead>
             <tbody>
               {logs.length === 0 && (
-                <tr><td colSpan={4} style={{ padding: 18, color: 'var(--muted)' }}>{t('gate_no_logs')}</td></tr>
+                <tr className="static"><td colSpan={4} className="empty-cell">{t('gate_no_logs')}</td></tr>
               )}
               {logs.map((l, idx) => (
-                <tr key={l.id || idx}>
+                <tr key={l.id || idx} className="static">
                   <td>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       <div style={{ width: 32, height: 32, borderRadius: 8, background: l.allowed !== false ? 'var(--success-soft)' : 'var(--danger-soft)', color: l.allowed !== false ? 'var(--success)' : 'var(--danger)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
@@ -175,13 +177,8 @@ export function GateLogsScreen() {
               ))}
             </tbody>
           </table>
-          {meta.total_pages > 1 && (
-            <div style={{ display: 'flex', gap: 6, padding: '12px 16px', borderTop: '1px solid var(--border)', alignItems: 'center' }}>
-              <button className="btn sm ghost" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>‹ {t('prev')}</button>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{page} / {meta.total_pages} · {t('all')}: {meta.total}</span>
-              <button className="btn sm ghost" disabled={page >= meta.total_pages} onClick={() => setPage(p => p + 1)}>{t('next')} ›</button>
-            </div>
-          )}
+          </div>
+          {meta.total_pages > 1 && <Pager page={page} totalPages={meta.total_pages} onPage={setPage} total={meta.total} pageSize={50}/>}
         </div>
       )}
     </div>
