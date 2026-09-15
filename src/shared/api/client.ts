@@ -84,6 +84,39 @@ export function setUnauthorizedHandler(fn) {
 }
 
 /**
+ * Authenticated binary download (PDF, Excel) through the /api proxy, so the
+ * access token is attached and refreshed like every other request.
+ * `path` is API-relative ("/contracts/5/pdf").
+ */
+export async function apiBlob(path) {
+  try {
+    const res = await http.get(path, { responseType: 'blob' });
+    const cd = res.headers?.['content-disposition'] || '';
+    const match = cd.match(/filename\*?=(?:UTF-8'')?(['"]?)([^;\n]*)\1/i);
+    const filename = match ? decodeURIComponent(match[2]) : '';
+    return { blob: res.data, filename };
+  } catch (error) {
+    const status = error.response?.status;
+    if (status === 401 && _onUnauthorized) _onUnauthorized();
+    let detail;
+    const data = error.response?.data;
+    if (data && typeof data.text === 'function') {
+      try { detail = JSON.parse(await data.text())?.detail; } catch { /* not JSON */ }
+    }
+    if (Array.isArray(detail)) throw new Error(translateApiError('__validation__'));
+    throw new Error(translateApiError(detail || (status ? `Xatolik: ${status}` : '__network__')));
+  }
+}
+
+/** API-relative path for a URL that may be absolute on the API host; null for foreign hosts. */
+export function toApiPath(url) {
+  const u = String(url || '');
+  if (u.startsWith('/')) return u;
+  if (u.startsWith(BASE_URL)) return u.slice(BASE_URL.length) || '/';
+  return null;
+}
+
+/**
  * apiFetch — now backed by the Axios `http` instance which handles:
  *   - Authorization header attachment (request interceptor)
  *   - 401 → silent token refresh → retry (response interceptor)
@@ -125,6 +158,6 @@ export async function apiFetch(path, options = {}) {
     const detail = error.response?.data?.detail;
     // FastAPI validation errors come as an array of {loc, msg, type}
     if (Array.isArray(detail)) throw new Error(translateApiError('__validation__'));
-    throw new Error(translateApiError(detail || (error.response?.status ? `Xatolik: ${error.response.status}` : error.message)));
+    throw new Error(translateApiError(detail || (error.response?.status ? `Xatolik: ${error.response.status}` : '__network__')));
   }
 }

@@ -10,10 +10,15 @@ export function Pager({ page, totalPages, onPage, total, pageSize, detached = fa
   const pages = Math.max(1, totalPages || 1);
   if (pages <= 1 && !total) return null;
 
-  // window of up to 5 page numbers around the current page
-  const start = Math.max(1, Math.min(page - 2, pages - 4));
+  // Pages come in fixed blocks of five (1–5, 6–10, …). The arrows move a
+  // whole block: ">" opens the first page of the next block, "<" the last
+  // page of the previous one.
+  const BLOCK = 5;
+  const current = Math.min(Math.max(1, page), pages);
+  const start = Math.floor((current - 1) / BLOCK) * BLOCK + 1;
+  const end = Math.min(pages, start + BLOCK - 1);
   const nums = [];
-  for (let p = start; p <= Math.min(pages, start + 4); p++) nums.push(p);
+  for (let p = start; p <= end; p++) nums.push(p);
 
   const range = total != null && pageSize
     ? (total === 0 ? '0' : `${(page - 1) * pageSize + 1} — ${Math.min(page * pageSize, total)} / ${total}`)
@@ -24,15 +29,15 @@ export function Pager({ page, totalPages, onPage, total, pageSize, detached = fa
       <span>{range}</span>
       {pages > 1 && (
         <div className="pager-pages">
-          <button className="btn sm ghost" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Previous page">
+          <button className="btn sm ghost" disabled={start <= 1} onClick={() => onPage(start - 1)} aria-label="Previous pages">
             <Icon.ChevronLeft size={15}/>
           </button>
           {nums.map(p => (
-            <button key={p} className={'btn sm ' + (p === page ? 'dark' : 'ghost')} onClick={() => onPage(p)} aria-current={p === page ? 'page' : undefined}>
+            <button key={p} className={'btn sm ' + (p === current ? 'dark' : 'ghost')} onClick={() => onPage(p)} aria-current={p === current ? 'page' : undefined}>
               {p}
             </button>
           ))}
-          <button className="btn sm ghost" disabled={page >= pages} onClick={() => onPage(page + 1)} aria-label="Next page">
+          <button className="btn sm ghost" disabled={end >= pages} onClick={() => onPage(end + 1)} aria-label="Next pages">
             <Icon.ChevronRight size={15}/>
           </button>
         </div>

@@ -4,6 +4,7 @@ import {
   unwrapData, unwrapDataArray,
   normalizeContractMonthlyFeePayload, normalizeContractDatesPayload,
 } from './client';
+import { apiBlob } from './client';
 
 // Contracts
 export async function apiGetContracts(params = {}) {
@@ -49,12 +50,7 @@ export async function apiRegenerateContractPdf(id) {
 }
 
 export async function apiGetContractPdf(id) {
-  const token = getToken();
-  const headers = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${BASE_URL}/contracts/${id}/pdf`, { headers });
-  if (!res.ok) throw new Error(`Xatolik: ${res.status}`);
-  return res.blob();
+  return (await apiBlob(`/contracts/${id}/pdf`)).blob;
 }
 
 export function apiContractPdfUrl(id) {

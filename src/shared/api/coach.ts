@@ -4,6 +4,7 @@ import {
   unwrapData, unwrapDataArray,
   normalizeContractMonthlyFeePayload, normalizeContractDatesPayload,
 } from './client';
+import { apiBlob } from './client';
 
 export async function apiGetHeadCoachGroups() {
   return apiFetch('/head-coach/groups');
@@ -62,15 +63,7 @@ export async function apiGetCoachGroupPerformanceTableExportUrl(groupId, season_
 }
 
 export async function apiDownloadCoachGroupPerformanceTableExport(groupId, season_year) {
-  const token = getToken();
-  const headers = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(
-    `${BASE_URL}/coach/groups/${groupId}/performance-table/export?season_year=${encodeURIComponent(season_year)}`,
-    { headers }
-  );
-  if (!res.ok) throw new Error(`Xatolik: ${res.status}`);
-  return res.blob();
+  return (await apiBlob(`/coach/groups/${groupId}/performance-table/export?season_year=${encodeURIComponent(season_year)}`)).blob;
 }
 
 export async function apiUploadCoachSessionKonspekt(sessionId, formData) {
@@ -81,8 +74,9 @@ export async function apiMarkAttendance(sessionId, data) {
   return apiFetch(`/coach/sessions/${sessionId}/attendance`, { method: 'POST', body: JSON.stringify(data) });
 }
 
+// The API exposes no PUT for a single mark; bulk-attendance updates existing records.
 export async function apiUpdateAttendance(sessionId, data) {
-  return apiFetch(`/coach/sessions/${sessionId}/attendance`, { method: 'PUT', body: JSON.stringify(data) });
+  return apiMarkBulkAttendance(sessionId, [data]);
 }
 
 export async function apiMarkBulkAttendance(sessionId, attendances) {

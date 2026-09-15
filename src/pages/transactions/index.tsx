@@ -98,8 +98,16 @@ export function TransactionsScreen({ onToast } = {}) {
   const [source, setSource] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('');
   const [scope, setScope] = React.useState('all');
-  const [fromDate, setFromDate] = React.useState('');
-  const [toDate, setToDate] = React.useState('');
+  // Other pages can open this one pre-filtered (e.g. Reports → "today's revenue")
+  const [intent] = React.useState(() => {
+    try {
+      const v = JSON.parse(sessionStorage.getItem('alpha_tx_intent') || 'null');
+      sessionStorage.removeItem('alpha_tx_intent');
+      return v || {};
+    } catch { return {}; }
+  });
+  const [fromDate, setFromDate] = React.useState(intent.from || '');
+  const [toDate, setToDate] = React.useState(intent.to || '');
   const [paymentYear, setPaymentYear] = React.useState('');
   const [page, setPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);

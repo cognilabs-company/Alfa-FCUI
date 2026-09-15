@@ -4,6 +4,7 @@ import {
   unwrapData, unwrapDataArray,
   normalizeContractMonthlyFeePayload, normalizeContractDatesPayload,
 } from './client';
+import { apiBlob } from './client';
 
 // Reports
 export async function apiGetDashboard() {
@@ -60,29 +61,19 @@ export function apiPaymentsExcelUrl(params = {}) {
   return `${BASE_URL}/reports/payments-excel${q ? '?' + q : ''}`;
 }
 
+const withQuery = (path, params = {}) => {
+  const q = new URLSearchParams(params).toString();
+  return path + (q ? '?' + q : '');
+};
+
 export async function apiDownloadPaymentsExcel(params = {}) {
-  const token = getToken();
-  const headers = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(apiPaymentsExcelUrl(params), { headers });
-  if (!res.ok) throw new Error(`Xatolik: ${res.status}`);
-  return res.blob();
+  return (await apiBlob(withQuery('/reports/payments-excel', params))).blob;
 }
 
 export async function apiDownloadDebtors() {
-  const token = getToken();
-  const headers = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(apiDebtorsExportUrl(), { headers });
-  if (!res.ok) throw new Error(`Xatolik: ${res.status}`);
-  return res.blob();
+  return (await apiBlob('/reports/debtors/export')).blob;
 }
 
 export async function apiDownloadPayers(params = {}) {
-  const token = getToken();
-  const headers = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(apiPayersExportUrl(params), { headers });
-  if (!res.ok) throw new Error(`Xatolik: ${res.status}`);
-  return res.blob();
+  return (await apiBlob(withQuery('/reports/payers/export', params))).blob;
 }

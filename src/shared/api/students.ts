@@ -4,6 +4,7 @@ import {
   unwrapData, unwrapDataArray,
   normalizeContractMonthlyFeePayload, normalizeContractDatesPayload,
 } from './client';
+import { apiBlob, toApiPath } from './client';
 
 // Students
 export async function apiGetStudents(params = {}) {
@@ -71,20 +72,17 @@ export async function apiGetStudentsComprehensiveExportUrl() {
 }
 
 export async function apiDownloadGroupStudentsExport(id) {
-  const token = getToken();
-  const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${BASE_URL}/groups/${id}/export-students`, { headers });
-  if (!res.ok) throw new Error(`Xatolik: ${res.status}`);
-  return res.blob();
+  return (await apiBlob(`/groups/${id}/export-students`)).blob;
 }
 
 export async function apiDownloadStudentFile(url: string) {
-  const token = getToken();
-  const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
-  const res = await fetch(fullUrl, { headers });
+  const apiPath = toApiPath(url);
+  if (apiPath) {
+    const { blob, filename } = await apiBlob(apiPath);
+    return { blob, filename: filename || 'file' };
+  }
+  // Files on another host (storage/CDN) must not receive our bearer token
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`Xatolik: ${res.status}`);
   const cd = res.headers.get('Content-Disposition') || '';
   const match = cd.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
@@ -93,12 +91,7 @@ export async function apiDownloadStudentFile(url: string) {
 }
 
 export async function apiDownloadStudentsComprehensiveExport() {
-  const token = getToken();
-  const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${BASE_URL}/students/comprehensive-export`, { headers });
-  if (!res.ok) throw new Error(`Xatolik: ${res.status}`);
-  return res.blob();
+  return (await apiBlob('/students/comprehensive-export')).blob;
 }
 
 export async function apiGetStudentsAttendanceAll(params = {}) {

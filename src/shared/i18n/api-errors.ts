@@ -111,6 +111,7 @@ const RULES = [
   // Network / generic
   [/^Network Error$/i, "Internet aloqasi yo'q yoki server javob bermayapti", 'Нет соединения с сервером'],
   [/^Xatolik: (\d+)$/i, 'Xatolik: $1', 'Ошибка: $1'],
+  [/^__network__$/, "Server bilan aloqa yo'q. Internet aloqasini tekshiring.", 'Нет связи с сервером. Проверьте интернет.'],
   [/^__validation__$/, "Ma'lumotlar noto'g'ri to'ldirilgan. Maydonlarni tekshiring.", 'Данные заполнены неверно. Проверьте поля.'],
 ];
 

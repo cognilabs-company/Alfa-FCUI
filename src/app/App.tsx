@@ -96,7 +96,7 @@ function AppShell() {
     if (!loggedIn) { setAuthLoading(false); setMeChecked(false); return; }
     setMeChecked(false);
     apiGetMe().then(res => {
-      if (res) {
+      if (res?.user) {
         setCurrentUser(res.user);
         setPermissions(res.permissions || []);
         let roleName;
@@ -279,8 +279,8 @@ function AppShell() {
             />
           )}
           {route === 'settings' && <SettingsScreen theme={T.theme} setTheme={(th) => T.setTweak('theme', th)}/>}
-          {route === 'reports' && <ReportsScreen/>}
-          {route === 'reports-debtors' && <ReportsScreen initialTab="debtors"/>}
+          {route === 'reports' && <ReportsScreen onNav={navigate}/>}
+          {route === 'reports-debtors' && <ReportsScreen initialTab="debtors" onNav={navigate}/>}
           {route === 'waiting-list' && <WaitingListScreen onToast={showToast}/>}
           {route === 'audit-logs' && <AuditLogsScreen/>}
           </div>

@@ -76,7 +76,7 @@ import {
 import { fmt, fmtMln, fmtMoneyRoll, monthLabel, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
 import { Stat } from '@/shared/ui/stat';
 
-export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
+export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
   const I = Icon;
   const { t } = useT();
   const [tab, setTab] = React.useState(initialTab);
@@ -244,16 +244,28 @@ export function ReportsScreen({ initialTab = 'dashboard' } = {}) {
 
       {tab === 'dashboard' && (
         <div className="grid-4" style={{ marginBottom: 16 }}>
-          <Stat feature label={t('rpt_active_students')} value={safeSummary.active_students != null ? Number(safeSummary.active_students) : '—'} icon={I.Users} />
+          <Stat feature label={t('rpt_active_students')} value={safeSummary.active_students != null ? Number(safeSummary.active_students) : '—'} icon={I.Users}
+            onClick={() => {
+              // open the students list filtered to active students
+              try { sessionStorage.setItem('alpha_students_filters', JSON.stringify({ q: '', status: 'active', groupId: '', page: 1 })); } catch { /* private mode */ }
+              onNav?.('students');
+            }} />
           <Stat label={t('rpt_today_revenue')} tone="success" icon={I.HandCoins}
+            onClick={() => {
+              // open transactions limited to today
+              try { sessionStorage.setItem('alpha_tx_intent', JSON.stringify({ from: todayISO(), to: todayISO() })); } catch { /* private mode */ }
+              onNav?.('transactions');
+            }}
             value={safeSummary.today_revenue != null ? Number(safeSummary.today_revenue) : '—'} format={fmtMoneyRoll}
             sub={safeSummary.today_revenue != null ? `${fmt.format(safeSummary.today_revenue)} so'm` : null} />
           <Stat label={t('rpt_debtors_count_lbl')} tone="danger" icon={I.AlertCircle}
+            onClick={() => setTab('debtors')}
             value={safeSummary.total_debtors != null ? Number(safeSummary.total_debtors) : '—'}
             sub={(safeSummary.total_debt ?? safeSummary.total_outstanding ?? safeSummary.outstanding_debt) != null
               ? `${fmt.format(safeSummary.total_debt ?? safeSummary.total_outstanding ?? safeSummary.outstanding_debt)} so'm ${t('rpt_total_debt')}`
               : null} />
-          <Stat label={t('rpt_today_sessions')} icon={I.CalendarCheck} value={safeSummary.today_sessions != null ? Number(safeSummary.today_sessions) : '—'} />
+          <Stat label={t('rpt_today_sessions')} icon={I.CalendarCheck} value={safeSummary.today_sessions != null ? Number(safeSummary.today_sessions) : '—'}
+            onClick={() => onNav?.('sessions')} />
         </div>
       )}
 

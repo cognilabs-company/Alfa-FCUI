@@ -57,7 +57,9 @@ export function StudentsList({ onOpen, onNew, onToast }) {
     try {
       const params = { page, page_size: PAGE_SIZE };
       if (q) params.search = q;
+      // without a status the API returns only ACTIVE students
       if (status !== 'all') params.status = status;
+      else params.include_archived = true;
       if (groupId) params.group_id = groupId;
       Object.assign(params, overrides);
       const res = await apiGetStudents(params);

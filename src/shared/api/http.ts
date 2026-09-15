@@ -14,8 +14,9 @@ async function refreshTokens(): Promise<void> {
     const refreshToken = tokenStore.getRefreshToken();
     if (!refreshToken) throw new Error('No refresh token');
 
+    // same-origin proxy (Vite dev proxy / Vercel rewrite): no CORS dependency
     const res = await axios.post<{ access_token: string; refresh_token: string }>(
-      `${BASE_URL}/auth/refresh`,
+      '/api/auth/refresh',
       { refresh_token: refreshToken },
       { headers: { 'Content-Type': 'application/json' } },
     );

@@ -62,7 +62,7 @@ export function SessionsScreen({ onMark }) {
   const [sessions, setSessions] = React.useState([]);
   const [groups, setGroups] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
-  const [filter, setFilter] = React.useState('all');
+  const [filter, setFilter] = React.useState('today');
   const [selectedDate, setSelectedDate] = React.useState('');
   const [showCreate, setShowCreate] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
