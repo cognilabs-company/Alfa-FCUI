@@ -23,22 +23,30 @@ export async function apiCreateStudent(formData) {
 
 /**
  * The prorated first payment is a newer backend feature. Probe the API schema
- * once per session so the form only offers it when the server really accepts
- * the fields — otherwise they would be silently dropped and a full contract
- * created straight away.
+ * so the form only offers it when the server really accepts the fields —
+ * otherwise they would be silently dropped and a full contract created
+ * straight away.
+ *
+ * A "supported" answer holds for the session; a "not supported" one is
+ * rechecked after a few minutes, so the switch turns itself on soon after the
+ * backend is deployed instead of staying disabled until the tab is closed.
  */
+const PRORATED_CACHE_KEY = 'alpha_caps_prorated';
+const PRORATED_RECHECK_MS = 5 * 60 * 1000;
 let proratedProbe = null;
 export function apiSupportsProratedPayment() {
   if (proratedProbe) return proratedProbe;
   try {
-    const cached = sessionStorage.getItem('alpha_caps_prorated');
-    if (cached) return (proratedProbe = Promise.resolve(cached === '1'));
+    const [flag, at] = String(sessionStorage.getItem(PRORATED_CACHE_KEY) || '').split(':');
+    const fresh = flag === '1' || (at && Date.now() - Number(at) < PRORATED_RECHECK_MS);
+    if (flag && fresh) return (proratedProbe = Promise.resolve(flag === '1'));
   } catch { /* private mode */ }
   proratedProbe = http.get('/openapi.json')
     .then((res) => {
       const props = res?.data?.components?.schemas?.Body_create_student_students_post?.properties || {};
       const ok = Object.prototype.hasOwnProperty.call(props, 'initial_payment_amount');
-      try { sessionStorage.setItem('alpha_caps_prorated', ok ? '1' : '0'); } catch { /* private mode */ }
+      try { sessionStorage.setItem(PRORATED_CACHE_KEY, `${ok ? '1' : '0'}:${Date.now()}`); } catch { /* private mode */ }
+      if (!ok) proratedProbe = null; // recheck on the next visit
       return ok;
     })
     .catch(() => { proratedProbe = null; return false; });
