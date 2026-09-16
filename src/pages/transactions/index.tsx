@@ -75,7 +75,7 @@ import {
   apiGetAuditLogs,
 } from '@/shared/api';
 
-import { fmt, fmtDateTime, fmtMln, fmtMoneyRoll, monthLabel } from '@/shared/lib/format';
+import { fmt, fmtDate, fmtDateTime, fmtMln, fmtMoneyRoll, monthLabel } from '@/shared/lib/format';
 import { Pager } from '@/shared/ui/pager';
 import { CountUp } from '@/shared/ui/count-up';
 import { Stat } from '@/shared/ui/stat';
@@ -464,7 +464,10 @@ export function TransactionsScreen({ onToast } = {}) {
                   </td>
                   <td className="num" style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>{fmtDateTime(tx.paid_at || tx.created_at)}</td>
                   <td style={{ fontWeight: 700 }}>{tx.student_full_name || `#${tx.student_id || '—'}`}</td>
-                  <td><span className="chip">{sourceLabel(tx.source)}</span></td>
+                  <td>
+                    <span className="chip">{sourceLabel(tx.source)}</span>
+                    {tx.payment_type === 'INITIAL' && <span className="chip warning" style={{ marginLeft: 6 }}>{t('tx_type_initial')}</span>}
+                  </td>
                   <td className="muted" style={{ fontSize: 12.5 }}>{(tx.payment_months || []).map(m => monthName(m)).join(', ') || '—'}</td>
                   <td className="money" style={{ textAlign: 'right' }}>{fmt.format(tx.amount || 0)} {t('currency')}</td>
                   <td>{txStatusBadge(tx.status, t)}</td>
@@ -513,6 +516,11 @@ export function TransactionsScreen({ onToast } = {}) {
                 ) },
                 { label: t('transactions_col_date'), value: fmtDateTime(detail.paid_at || detail.created_at) },
                 { label: t('tx_months_col'), value: (detail.payment_months || []).map(m => monthName(m)).join(', ') || '—' },
+                ...(detail.payment_type ? [{ label: t('tx_type_col'), value: detail.payment_type === 'INITIAL' ? t('tx_type_initial') : t('tx_type_monthly') }] : []),
+                ...(detail.period_start_date || detail.period_end_date ? [{
+                  label: t('prorated_period'),
+                  value: fmtDate(detail.period_start_date) + ' → ' + fmtDate(detail.period_end_date),
+                }] : []),
                 { label: t('transactions_col_student'), value: detail.student_full_name || (detail.student_id ? `#${detail.student_id}` : '—') },
                 { label: t('transactions_col_contract'), value: detail.contract_number || (detail.contract_id ? `#${detail.contract_id}` : '—') },
                 { label: t('tx_py_label'), value: detail.payment_year || '—' },

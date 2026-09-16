@@ -89,6 +89,9 @@ export function StudentProfile({ studentId, onBack }) {
   const group = info.group;
   const coach = info.coach;
   const contract = info.contract;
+  // No contract yet, but a paid first period means one is scheduled for its end date.
+  const pendingContractDate = contract ? null
+    : (transactions.find(tx => tx.payment_type === 'INITIAL' && tx.period_end_date)?.period_end_date || null);
   const attendances = info.attendances || [];
   const name = fullName(s);
   const age = calcAge(s.date_of_birth);
@@ -230,7 +233,12 @@ export function StudentProfile({ studentId, onBack }) {
           <div className="grid-2" style={{ padding: 20, gap: 18 }}>
             <div>
               <div className="card-title" style={{ marginBottom: 14 }}>{t('profile_current_contract')}</div>
-              {!contract && <div className="empty">{t('profile_contract_not_found')}</div>}
+              {!contract && !pendingContractDate && <div className="empty">{t('profile_contract_not_found')}</div>}
+              {!contract && pendingContractDate && (
+                <div className="alert info" style={{ marginBottom: 0 }}>
+                  <I.Calendar size={16}/> <span>{t('profile_contract_pending').replace('{date}', fmtDate(pendingContractDate))}</span>
+                </div>
+              )}
               {contract && (
                 <DetailGrid items={[
                   { label: t('contracts_number'), value: contract.contract_number },
@@ -293,7 +301,10 @@ export function StudentProfile({ studentId, onBack }) {
                   {transactions.slice(0, 10).map(tx => (
                     <tr key={tx.id}>
                       <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>{fmtDateTime(tx.paid_at)}</td>
-                      <td><span className="chip">{tx.source}</span></td>
+                      <td>
+                        <span className="chip">{tx.source}</span>
+                        {tx.payment_type === 'INITIAL' && <span className="chip warning" style={{ marginLeft: 6 }}>{t('tx_type_initial')}</span>}
+                      </td>
                       <td style={{ color: 'var(--muted)', fontSize: 12.5 }}>{tx.payment_months?.map(m => monthLabel(Number(m) - 1) || m).join(', ') || '—'}</td>
                       <td className="money" style={{ textAlign: 'right' }}>{fmt.format(tx.amount || 0)} {t('currency')}</td>
                       <td>

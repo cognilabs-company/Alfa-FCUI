@@ -5,6 +5,7 @@ import {
   normalizeContractMonthlyFeePayload, normalizeContractDatesPayload,
 } from './client';
 import { apiBlob, toApiPath } from './client';
+import { http } from './http';
 
 // Students
 export async function apiGetStudents(params = {}) {
@@ -18,6 +19,30 @@ export async function apiGetStudent(id) {
 
 export async function apiCreateStudent(formData) {
   return apiFetch('/students', { method: 'POST', body: formData });
+}
+
+/**
+ * The prorated first payment is a newer backend feature. Probe the API schema
+ * once per session so the form only offers it when the server really accepts
+ * the fields — otherwise they would be silently dropped and a full contract
+ * created straight away.
+ */
+let proratedProbe = null;
+export function apiSupportsProratedPayment() {
+  if (proratedProbe) return proratedProbe;
+  try {
+    const cached = sessionStorage.getItem('alpha_caps_prorated');
+    if (cached) return (proratedProbe = Promise.resolve(cached === '1'));
+  } catch { /* private mode */ }
+  proratedProbe = http.get('/openapi.json')
+    .then((res) => {
+      const props = res?.data?.components?.schemas?.Body_create_student_students_post?.properties || {};
+      const ok = Object.prototype.hasOwnProperty.call(props, 'initial_payment_amount');
+      try { sessionStorage.setItem('alpha_caps_prorated', ok ? '1' : '0'); } catch { /* private mode */ }
+      return ok;
+    })
+    .catch(() => { proratedProbe = null; return false; });
+  return proratedProbe;
 }
 
 export async function apiUpdateStudent(id, formData) {

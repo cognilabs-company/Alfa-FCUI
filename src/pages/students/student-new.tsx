@@ -9,7 +9,7 @@ import {
   apiDeleteStudent, apiDeleteStudentsBulk, apiHardDeleteStudent,
   apiUploadStudentPhoto, apiUploadStudentPassport, apiUploadStudentExtraFile,
   apiContractPdfUrl, apiGetContractPdf, apiDownloadStudentFile,
-  apiChangeStudentGroup,
+  apiChangeStudentGroup, apiSupportsProratedPayment,
 } from '@/shared/api';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal } from '@/shared/ui/modal';
@@ -18,7 +18,14 @@ import { PageIcon } from '@/shared/ui/page-head';
 import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
 import { calcAge, fullName, normalizeStatus } from './lib';
-import { todayISO } from '@/shared/lib/format';
+import { fmt, fmtDate, todayISO, toLocalISO } from '@/shared/lib/format';
+
+/** First day of the month after the given date — where a prorated first period naturally ends. */
+function firstOfNextMonth(iso = todayISO()) {
+  const [y, m] = String(iso).split('-').map(Number);
+  if (!y || !m) return todayISO();
+  return toLocalISO(new Date(y, m, 1));
+}
 
 export function StudentNew({ onBack, onCreated, onViewContract }) {
   const I = Icon;
@@ -31,6 +38,12 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
   const [createdStudentId, setCreatedStudentId] = React.useState(null);
   const [createdContractId, setCreatedContractId] = React.useState(null);
   const [viewingContract, setViewingContract] = React.useState(false);
+  // Prorated first payment: only offered when the backend exposes the fields.
+  const [proratedSupported, setProratedSupported] = React.useState(false);
+  const [prorated, setProrated] = React.useState(false);
+  const [initialPayment, setInitialPayment] = React.useState(null);
+  const [proratedIgnored, setProratedIgnored] = React.useState(false);
+  const usingProrated = prorated && proratedSupported;
   const steps = [t('step1_label'), t('step2_label'), t('step3_label')];
 
   const [form, setForm] = React.useState({
@@ -40,6 +53,12 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
     monthly_fee_amount: '500000', uniform_fee_amount: '',
     contract_start_date: todayISO(),
     contract_end_date: new Date().getFullYear() + '-12-31',
+    initial_payment_amount: '',
+    initial_payment_start_date: todayISO(),
+    initial_payment_end_date: firstOfNextMonth(),
+    initial_payment_source: 'cash',
+    initial_payment_paid_at: '',
+    initial_payment_comment: '',
   });
   const [files, setFiles] = React.useState({ photo: null, passport: null, extra_file: null });
 
@@ -48,12 +67,14 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
   // A step only earns its tick when every required field in it is filled
   const stepValid = {
     1: !!(form.first_name.trim() && form.last_name.trim() && form.date_of_birth && form.height && form.weight && form.pnfl.trim()),
-    2: !!(form.customer_full_name.trim() && form.customer_passport_number.trim() && form.customer_address.trim() && form.monthly_fee_amount),
+    2: !!(form.customer_full_name.trim() && form.customer_passport_number.trim() && form.customer_address.trim() && form.monthly_fee_amount)
+      && (!usingProrated || (Number(form.initial_payment_amount) > 0 && form.initial_payment_end_date > form.initial_payment_start_date)),
     3: true,
   };
 
   React.useEffect(() => {
     apiGetGroupsForSelect().then(res => setGroups(res?.data || [])).catch(() => {});
+    apiSupportsProratedPayment().then(setProratedSupported).catch(() => setProratedSupported(false));
   }, []);
 
   async function handleSubmit() {
@@ -66,6 +87,12 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
       setError(t('required_contract_fields'));
       return;
     }
+    if (usingProrated) {
+      if (!(Number(form.initial_payment_amount) > 0)) { setStep(2); setError(t('prorated_err_amount')); return; }
+      if (!form.initial_payment_end_date || form.initial_payment_end_date <= form.initial_payment_start_date) {
+        setStep(2); setError(t('prorated_err_dates')); return;
+      }
+    }
     setSaving(true);
     try {
       const fd = new FormData();
@@ -73,12 +100,27 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
       studentFields.forEach(k => { if (form[k]) fd.append(k, k === 'pnfl' ? String(form[k]) : form[k]); });
       const contractFields = ['customer_full_name', 'customer_passport_number', 'customer_address', 'monthly_fee_amount', 'uniform_fee_amount', 'contract_start_date', 'contract_end_date'];
       contractFields.forEach(k => { if (form[k]) fd.append(k, form[k]); });
+      if (usingProrated) {
+        // The monthly contract starts the day the short first period ends.
+        fd.set('contract_start_date', form.initial_payment_end_date);
+        fd.append('initial_payment_amount', String(Number(form.initial_payment_amount)));
+        fd.append('initial_payment_start_date', form.initial_payment_start_date);
+        fd.append('initial_payment_end_date', form.initial_payment_end_date);
+        fd.append('initial_payment_source', form.initial_payment_source || 'cash');
+        if (form.initial_payment_paid_at) fd.append('initial_payment_paid_at', form.initial_payment_paid_at);
+        if (form.initial_payment_comment) fd.append('initial_payment_comment', form.initial_payment_comment);
+      }
       if (files.photo) fd.append('photo', files.photo);
       if (files.passport) fd.append('passport', files.passport);
       if (files.extra_file) fd.append('extra_file', files.extra_file);
       const result = await apiCreateStudent(fd);
+      const created = result?.data || result || {};
+      const initial = created.initial_payment || null;
+      setInitialPayment(initial);
+      // An older backend ignores the extra form fields and creates the contract anyway.
+      setProratedIgnored(usingProrated && !initial);
       setShowSuccessCard(true);
-      const newStudentId = result?.data?.id || result?.data?.student?.id || result?.id || result?.student?.id;
+      const newStudentId = created?.id || created?.student?.id || result?.id || result?.student?.id;
       if (newStudentId) {
         setCreatedStudentId(newStudentId);
         try {
@@ -158,8 +200,62 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
               <div className="field"><label>{t('field_address')} <span className="req">*</span></label><input value={form.customer_address} onChange={e => setF('customer_address', e.target.value)} placeholder={t('ph_address')}/></div>
               <div className="field"><label>{t('field_monthly_fee')} <span className="req">*</span></label><input type="number" value={form.monthly_fee_amount} onChange={e => setF('monthly_fee_amount', e.target.value)} placeholder="500000"/></div>
               <div className="field"><label>{t('field_uniform_fee')}</label><input type="number" value={form.uniform_fee_amount} onChange={e => setF('uniform_fee_amount', e.target.value)} placeholder="0"/></div>
-              <div className="field"><label>{t('field_contract_start')}</label><DateInput value={form.contract_start_date} onChange={v => setF('contract_start_date', v)}/></div>
+              {!usingProrated && <div className="field"><label>{t('field_contract_start')}</label><DateInput value={form.contract_start_date} onChange={v => setF('contract_start_date', v)}/></div>}
               <div className="field"><label>{t('field_contract_end')}</label><DateInput value={form.contract_end_date} onChange={v => setF('contract_end_date', v)}/></div>
+
+              <div className="col-span-2">
+                <div className={'opt-card' + (usingProrated ? ' on' : '')}>
+                  <label className="switch" title={proratedSupported ? t('prorated_toggle') : t('prorated_unsupported')}>
+                    <input type="checkbox" checked={usingProrated} disabled={!proratedSupported}
+                      onChange={e => { setProrated(e.target.checked); setError(''); }}/>
+                    <i/>
+                  </label>
+                  <div className="opt-text">
+                    <div className="opt-title"><I.HandCoins size={16}/> {t('prorated_toggle')}</div>
+                    <div className="opt-desc">{proratedSupported ? t('prorated_hint') : t('prorated_unsupported')}</div>
+                  </div>
+                </div>
+
+                {usingProrated && (
+                  <div className="grid-2" style={{ gap: 14, marginTop: 14 }}>
+                    <div className="field"><label>{t('prorated_amount')} <span className="req">*</span></label>
+                      <input type="number" min="1" value={form.initial_payment_amount}
+                        onChange={e => setF('initial_payment_amount', e.target.value)} placeholder="150000"/>
+                    </div>
+                    <div className="field"><label>{t('prorated_source')}</label>
+                      <SearchableSelect value={form.initial_payment_source} onChange={v => setF('initial_payment_source', v)}
+                        options={[
+                          { value: 'cash', label: t('tx_src_cash') },
+                          { value: 'payme', label: 'Payme' },
+                          { value: 'click', label: 'Click' },
+                          { value: 'bank', label: t('tx_src_bank') },
+                        ]}/>
+                    </div>
+                    <div className="field"><label>{t('prorated_start')}</label>
+                      <DateInput value={form.initial_payment_start_date} onChange={v => {
+                        setF('initial_payment_start_date', v);
+                        if (!form.initial_payment_end_date || form.initial_payment_end_date <= v) setF('initial_payment_end_date', firstOfNextMonth(v));
+                      }}/>
+                    </div>
+                    <div className="field"><label>{t('prorated_end')} <span className="req">*</span></label>
+                      <DateInput value={form.initial_payment_end_date} onChange={v => setF('initial_payment_end_date', v)}/>
+                    </div>
+                    <div className="field"><label>{t('prorated_paid_at')}</label>
+                      <DateTimeInput value={form.initial_payment_paid_at} onChange={v => setF('initial_payment_paid_at', v)}/>
+                    </div>
+                    <div className="field"><label>{t('field_comment')}</label>
+                      <input value={form.initial_payment_comment} onChange={e => setF('initial_payment_comment', e.target.value)}/>
+                    </div>
+                    <div className="alert info col-span-2" style={{ margin: 0 }}>
+                      <I.Calendar size={16}/>
+                      <span>
+                        {t('prorated_contract_auto').replace('{date}', fmtDate(form.initial_payment_end_date))}
+                        {form.monthly_fee_amount ? ' · ' + fmt.format(Number(form.monthly_fee_amount) || 0) + ' ' + t('currency') + '/' + t('contract_months_sfx') : ''}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
           {step === 3 && (
@@ -244,9 +340,32 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
               <I.Check size={38} strokeWidth={2.4}/>
             </div>
             <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', marginBottom: 6 }}>{t('contract_ready_title')}</div>
-              <div style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.5 }}>{t('contract_ready_desc')}</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', marginBottom: 6 }}>
+                {initialPayment ? t('prorated_success_title') : t('contract_ready_title')}
+              </div>
+              <div style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.5 }}>
+                {initialPayment ? t('prorated_success_desc') : t('contract_ready_desc')}
+              </div>
             </div>
+            {initialPayment && (
+              <div className="alert info" style={{ margin: 0, textAlign: 'left' }}>
+                <I.HandCoins size={16}/>
+                <div>
+                  <div style={{ fontWeight: 800 }}>
+                    {fmt.format(Number(initialPayment.amount) || 0)} {t('currency')}
+                    <span style={{ fontWeight: 600, opacity: 0.8 }}> · {fmtDate(initialPayment.period_start_date)} → {fmtDate(initialPayment.period_end_date)}</span>
+                  </div>
+                  <div style={{ fontWeight: 600, opacity: 0.85 }}>
+                    {t('prorated_contract_auto').replace('{date}', fmtDate(initialPayment.period_end_date))}
+                  </div>
+                </div>
+              </div>
+            )}
+            {proratedIgnored && (
+              <div className="alert warning" style={{ margin: 0, textAlign: 'left' }}>
+                <I.AlertTriangle size={16}/> <span>{t('prorated_fallback_warn')}</span>
+              </div>
+            )}
           </div>
         </Modal>
       )}
