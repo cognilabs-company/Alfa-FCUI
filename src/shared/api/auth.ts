@@ -4,7 +4,6 @@ import {
   unwrapData, unwrapDataArray,
   normalizeContractMonthlyFeePayload, normalizeContractDatesPayload,
 } from './client';
-import { rememberLoginId, forgetLoginId } from '../lib/maintenance';
 import { translateApiError } from '../i18n/api-errors';
 
 // Auth
@@ -28,7 +27,6 @@ export async function apiLogin(phone_or_email, password) {
   }
   const auth = json.data || json;
   setTokens(auth.access_token, auth.refresh_token);
-  rememberLoginId(phone_or_email);
   return auth;
 }
 
@@ -44,4 +42,4 @@ export async function apiGetMe() {
   };
 }
 
-export function apiLogout() { clearTokens(); forgetLoginId(); }
+export function apiLogout() { clearTokens(); }

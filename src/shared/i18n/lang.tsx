@@ -848,9 +848,6 @@ const UZ = {
   audit_col_created: 'Sana',
   // Design v3.1
   confirm_title: 'Ishonchingiz komilmi?',
-  maint_title: 'Texnik ishlar olib borilmoqda',
-  maint_message: "Tizimda yangi o'zgarishlar qilinmoqda, shu sababli tizim 2 soatcha ishlamaydi.",
-  maint_hours: 'soat',
   dur_h: 'soat',
   dur_m: 'daq',
   week_prev: 'Oldingi hafta',
@@ -1816,9 +1813,6 @@ const RU: typeof UZ = {
   audit_col_created: 'Дата',
   // Design v3.1
   confirm_title: 'Вы уверены?',
-  maint_title: 'Ведутся технические работы',
-  maint_message: 'В системе проводятся обновления, поэтому система не будет работать около 2 часов.',
-  maint_hours: 'часа',
   dur_h: 'ч',
   dur_m: 'мин',
   week_prev: 'Предыдущая неделя',

@@ -22,8 +22,6 @@ import { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSelect } from '@
 import { BrandMark } from '@/shared/ui/logo';
 import { DialogHost } from '@/shared/ui/dialogs';
 import { NAV_ITEMS } from '@/widgets/layout/nav-config';
-import { MaintenanceScreen } from '@/pages/maintenance';
-import { MAINTENANCE_MODE, isMaintenanceExempt } from '@/shared/lib/maintenance';
 import { apiGetMe, apiLogout, getToken, setUnauthorizedHandler } from '@/shared/api';
 import { applyAppearance } from '@/shared/lib/appearance';
 import { LangProvider, useT } from '@/shared/i18n/lang';
@@ -192,11 +190,6 @@ function AppShell() {
 
   if (!loggedIn) {
     return <LoginScreen onLogin={() => setLoggedIn(true)}/>;
-  }
-
-  // Maintenance: only the owner account may use the system right now
-  if (MAINTENANCE_MODE && !isMaintenanceExempt(currentUser)) {
-    return <MaintenanceScreen onSignOut={handleSignOut}/>;
   }
 
   let crumbKeys = ['app_name'];
