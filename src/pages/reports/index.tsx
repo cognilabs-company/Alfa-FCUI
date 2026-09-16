@@ -75,6 +75,7 @@ import {
 
 import { fmt, fmtMln, fmtMoneyRoll, monthLabel, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
 import { Stat } from '@/shared/ui/stat';
+import { AnalyticsTab } from './analytics';
 
 export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
   const I = Icon;
@@ -230,6 +231,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
         <div className="tabs">
           {[
             { id: 'dashboard', label: t('rpt_dashboard') },
+            { id: 'analytics', label: t('rpt_analytics') },
             { id: 'finance', label: t('rpt_finance') },
             { id: 'attendance', label: t('rpt_attendance') },
             { id: 'debtors', label: t('rpt_debtors') },
@@ -268,6 +270,8 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
             onClick={() => onNav?.('sessions')} />
         </div>
       )}
+
+      {tab === 'analytics' && <AnalyticsTab onNav={onNav}/>}
 
       {tab === 'finance' && (
         <div>

@@ -13,3 +13,4 @@ export * from './reports';
 export * from './settings';
 export * from './waiting-list';
 export * from './audit';
+export * from './analytics';

@@ -6,10 +6,16 @@ import { CountUp } from '@/shared/ui/count-up';
 import { Badge } from '@/shared/ui/status';
 import { apiGetDashboard, apiGetGroupsForSelect, apiGetSessions } from '@/shared/api';
 import { useT } from '@/shared/i18n/lang';
-import { fmt, fmtDate, fmtMoneyRoll, todayISO, weekdayLong } from '@/shared/lib/format';
+import { fmt, fmtMln, fmtMoneyRoll, fmtDate, monthShort, toLocalISO, weekdayLong, todayISO } from '@/shared/lib/format';
+import { Trend, ChartLegend } from '@/shared/ui/charts';
+import { loadDashboardAnalytics } from '@/shared/api';
+import { daysBack, dayKey, monthsBack, monthKey, revenueSeries, sourceTotals, paidTotal, delta } from '@/shared/lib/analytics';
 
 const DEFAULT_CAPACITY = 25;
-const SOURCE_COLORS = { payme: '#35C4BE', click: '#3D6BFF', cash: '#E89A00', bank: '#9B7BFF' };
+const SOURCE_COLORS = {
+  payme: 'var(--viz-payme)', click: 'var(--viz-click)', cash: 'var(--viz-cash)',
+  bank: 'var(--viz-bank)', other: 'var(--viz-other)',
+};
 
 function minutesOf(hhmm) {
   const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})/);
@@ -151,6 +157,7 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
   const [todaySessions, setTodaySessions] = React.useState([]);
   const [groups, setGroups] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [analytics, setAnalytics] = React.useState(null);
 
   React.useEffect(() => {
     Promise.all([
@@ -162,6 +169,14 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
       setTodaySessions(sessRes?.data || []);
       setGroups(grpRes?.data || []);
     }).catch(console.error).finally(() => setLoading(false));
+
+    // Payments of the last ~3 months feed the trend and the month-over-month delta.
+    const start = new Date();
+    start.setMonth(start.getMonth() - 2);
+    start.setDate(1);
+    loadDashboardAnalytics({ fromDate: toLocalISO(start), toDate: todayISO() })
+      .then(setAnalytics)
+      .catch(() => setAnalytics(null));
   }, []);
 
   const now = new Date();
@@ -176,6 +191,35 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
   const totalDebt = Number(summary?.total_debt ?? summary?.total_outstanding ?? 0) || 0;
 
   const sortedSessions = [...todaySessions].sort((a, b) => (minutesOf(a.start_time) ?? 0) - (minutesOf(b.start_time) ?? 0));
+
+  // Analytics panel: 30-day daily trend, this month against last, source mix.
+  const an = React.useMemo(() => {
+    const txs = analytics?.transactions || [];
+    const daily = revenueSeries(txs, daysBack(30), dayKey);
+    const byMonth = revenueSeries(txs, monthsBack(2), monthKey);
+    const window60 = revenueSeries(txs, daysBack(60), dayKey);
+    const total30 = daily.reduce((s, d) => s + d.value, 0);
+    const prev30 = window60.slice(0, 30).reduce((s, d) => s + d.value, 0);
+    const paidCount = daily.reduce((s, d) => s + d.count, 0);
+    const parts = daily.reduce((acc, d) => {
+      for (const [k, v] of Object.entries(d.parts)) acc[k] = (acc[k] || 0) + v;
+      return acc;
+    }, {});
+    const label = (id) => (id === 'payme' ? 'Payme' : id === 'click' ? 'Click'
+      : id === 'cash' ? t('tx_src_cash') : id === 'bank' ? t('tx_src_bank') : t('dash_other'));
+    return {
+      title: t('an_dash_title'),
+      daily,
+      total30,
+      paidCount,
+      avgCheck: paidCount ? total30 / paidCount : 0,
+      thisMonth: byMonth[1]?.value || 0,
+      monthDelta: delta(total30, prev30),
+      mrr: Number(analytics?.contractStats?.total_monthly_fee) || 0,
+      sourceItems: Object.entries(parts).filter(([, v]) => v > 0)
+        .map(([id, value]) => ({ id, label: label(id), value, color: SOURCE_COLORS[id] || 'var(--viz-other)' })),
+    };
+  }, [analytics, t]);
 
   const otherLabel = t('dash_other');
   const financeCells = [
@@ -217,42 +261,50 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
       <div className="dash-panels">
         <div className="card">
           <div className="card-header">
-            <div className="card-title">{t('dashboard_today_sessions')}</div>
-            {!loading && <span className="chip">{todaySessions.length}</span>}
-            <button className="btn ghost sm" style={{ marginLeft: 'auto' }} onClick={() => onNav('sessions')}>{t('dashboard_view_all')} <I.ArrowRight size={14}/></button>
+            <div className="card-title">{an.title}</div>
+            <button className="btn ghost sm" style={{ marginLeft: 'auto' }} onClick={() => onNav('reports')}>{t('an_open_reports')} <I.ArrowRight size={14}/></button>
           </div>
-          {loading && <div className="empty loading">{t('loading')}</div>}
-          {!loading && sortedSessions.length === 0 && <div className="empty">{t('dashboard_no_sessions')}</div>}
-          {!loading && sortedSessions.length > 0 && (
-            <div className="timeline">
-              {sortedSessions.map((s, i) => {
-                const start = minutesOf(s.start_time);
-                const end = minutesOf(s.end_time);
-                const live = start != null && end != null && nowMin >= start && nowMin < end;
-                const over = end != null && nowMin >= end;
-                return (
-                  <button key={s.id} type="button" className={'timeline-item' + (live ? ' live' : '')}
-                    style={{ animation: `row-in 460ms cubic-bezier(0.16,1,0.3,1) ${200 + i * 70}ms backwards` }}
-                    onClick={() => onNav('sessions')}>
-                    <div className="timeline-time">
-                      <b>{s.start_time?.slice(0, 5) || '--:--'}</b>
-                      {s.end_time && <small>{s.end_time.slice(0, 5)}</small>}
-                    </div>
-                    <div className="timeline-dot"><i/></div>
-                    <div className="timeline-body">
-                      <div className="title">{s.topic || t('dashboard_training')}</div>
-                      <div className="meta">
-                        {live && <Badge tone="accent" icon={I.Lightning} live>{t('dash_live')}</Badge>}
-                        {!live && over && <Badge tone="success" icon={I.CheckCircle}>{t('sessions_completed_chip')}</Badge>}
-                        {(s.location || s.station) && <span><I.MapPin size={14}/> {s.location || s.station}</span>}
-                      </div>
-                    </div>
-                    <I.ChevronRight size={16} color="var(--muted)"/>
-                  </button>
-                );
-              })}
+          <div style={{ padding: '16px 18px 18px' }}>
+            <div className="an-head">
+              <div>
+                <div className="an-value">{analytics ? fmtMoneyRoll(an.total30, an.total30, lang) : '…'}</div>
+                <div className="an-label">{t('an_dash_sub')}</div>
+              </div>
+              {an.monthDelta != null && (
+                <div className={'chart-delta ' + (an.monthDelta > 0.5 ? 'up' : an.monthDelta < -0.5 ? 'down' : 'flat')}>
+                  {an.monthDelta > 0.5 && <I.TrendUp size={14}/>}
+                  {an.monthDelta < -0.5 && <I.TrendDown size={14}/>}
+                  {`${an.monthDelta > 0 ? '+' : ''}${Math.round(an.monthDelta)}%`}
+                  <span style={{ color: 'var(--muted)', fontWeight: 650 }}>{t('an_vs_prev')}</span>
+                </div>
+              )}
             </div>
-          )}
+            {analytics && an.total30 > 0 && (
+              <Trend
+                data={an.daily.map(d => ({ label: String(d.date.getDate()), full: `${d.date.getDate()} ${monthShort(d.date.getMonth(), lang)}`, value: d.value }))}
+                format={(v, axis) => (axis ? fmtMln(v, lang) : `${fmt.format(Math.round(v))} ${t('currency')}`)}
+                height={168} labelEvery={6}/>
+            )}
+            {analytics && an.total30 <= 0 && <div className="chart-empty">{t('an_no_data')}</div>}
+            {!analytics && <div className="empty loading" style={{ minHeight: 140 }}>{t('loading')}</div>}
+            <div className="an-foot">
+              <div className="an-metric">
+                <span>{t('an_mrr')}</span>
+                <b>{an.mrr ? fmtMoneyRoll(an.mrr, an.mrr, lang) : '—'}</b>
+              </div>
+              <div className="an-metric">
+                <span>{t('an_collected_month')}</span>
+                <b>{analytics ? fmtMoneyRoll(an.thisMonth, an.thisMonth, lang) : '—'}</b>
+                {an.mrr > 0 && <small>{Math.round((an.thisMonth / an.mrr) * 100)}% {t('an_of_mrr')}</small>}
+              </div>
+              <div className="an-metric">
+                <span>{t('an_avg_check')}</span>
+                <b>{analytics ? fmtMoneyRoll(an.avgCheck, an.avgCheck, lang) : '—'}</b>
+                <small>{an.paidCount} {tp('tx_count_sfx', an.paidCount)}</small>
+              </div>
+            </div>
+            {an.sourceItems.length > 0 && <ChartLegend items={an.sourceItems} format={(v) => fmtMoneyRoll(v, v, lang)} inline/>}
+          </div>
         </div>
 
         <div className="card">

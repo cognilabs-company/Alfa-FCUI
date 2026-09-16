@@ -5,7 +5,7 @@ import {
   CalendarDots, CalendarCheck, CalendarPlus, Trophy, FileText, DoorOpen, Wallet, GearSix,
   ShieldCheck, ShieldSlash, MagnifyingGlass, Bell, CaretDown, CaretRight, CaretLeft, Plus, Funnel,
   DownloadSimple, UploadSimple, DotsThree, PencilSimple, Trash, Check, X, Eye, EyeSlash, Sun, Moon,
-  Phone, EnvelopeSimple, MapPin, Clock, Pulse, SignOut, SignIn, Star, LockKey, List, TrendUp,
+  Phone, EnvelopeSimple, MapPin, Clock, Pulse, SignOut, SignIn, Star, LockKey, List, TrendUp, TrendDown,
   Warning, WarningCircle, ArrowsClockwise, CreditCard, Link, Coins, ArrowLeft, ArrowRight,
   ArrowUpRight, Camera, File, FloppyDisk, XCircle, CheckCircle, Palette, Archive, SoccerBall,
   ChartLineUp, ChartBar, Queue, Hourglass, PauseCircle, Prohibit, Lightning, CircleDashed,
@@ -145,6 +145,7 @@ export const Icon = {
   Receipt: make(Receipt),
   Currency: make(CurrencyCircleDollar),
   TrendUp: make(TrendUp),
+  TrendDown: make(TrendDown),
   TrendingUp: make(TrendUp),
 
   // Status
