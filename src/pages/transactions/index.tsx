@@ -363,9 +363,9 @@ export function TransactionsScreen({ onToast } = {}) {
           const payme = Number(stats.payme_transactions) || 0;
           const other = Math.max(0, success - click - payme);
           const parts = [
-            { key: 'payme', label: 'Payme', value: payme, color: '#35C4BE' },
-            { key: 'click', label: 'Click', value: click, color: '#5B83FF' },
-            { key: 'other', label: t('dash_other'), value: other, color: '#FBBF24' },
+            { key: 'payme', label: 'Payme', value: payme, color: 'var(--viz-payme)' },
+            { key: 'click', label: 'Click', value: click, color: 'var(--viz-click)' },
+            { key: 'other', label: t('dash_other'), value: other, color: 'var(--viz-cash)' },
           ];
           const sum = parts.reduce((s, p) => s + p.value, 0) || 1;
           return (
@@ -384,8 +384,10 @@ export function TransactionsScreen({ onToast } = {}) {
                 <div className="dist-legend">
                   {parts.map((p) => (
                     <div key={p.key}>
-                      <span><i style={{ background: p.color }}/> {p.label}</span>
+                      <i style={{ background: p.color }}/>
+                      <span>{p.label}</span>
                       <b><CountUp value={p.value} duration={1400}/></b>
+                      <em>{Math.round((p.value / sum) * 100)}%</em>
                     </div>
                   ))}
                 </div>

@@ -76,6 +76,7 @@ import {
 import { fmt, fmtMln, fmtMoneyRoll, monthLabel, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
 import { Stat } from '@/shared/ui/stat';
 import { AnalyticsTab } from './analytics';
+import { avatarColor } from '@/shared/lib/avatar';
 
 export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
   const I = Icon;
@@ -396,46 +397,41 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
           </div>
           {debtorsLoading ? (
             <div className="empty loading" style={{ padding: 48 }}>{t('loading')}</div>
+          ) : debtors.length === 0 ? (
+            <div className="card empty" style={{ padding: 48 }}>{t('rpt_debtors_none')}</div>
           ) : (
-            <div className="table-wrap">
-              <div className="table-scroll">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>{t('rpt_debtors_col_student')}</th>
-                    <th>{t('rpt_debtors_col_contract')}</th>
-                    <th>{t('rpt_debtors_col_group')}</th>
-                    <th>{t('rpt_debtors_col_phone')}</th>
-                    <th>{t('rpt_debtors_col_overdue')}</th>
-                    <th style={{ textAlign: 'right' }}>{t('rpt_debtors_col_debt')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {debtors.length === 0 && (
-                    <tr className="static"><td colSpan={6} className="empty-cell">{t('rpt_debtors_none')}</td></tr>
-                  )}
-                  {debtors.map((d, idx) => (
-                    <tr key={d.student_id || d.id || idx} className="static">
-                      <td style={{ fontWeight: 750 }}>{d.student_name || `#${d.student_id || idx}`}</td>
-                      <td style={{ color: 'var(--text-2)', fontSize: 12.5 }}>{d.contract_number || '—'}</td>
-                      <td style={{ color: 'var(--text-2)' }}>{d.group_name || '—'}</td>
-                      <td style={{ color: 'var(--text-2)', fontSize: 12.5 }}>{d.primary_phone || d.father_phone || '—'}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                          {(d.overdue_months || []).map((m, mi) => (
-                            <span key={mi} className="chip danger" style={{ fontSize: 11 }}>{m.month ? `${monthLabel(Number(m.month) - 1)}${m.year ? ' ' + m.year : ''}` : m.label}</span>
-                          ))}
-                          {(!d.overdue_months || d.overdue_months.length === 0) && <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
-                        </div>
-                      </td>
-                      <td className="money" style={{ textAlign: 'right', color: 'var(--danger)' }}>
-                        {fmt.format(d.debt_amount || Math.abs(d.debt || d.balance || 0))} {t('currency')}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
+            <div className="debt-list">
+              {debtors.map((d, idx) => {
+                const name = d.student_name || `#${d.student_id || idx}`;
+                const months = d.overdue_months || [];
+                const amount = Number(d.debt_amount) || Math.abs(Number(d.debt || d.balance) || 0);
+                return (
+                  <div className="debt-row" key={d.student_id || d.id || idx}>
+                    <span className="avatar" style={{ background: avatarColor(Number(d.student_id) || idx) }}>
+                      {name.split(/\s+/).slice(0, 2).map(w => w[0]).join('')}
+                    </span>
+                    <div className="debt-main">
+                      <div className="name">{name}</div>
+                      <div className="sub">
+                        <span>{d.contract_number || '—'}</span>
+                        {d.group_name && <span>{d.group_name}</span>}
+                        {(d.primary_phone || d.father_phone) && <span>{d.primary_phone || d.father_phone}</span>}
+                      </div>
+                    </div>
+                    <div className="debt-months">
+                      {months.slice(0, 4).map((m, mi) => (
+                        <span key={mi} className="chip danger">{m.month ? `${monthShort(Number(m.month) - 1)}${m.year ? ` ${String(m.year).slice(2)}` : ''}` : m.label}</span>
+                      ))}
+                      {months.length > 4 && <span className="chip">+{months.length - 4}</span>}
+                      {months.length === 0 && <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
+                    </div>
+                    <div className="debt-amount">
+                      {fmt.format(amount)} {t('currency')}
+                      <small>{months.length || d.overdue_months_count || 1} {tp('an_months_overdue', months.length || 1)}</small>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

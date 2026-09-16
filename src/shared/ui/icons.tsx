@@ -12,6 +12,7 @@ import {
   SealCheck, Receipt, HandCoins, Money, Timer, Target, Sparkle, Info, IdentificationCard,
   ListChecks, Rows, GridFour, MinusCircle, PlusCircle, NotePencil, Medal, Flag, Question, Key,
   Scroll, ClipboardText, Stack, CurrencyCircleDollar, ChalkboardTeacher, Gavel, Handshake, Wrench,
+  GlobeHemisphereEast, Drop, Ruler,
 } from '@phosphor-icons/react';
 
 /*
@@ -130,6 +131,9 @@ export const Icon = {
   Camera: make(Camera),
   File: make(File),
   IdCard: make(IdentificationCard),
+  Globe: make(GlobeHemisphereEast),
+  Drop: make(Drop),
+  Ruler: make(Ruler),
   Target: make(Target),
   Sparkle: make(Sparkle),
   Info: make(Info),

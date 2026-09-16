@@ -208,8 +208,10 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
                 <div className="dist-legend">
                   {parts.map((p) => (
                     <div key={p.key}>
-                      <span><i style={{ background: p.color }}/> {p.label}</span>
+                      <i style={{ background: p.color }}/>
+                      <span>{p.label}</span>
                       <b><CountUp value={p.value} duration={1400}/></b>
+                      <em>{Math.round((p.value / sum) * 100)}%</em>
                     </div>
                   ))}
                 </div>

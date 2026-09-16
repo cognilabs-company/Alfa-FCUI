@@ -415,19 +415,15 @@ export function SessionsScreen({ onMark }) {
                 const rel = relLabel(day.date);
                 return (
                   <section key={day.date} className={'agenda-day' + (day.date === today ? ' is-today' : day.date < today ? ' is-past' : '')}>
-                    <div className="agenda-date">
-                      <div className="cal-leaf" aria-label={fmtDate(day.date)}>
-                        <span className="leaf-top">{monthShort((m || 1) - 1, lang)}{y !== new Date().getFullYear() ? ` ${y}` : ''}</span>
-                        <b className="leaf-num">{dd || '—'}</b>
-                        <span className="leaf-wd">{weekdayLong(dayDate, lang)}</span>
-                      </div>
-                      <div className="agenda-date-text">
+                    <header className="agenda-head">
+                      <span className="day-num">{dd || '—'}</span>
+                      <span className="day-text">
                         <b>{weekdayLong(dayDate, lang)}</b>
                         <span>{fmtDate(day.date)}</span>
-                      </div>
-                      {rel && <em>{rel}</em>}
-                      <span className="agenda-count">{day.items.length} {tp('session_sfx', day.items.length)}</span>
-                    </div>
+                      </span>
+                      {rel && <span className={'chip' + (day.date === today ? ' solid' : '')}>{rel}</span>}
+                      <span className="day-count">{day.items.length} {tp('session_sfx', day.items.length)}</span>
+                    </header>
                     <div className="agenda-items">
                       {day.items.map((s) => {
                         const delay = 60 + (n++) * 45;

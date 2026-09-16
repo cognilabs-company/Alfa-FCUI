@@ -1116,21 +1116,27 @@ table .icon-btn { width: 32px; height: 32px; }
 .step-meta small { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .step-meta span { font-size: 13.5px; font-weight: 700; }
 
-/* ---------- Tables (floating rows) ----------
-   Each row is its own rounded card on the sheet; the header is a quiet
-   label line. Inside cards/modals rows switch to the tinted surface. */
+/* ---------- Tables ----------
+   One quiet sheet: a tinted header strip, hairline row separators, and a
+   soft hover. Inside a card or modal the sheet's own frame is dropped so
+   the card provides it. */
 
 .table-wrap {
-  --row-bg: var(--surface);
-  --row-hover: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  --row-hover: var(--hover);
   min-width: 0;
   position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
 }
 .card .table-wrap,
 .modal .table-wrap,
 .card .report-table-scroll {
-  --row-bg: var(--surface-2);
-  --row-hover: var(--surface-3);
+  --row-hover: var(--surface-2);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
 }
 .table-wrap.is-loading .table tbody { opacity: 0.45; transition: opacity 160ms var(--ease); }
 .table-scroll { overflow-x: auto; margin-inline: -2px; padding-inline: 2px; }
@@ -1165,8 +1171,7 @@ table .icon-btn { width: 32px; height: 32px; }
 }
 .table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0 8px;
+  border-collapse: collapse;
   font-size: 13.5px;
 }
 .table th {
@@ -1174,37 +1179,33 @@ table .icon-btn { width: 32px; height: 32px; }
   font-weight: 800;
   font-size: 10.5px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   color: var(--muted);
-  padding: 10px var(--cell-px) 0;
+  padding: 13px var(--cell-px);
   white-space: nowrap;
-  background: transparent;
-  border: 0;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
 }
+.card .table th,
+.modal .table th { background: transparent; }
 .table th:first-child,
-.table td:first-child { padding-left: calc(var(--cell-px) + 6px); }
+.table td:first-child { padding-left: calc(var(--cell-px) + 4px); }
 .table th:last-child,
-.table td:last-child { padding-right: calc(var(--cell-px) + 6px); }
+.table td:last-child { padding-right: calc(var(--cell-px) + 4px); }
 .table td {
-  padding: 8px var(--cell-px);
+  padding: 10px var(--cell-px);
   height: var(--row-h);
   color: var(--text);
   vertical-align: middle;
-  background: var(--row-bg);
-  border-top: 1px solid var(--border);
+  background: transparent;
   border-bottom: 1px solid var(--border);
-  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+  transition: background 140ms var(--ease);
 }
-.table td:first-child { border-left: 1px solid var(--border); border-radius: 16px 0 0 16px; }
-.table td:last-child { border-right: 1px solid var(--border); border-radius: 0 16px 16px 0; }
-.table td:only-child { border-radius: 16px; }
-.card .table td,
-.modal .table td { border-color: transparent; }
+.table tbody tr:last-child td { border-bottom: 0; }
 .table tbody tr { cursor: pointer; }
-.table tbody tr:hover td { background: var(--row-hover); border-color: var(--border-strong); }
-.card .table tbody tr:hover td { border-color: transparent; }
-.table tbody tr.selected td { background: var(--selected); border-color: var(--accent-border); }
-.table tbody tr.selected td:first-child { box-shadow: inset 4px 0 0 var(--accent); }
+.table tbody tr:hover td { background: var(--row-hover); }
+.table tbody tr.selected td { background: var(--selected); }
+.table tbody tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .table tbody tr.static { cursor: default; }
 .table .num { font-variant-numeric: tabular-nums; }
 .table .muted { color: var(--muted); }
@@ -1224,26 +1225,7 @@ table .icon-btn { width: 32px; height: 32px; }
 .table tbody tr:nth-child(n+10) td { animation-delay: 270ms; }
 
 /* Matrix tables keep a classic grid */
-.table-wrap:has(> .performance-table) {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-.performance-table { border-spacing: 0; }
-.performance-table th {
-  padding: 12px var(--cell-px);
-  background: color-mix(in srgb, var(--surface-2) 55%, var(--surface));
-  border-bottom: 1px solid var(--border);
-}
-.performance-table td,
-.performance-table td:first-child,
-.performance-table td:last-child {
-  border-radius: 0;
-  border-left: 0;
-  border-right: 0;
-  border-top: 0;
-  background: var(--surface);
-}
+.performance-table th { background: color-mix(in srgb, var(--surface-2) 55%, var(--surface)); }
 .performance-table tbody tr:last-child td { border-bottom: 0; }
 
 /* Pager */
@@ -2869,22 +2851,76 @@ textarea.input { height: auto; padding: 11px 13px; resize: vertical; min-height:
 .summary-card .s-big { font-family: var(--font-display); font-size: 40px; font-weight: 600; letter-spacing: -0.04em; line-height: 1.05; margin-top: 8px; color: var(--accent); font-variant-numeric: tabular-nums; }
 .summary-card .s-mid { font-family: var(--font-display); font-size: 24px; font-weight: 600; letter-spacing: -0.03em; margin-top: 8px; font-variant-numeric: tabular-nums; }
 .summary-card .s-note { font-size: 12.5px; font-weight: 600; color: rgba(238, 242, 236, 0.55); margin-top: 6px; }
-.summary-card .dist { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.summary-card .dist { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding-right: 18px; }
 .summary-card .dist-bar { display: flex; gap: 4px; height: 14px; }
 .summary-card .dist-bar i { display: block; border-radius: 999px; min-width: 8px; transform-origin: left center; animation: bar-grow 1300ms cubic-bezier(0.16, 1, 0.3, 1) 200ms backwards; }
-.summary-card .dist-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
-.summary-card .dist-legend div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.summary-card .dist-legend div > span { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; color: rgba(238, 242, 236, 0.62); white-space: nowrap; }
-.summary-card .dist-legend i { width: 9px; height: 9px; border-radius: 3px; }
-.summary-card .dist-legend b { font-family: var(--font-display); font-size: 19px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.summary-card .dist-legend { display: flex; flex-direction: column; gap: 7px; }
+.summary-card .dist-legend div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+}
+.summary-card .dist-legend div > span {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: rgba(238, 242, 236, 0.7);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.summary-card .dist-legend i { width: 9px; height: 9px; border-radius: 3px; align-self: center; }
+.summary-card .dist-legend b { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.summary-card .dist-legend em {
+  min-width: 34px;
+  text-align: right;
+  font-style: normal;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: rgba(238, 242, 236, 0.5);
+  font-variant-numeric: tabular-nums;
+}
 .summary-card .s-side { padding-left: 24px; border-left: 1px solid rgba(255, 255, 255, 0.08); }
 
 /* ============================================================
    Sessions agenda
    ============================================================ */
 
-.agenda { display: flex; flex-direction: column; gap: 18px; }
-.agenda-day { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 16px; align-items: start; }
+.agenda { display: flex; flex-direction: column; gap: 14px; }
+.agenda-day {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.agenda-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.agenda-head .day-num {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.agenda-head .day-text { display: grid; gap: 1px; min-width: 0; }
+.agenda-head .day-text b { font-size: 13px; font-weight: 800; color: var(--text); }
+.agenda-head .day-text span { font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.agenda-head .day-count { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.agenda-day.is-today { border-color: var(--accent-border); }
+.agenda-day.is-today .agenda-head { background: var(--accent-softer); }
+.agenda-day.is-today .day-num { color: var(--accent-ink); }
+.agenda-day.is-past .agenda-head { background: var(--surface-2); }
+.agenda-day.is-past .day-num,
+.agenda-day.is-past .day-text b { color: var(--text-2); }
 .agenda-date {
   position: sticky;
   top: 4px;
@@ -2972,32 +3008,31 @@ textarea.input { height: auto; padding: 11px 13px; resize: vertical; min-height:
 .agenda-day.is-today .leaf-num { color: var(--text); }
 .agenda-day.is-past .leaf-top { background: var(--surface-3); color: var(--text-2); }
 .agenda-day.is-past .leaf-num { color: var(--text-2); }
-.agenda-items { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.agenda-items { display: flex; flex-direction: column; min-width: 0; }
 .agenda-item {
   position: relative;
   display: grid;
-  grid-template-columns: 96px 5px minmax(0, 1fr) auto auto;
+  grid-template-columns: 96px 4px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 14px;
-  padding: 12px 10px 12px 16px;
-  background-image: linear-gradient(90deg, color-mix(in srgb, var(--group, var(--border)) 7%, transparent), transparent 45%);
-  border-radius: 18px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  padding: 12px 12px 12px 16px;
+  background: transparent;
+  border-bottom: 1px solid var(--border);
   cursor: pointer;
   text-align: left;
   color: inherit;
   width: 100%;
   animation: row-in 460ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms var(--ease), box-shadow 220ms var(--ease);
+  transition: background 160ms var(--ease);
 }
+.agenda-items > .agenda-item:last-child { border-bottom: 0; }
 /* no transform on hover: the row menu inside is position:fixed */
-.agenda-item:hover { border-color: var(--border-strong); box-shadow: 0 16px 30px -22px rgba(9, 12, 10, 0.45), inset 3px 0 0 var(--border-strong); }
+.agenda-item:hover { background: var(--hover); }
 .agenda-time b { display: inline; font-family: var(--font-display); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .agenda-time span { margin-left: 4px; font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .agenda-time small { display: flex; align-items: center; gap: 4px; margin-top: 5px; font-size: 11.5px; font-weight: 700; color: var(--muted); white-space: nowrap; }
 .agenda-rail { align-self: stretch; border-radius: 4px; background: var(--group, var(--border-strong)); }
-.agenda-item.completed { background-color: color-mix(in srgb, var(--surface) 70%, var(--bg)); }
+.agenda-item.completed .agenda-time b { color: var(--text-2); }
 .agenda-item.completed .agenda-main .title { color: var(--text-2); }
 .group-tag {
   display: inline-flex;
@@ -3261,6 +3296,36 @@ button.bar-row:hover { background: var(--hover); }
 .an-metric small { font-size: 11px; font-weight: 700; color: var(--text-2); }
 .an-foot + .chart-legend { margin-top: 12px; }
 
+.debt-list { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
+.debt-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  animation: row-in 420ms var(--ease) backwards;
+}
+.debt-row:last-child { border-bottom: 0; }
+.debt-row:hover { background: var(--hover); }
+.debt-row .avatar { width: 38px; height: 38px; border-radius: 13px; font-size: 12.5px; }
+.debt-main { min-width: 0; }
+.debt-main .name { font-size: 13.5px; font-weight: 800; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.debt-main .sub { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 2px; font-size: 12px; font-weight: 650; color: var(--muted); }
+.debt-main .sub span { display: inline-flex; align-items: center; gap: 5px; }
+.debt-main .sub span + span::before { content: '·'; margin-right: 7px; color: var(--border-strong); }
+.debt-months { display: flex; flex-wrap: wrap; gap: 5px; }
+.debt-months .chip { font-size: 11px; }
+.debt-amount {
+  text-align: right;
+  white-space: nowrap;
+  font-size: 14.5px;
+  font-weight: 800;
+  color: var(--danger);
+  font-variant-numeric: tabular-nums;
+}
+.debt-amount small { display: block; margin-top: 2px; font-size: 11px; font-weight: 700; color: var(--muted); }
+
 /* Analytics layout */
 .chart-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .chart-card { display: flex; flex-direction: column; gap: 12px; padding: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
@@ -3284,6 +3349,9 @@ button.bar-row:hover { background: var(--hover); }
   .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .chart-grid-2 { grid-template-columns: minmax(0, 1fr); }
   .chart-card.span-2 { grid-column: auto; }
+  .debt-row { grid-template-columns: 38px minmax(0, 1fr) auto; row-gap: 8px; }
+  .debt-amount { grid-column: 3; grid-row: 1; }
+  .debt-months { grid-column: 2 / -1; grid-row: 2; }
   .dash-panels,
   .split { grid-template-columns: minmax(0, 1fr); }
   .summary-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }

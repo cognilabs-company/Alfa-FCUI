@@ -155,22 +155,22 @@ export function StudentProfile({ studentId, onBack }) {
             <div>
               <div className="card-title" style={{ marginBottom: 14 }}>{t('profile_personal')}</div>
               <DetailGrid items={[
-                { label: t('profile_dob'), value: fmtDate(s.date_of_birth) },
-                { label: t('profile_nationality'), value: s.millati || '—' },
-                { label: t('profile_blood'), value: s.ampula || '—' },
-                { label: t('profile_height_weight'), value: `${s.height} ${t('unit_cm')} · ${s.weight} ${t('unit_kg')}` },
-                { label: t('profile_pnfl'), value: s.pnfl },
-                { label: t('profile_phone'), value: s.phone || '—' },
-                { label: t('profile_address'), value: s.address || '—' },
-                { label: t('profile_joined'), value: fmtDate(s.created_at) },
+                { label: t('profile_dob'), value: fmtDate(s.date_of_birth), icon: I.Calendar },
+                { label: t('profile_nationality'), value: s.millati || '—', icon: I.Globe },
+                { label: t('profile_blood'), value: s.ampula || '—', icon: I.Drop },
+                { label: t('profile_height_weight'), value: `${s.height} ${t('unit_cm')} · ${s.weight} ${t('unit_kg')}`, icon: I.Ruler },
+                { label: t('profile_pnfl'), value: s.pnfl, icon: I.IdCard },
+                { label: t('profile_phone'), value: s.phone || '—', icon: I.Phone },
+                { label: t('profile_address'), value: s.address || '—', icon: I.MapPin },
+                { label: t('profile_joined'), value: fmtDate(s.created_at), icon: I.UserPlus },
               ]}/>
               {contract?.custom_fields?.customer && (
                 <div style={{ marginTop: 22 }}>
                   <div className="card-title" style={{ marginBottom: 14 }}>{t('profile_parent')}</div>
                   <DetailGrid items={[
-                    { label: t('profile_col_fullname') || 'To\'liq ismi', value: contract.custom_fields.customer.full_name || '—' },
-                    { label: t('profile_upload_passport'), value: contract.custom_fields.customer.passport_number || '—' },
-                    { label: t('profile_address'), value: contract.custom_fields.customer.address || '—' },
+                    { label: t('profile_col_fullname'), value: contract.custom_fields.customer.full_name || '—', icon: I.User },
+                    { label: t('profile_upload_passport'), value: contract.custom_fields.customer.passport_number || '—', icon: I.IdCard },
+                    { label: t('profile_address'), value: contract.custom_fields.customer.address || '—', icon: I.MapPin },
                   ]}/>
                 </div>
               )}
