@@ -197,3 +197,65 @@ export function delta(current, previous) {
   if (!previous) return null;
   return ((current - previous) / previous) * 100;
 }
+
+// ── Aggregate endpoints (ANALYTICS_BACKEND_IMPLEMENTED.md) ─────────────────
+
+/** "2026-08" / "2026-08-16" / "2026-W36" → a Date the charts can label. */
+export function periodDate(period, fallbackFrom) {
+  const s = String(period || '');
+  let m = s.match(/^(\d{4})-(\d{2})$/);
+  if (m) return new Date(+m[1], +m[2] - 1, 1);
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  m = s.match(/^(\d{4})-W(\d{1,2})$/i);
+  if (m) {
+    // ISO week: week 1 holds Jan 4th; Monday of the requested week.
+    const jan4 = new Date(+m[1], 0, 4);
+    const monday = new Date(jan4);
+    monday.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7) + (+m[2] - 1) * 7);
+    return monday;
+  }
+  const d = fallbackFrom ? new Date(fallbackFrom) : new Date(s);
+  return isNaN(d) ? new Date() : d;
+}
+
+/** revenue-dynamics rows → the shape the charts already speak. */
+export function seriesFromDynamics(rows) {
+  return (rows || []).map((r) => {
+    const parts = Object.fromEntries(SOURCES.map(s => [s, 0]));
+    for (const b of r.by_source || []) parts[normalizeSource(b.source)] += Number(b.amount) || 0;
+    return {
+      key: r.period,
+      date: periodDate(r.period, r.from_date),
+      value: Number(r.total_amount) || 0,
+      count: Number(r.transaction_count) || 0,
+      parts,
+    };
+  });
+}
+
+/** Totals per source across a dynamics series. */
+export function sourceTotalsFromSeries(series) {
+  const out = Object.fromEntries(SOURCES.map(s => [s, { amount: 0, count: 0 }]));
+  for (const p of series || []) {
+    for (const [k, v] of Object.entries(p.parts || {})) {
+      if (out[k]) out[k].amount += Number(v) || 0;
+    }
+  }
+  return out;
+}
+
+/** Rates come as 0–1 from the API; charts want percent. */
+export function rateToPercent(v) {
+  const n = Number(v) || 0;
+  return n <= 1 ? Math.round(n * 1000) / 10 : Math.round(n * 10) / 10;
+}
+
+/** debt-aging buckets → the bar rows the chart expects. */
+export function agingFromApi(buckets) {
+  return (buckets || []).map((b) => ({
+    key: String(b.months_overdue),
+    count: Number(b.students) || 0,
+    amount: Number(b.amount) || 0,
+  }));
+}

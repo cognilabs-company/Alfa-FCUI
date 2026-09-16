@@ -957,6 +957,16 @@ const UZ = {
   an_dash_title: 'Moliyaviy analitika',
   an_dash_sub: "So'nggi 30 kun · kunlik tushum",
   an_open_reports: 'Batafsil hisobot',
+  an_plan_fact: 'Reja va fakt',
+  an_plan_fact_sub: "Oylik kutilgan summa va yig'ilgani",
+  an_expected: 'Kutilgan',
+  an_collected: "Yig'ildi",
+  an_students_flow: "O'quvchilar oqimi",
+  an_students_flow_sub: "Qo'shilganlar va ketganlar",
+  an_joined: "Qo'shildi",
+  an_left: 'Ketdi',
+  an_attendance_trend: 'Davomat dinamikasi',
+  an_attendance_trend_sub: 'Haftalar kesimida',
 };
 
 const RU: typeof UZ = {
@@ -1915,6 +1925,16 @@ const RU: typeof UZ = {
   an_dash_title: 'Финансовая аналитика',
   an_dash_sub: 'Последние 30 дней · доход по дням',
   an_open_reports: 'Подробный отчёт',
+  an_plan_fact: 'План и факт',
+  an_plan_fact_sub: 'Ожидаемая сумма за месяц и собрано',
+  an_expected: 'Ожидается',
+  an_collected: 'Собрано',
+  an_students_flow: 'Движение учеников',
+  an_students_flow_sub: 'Пришли и ушли',
+  an_joined: 'Пришли',
+  an_left: 'Ушли',
+  an_attendance_trend: 'Динамика посещаемости',
+  an_attendance_trend_sub: 'По неделям',
 };
 
 type LangKey = keyof typeof UZ;

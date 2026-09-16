@@ -58,7 +58,7 @@ function Tooltip({ x, width, children, align = 'auto' }) {
  */
 export function Columns({
   data, height = 190, format = (v) => v, color = 'var(--viz-accent)',
-  series = null, labelEvery = 1, emphasisLast = false, onSelect,
+  series = null, grouped = false, labelEvery = 1, emphasisLast = false, onSelect,
 }) {
   const wrapRef = React.useRef(null);
   const width = useChartWidth(wrapRef);
@@ -68,9 +68,16 @@ export function Columns({
   const plotW = Math.max(40, width - padL - padR);
   const plotH = Math.max(40, height - padT - padB);
   const totals = data.map(d => (series ? series.reduce((s, sr) => s + (Number(d.parts?.[sr.id]) || 0), 0) : Number(d.value) || 0));
-  const max = niceMax(Math.max(...totals, 0));
+  // Grouped bars stand side by side, so the axis follows the tallest single bar.
+  const peak = grouped && series
+    ? Math.max(...data.flatMap(d => series.map(sr => Number(d.parts?.[sr.id]) || 0)), 0)
+    : Math.max(...totals, 0);
+  const max = niceMax(peak);
   const band = plotW / Math.max(data.length, 1);
-  const barW = Math.min(24, Math.max(4, band - 10));
+  const groupW = Math.min(24 * (series?.length || 1) + 4 * ((series?.length || 1) - 1), Math.max(8, band - 10));
+  const barW = grouped && series
+    ? Math.max(3, (groupW - 3 * (series.length - 1)) / series.length)
+    : Math.min(24, Math.max(4, band - 10));
   const y = (v) => padT + plotH - (v / max) * plotH;
 
   return (
@@ -83,8 +90,22 @@ export function Columns({
           </g>
         ))}
         {data.map((d, i) => {
-          const x = padL + band * i + (band - barW) / 2;
+          const x = padL + band * i + (band - (grouped && series ? groupW : barW)) / 2;
           const dim = emphasisLast && i !== data.length - 1;
+          if (series && grouped) {
+            return (
+              <g key={i}>
+                {series.map((sr, k) => {
+                  const v = Number(d.parts?.[sr.id]) || 0;
+                  const h = (v / max) * plotH;
+                  return (
+                    <rect key={sr.id} x={x + k * (barW + 3)} y={y(v)} width={barW} height={Math.max(h, v > 0 ? 2 : 0)} rx={4}
+                      fill={sr.color} opacity={hover == null || hover === i ? 1 : 0.45}/>
+                  );
+                })}
+              </g>
+            );
+          }
           if (series) {
             let acc = 0;
             return (
@@ -127,11 +148,12 @@ export function Columns({
           {series
             ? series.map(sr => {
               const v = Number(data[hover].parts?.[sr.id]) || 0;
-              if (!v) return null;
+              if (!v && !grouped) return null;
               return <span key={sr.id}><i style={{ background: sr.color }}/>{sr.label}<b>{format(v)}</b></span>;
             })
             : <span><b>{format(totals[hover])}</b>{data[hover].sub ? <small>{data[hover].sub}</small> : null}</span>}
-          {series && <span className="tip-total">{'Σ'}<b>{format(totals[hover])}</b></span>}
+          {series && !grouped && <span className="tip-total">{'Σ'}<b>{format(totals[hover])}</b></span>}
+          {grouped && data[hover].sub ? <span className="tip-total">{data[hover].sub}</span> : null}
         </Tooltip>
       )}
     </div>
@@ -139,7 +161,7 @@ export function Columns({
 }
 
 /** Trend — a single series over time: 2px line, 10% wash, crosshair on hover. */
-export function Trend({ data, height = 180, format = (v) => v, color = 'var(--viz-accent)', labelEvery = 6 }) {
+export function Trend({ data, height = 180, format = (v) => v, color = 'var(--viz-accent)', labelEvery = 6, max: maxProp }) {
   const wrapRef = React.useRef(null);
   const width = useChartWidth(wrapRef);
   const [hover, setHover] = React.useState(null);
@@ -148,7 +170,7 @@ export function Trend({ data, height = 180, format = (v) => v, color = 'var(--vi
   const plotW = Math.max(40, width - padL - padR);
   const plotH = Math.max(40, height - padT - padB);
   const values = data.map(d => Number(d.value) || 0);
-  const max = niceMax(Math.max(...values, 0));
+  const max = maxProp || niceMax(Math.max(...values, 0));
   const step = plotW / Math.max(data.length - 1, 1);
   const x = (i) => padL + step * i;
   const y = (v) => padT + plotH - (v / max) * plotH;
@@ -165,7 +187,8 @@ export function Trend({ data, height = 180, format = (v) => v, color = 'var(--vi
         setHover(Math.max(0, Math.min(values.length - 1, i)));
       }}>
       <svg width={width} height={height} role="img">
-        {ticksOf(max).map((v, i) => (
+        {/* a fixed ceiling (percent) divides into quarters; an auto one into thirds */}
+        {ticksOf(max, maxProp ? 4 : 3).map((v, i) => (
           <g key={i}>
             <line x1={padL} x2={width - padR} y1={y(v)} y2={y(v)} className="chart-grid"/>
             <text x={padL - 8} y={y(v) + 4} className="chart-axis" textAnchor="end">{format(v, true)}</text>

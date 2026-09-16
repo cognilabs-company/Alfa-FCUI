@@ -167,6 +167,21 @@ Frontend tomonida hech narsa buzilmaydi: endpoint yo'q bo'lsa, hozirgi hisoblash
 
 ---
 
+## 4.1 Holat (2026-09-16, frontend tomonidan)
+
+Backend tomonidan barchasi bajarilgan (`ANALYTICS_BACKEND_IMPLEMENTED.md`), lekin **hali deploy qilinmagan** — `api.alpha.cognilabs.org/openapi.json` da yangi endpointlar va maydonlar yo'q.
+
+Frontend ikkala holatga ham tayyor:
+
+| Server | Frontend nima qiladi |
+|--------|---------------------|
+| Yangi (endpointlar bor) | `revenue-dynamics`, `kpis`, `debt-aging`, `expected-vs-collected`, `students-dynamics`, `attendance/dynamics` ishlatiladi. Xom `/transactions` va `/reports/debtors` **umuman tortilmaydi**. Qo'shimcha 3 ta diagramma chiqadi: "Reja va fakt", "O'quvchilar oqimi" (joined/left), "Davomat dinamikasi". Guruh sig'imi (`capacity`) va `total_debt` ham ishlatiladi. |
+| Eski (hozirgi) | Avvalgidek xom ro'yxatlardan hisoblanadi. Yangi 3 ta diagramma ko'rsatilmaydi (ma'lumot yo'q). |
+
+Tekshiruv: endpointlar bo'lmasa sessiyaga **2 ta** so'rov ketadi, keyin natija eslab qolinadi (5 daqiqada bir qayta tekshiriladi) — deploy qilinganidan keyin sahifa o'zi yangi endpointlarga o'tadi, hech narsa qilish shart emas.
+
+---
+
 ## 5. Qisqacha ro'yxat
 
 | # | Ish | Muhimlik |

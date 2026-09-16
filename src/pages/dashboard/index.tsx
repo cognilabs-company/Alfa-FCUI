@@ -9,7 +9,7 @@ import { useT } from '@/shared/i18n/lang';
 import { fmt, fmtMln, fmtMoneyRoll, fmtDate, monthShort, toLocalISO, weekdayLong, todayISO } from '@/shared/lib/format';
 import { Trend, ChartLegend } from '@/shared/ui/charts';
 import { loadDashboardAnalytics } from '@/shared/api';
-import { daysBack, dayKey, monthsBack, monthKey, revenueSeries, sourceTotals, paidTotal, delta } from '@/shared/lib/analytics';
+import { daysBack, dayKey, monthsBack, monthKey, revenueSeries, seriesFromDynamics, delta } from '@/shared/lib/analytics';
 
 const DEFAULT_CAPACITY = 25;
 const SOURCE_COLORS = {
@@ -192,14 +192,18 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
 
   const sortedSessions = [...todaySessions].sort((a, b) => (minutesOf(a.start_time) ?? 0) - (minutesOf(b.start_time) ?? 0));
 
-  // Analytics panel: 30-day daily trend, this month against last, source mix.
+  // Analytics panel: 30-day daily trend, this 30 days against the previous 30,
+  // source mix. Uses /reports/revenue-dynamics when the server has it.
   const an = React.useMemo(() => {
     const txs = analytics?.transactions || [];
-    const daily = revenueSeries(txs, daysBack(30), dayKey);
-    const byMonth = revenueSeries(txs, monthsBack(2), monthKey);
-    const window60 = revenueSeries(txs, daysBack(60), dayKey);
+    const agg = analytics?.dailySeries ? seriesFromDynamics(analytics.dailySeries) : null;
+    const window60 = agg ? agg.slice(-60) : revenueSeries(txs, daysBack(60), dayKey);
+    const daily = window60.slice(-30);
+    const byMonth = agg
+      ? [{ value: 0 }, { value: daily.filter(d => d.date.getMonth() === new Date().getMonth()).reduce((s, d) => s + d.value, 0) }]
+      : revenueSeries(txs, monthsBack(2), monthKey);
     const total30 = daily.reduce((s, d) => s + d.value, 0);
-    const prev30 = window60.slice(0, 30).reduce((s, d) => s + d.value, 0);
+    const prev30 = window60.slice(0, Math.max(window60.length - 30, 0)).reduce((s, d) => s + d.value, 0);
     const paidCount = daily.reduce((s, d) => s + d.count, 0);
     const parts = daily.reduce((acc, d) => {
       for (const [k, v] of Object.entries(d.parts)) acc[k] = (acc[k] || 0) + v;
@@ -213,9 +217,9 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
       total30,
       paidCount,
       avgCheck: paidCount ? total30 / paidCount : 0,
-      thisMonth: byMonth[1]?.value || 0,
+      thisMonth: Number(analytics?.kpis?.collected_this_month) || byMonth[1]?.value || 0,
       monthDelta: delta(total30, prev30),
-      mrr: Number(analytics?.contractStats?.total_monthly_fee) || 0,
+      mrr: Number(analytics?.kpis?.mrr ?? analytics?.contractStats?.total_monthly_fee) || 0,
       sourceItems: Object.entries(parts).filter(([, v]) => v > 0)
         .map(([id, value]) => ({ id, label: label(id), value, color: SOURCE_COLORS[id] || 'var(--viz-other)' })),
     };
