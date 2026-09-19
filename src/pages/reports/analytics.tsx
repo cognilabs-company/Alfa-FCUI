@@ -169,6 +169,20 @@ export function AnalyticsTab({ onNav }) {
     { id: 'collected', label: t('an_collected'), color: 'var(--viz-accent)' },
   ];
 
+  // Profit: revenue against the expenses summary (EXPENSES_BACKEND.md), per month.
+  const expenses = data?.expenses || null;
+  const expenseByMonth = React.useMemo(() => new Map((expenses?.monthly || []).map(m => [m.period, Number(m.total) || 0])), [expenses]);
+  const profitRows = React.useMemo(() => (expenses ? revenue.map(p => ({
+    date: p.date,
+    parts: { revenue: p.value, expense: expenseByMonth.get(p.key) || 0 },
+  })) : []), [expenses, revenue, expenseByMonth]);
+  const expenseTotal = profitRows.reduce((s, r) => s + r.parts.expense, 0);
+  const netProfit = revenueTotal - expenseTotal;
+  const profitSeries = [
+    { id: 'revenue', label: t('an_revenue'), color: 'var(--viz-accent)' },
+    { id: 'expense', label: t('an_expense'), color: 'var(--danger)' },
+  ];
+
   if (loading) return <div className="empty loading" style={{ padding: 64 }}>{t('loading')}</div>;
 
   const notes = [];
@@ -239,6 +253,24 @@ export function AnalyticsTab({ onNav }) {
                 format={money} height={190} labelEvery={5}/>
             : <div className="chart-empty">{t('an_no_data')}</div>}
         </ChartCard>
+
+        {expenses && profitRows.length > 0 && (
+          <ChartCard t={t} span title={t('an_revenue_vs_expense')} sub={t('an_revenue_vs_expense_sub')}
+            value={<span style={{ color: netProfit < 0 ? 'var(--danger)' : undefined }}>{money(netProfit)}</span>}
+            right={(
+              <div style={{ display: 'grid', gap: 6, justifyItems: 'end' }}>
+                <span className="ch-sub">{t('an_profit')}{revenueTotal > 0 ? ` · ${Math.round((netProfit / revenueTotal) * 100)}% ${t('an_margin')}` : ''}</span>
+                <ChartLegend items={profitSeries} inline/>
+              </div>
+            )}>
+            <Columns
+              data={profitRows.map(r => ({
+                label: monthLabelOf(r.date), full: monthFull(r.date), parts: r.parts,
+                sub: `${t('an_profit')}: ${money(r.parts.revenue - r.parts.expense)}`,
+              }))}
+              series={profitSeries} grouped format={money} height={200}/>
+          </ChartCard>
+        )}
 
         {plan.length > 0 && (
           <ChartCard t={t} span title={t('an_plan_fact')} sub={t('an_plan_fact_sub')}

@@ -6,6 +6,7 @@ import { apiGetStudents } from './students';
 import { apiGetGroupsForSelect } from './groups';
 import { apiGetSessions } from './sessions';
 import { apiGetContractStats } from './contracts';
+import { apiGetExpensesSummary } from './expenses';
 
 /**
  * Analytics data loader.
@@ -104,8 +105,8 @@ export async function loadAnalytics({ fromDate, toDate, months = 6 } = {}) {
   // Aggregates first — a server without them 404s and the raw path fills in.
   const skipAggregates = aggregatesKnown() === false;
   const none = Promise.resolve(null);
-  const [revenue, kpis, aging, expected, studentsDyn, attendanceDyn] = await Promise.allSettled(skipAggregates
-    ? [none, none, none, none, none, none]
+  const [revenue, kpis, aging, expected, studentsDyn, attendanceDyn, expenses] = await Promise.allSettled(skipAggregates
+    ? [none, none, none, none, none, none, none]
     : [
       apiGetRevenueDynamics({ ...range, group_by: 'month' }),
       apiGetAnalyticsKpis(range),
@@ -113,6 +114,7 @@ export async function loadAnalytics({ fromDate, toDate, months = 6 } = {}) {
       apiGetExpectedVsCollected(range),
       apiGetStudentsDynamics({ ...range, group_by: 'month' }),
       apiGetAttendanceDynamics({ ...range, group_by: 'week' }),
+      apiGetExpensesSummary(range),
     ]);
 
   const revenueSeries = listOf(revenue);
@@ -151,6 +153,7 @@ export async function loadAnalytics({ fromDate, toDate, months = 6 } = {}) {
     expectedVsCollected: listOf(expected),
     studentsDynamics: listOf(studentsDyn),
     attendanceDynamics: listOf(attendanceDyn),
+    expenses: objectOf(expenses),
     // raw lists (used for the fallback path and for what has no endpoint yet)
     transactions: txRows,
     transactionsTruncated: tx.status === 'fulfilled' && !!tx.value?.truncated,

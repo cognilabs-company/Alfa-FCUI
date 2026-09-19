@@ -144,6 +144,7 @@ export const Icon = {
   // Money
   CreditCard: make(CreditCard),
   Coins: make(Coins),
+  Repeat: make(ArrowsClockwise),
   Money: make(Money),
   HandCoins: make(HandCoins),
   Receipt: make(Receipt),

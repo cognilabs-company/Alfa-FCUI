@@ -2,7 +2,7 @@
 import React from 'react';
 import { Icon } from '@/shared/ui/icons';
 import { Sidebar, Topbar } from '@/widgets/layout';
-import { normalizeRoleName } from '@/shared/lib/rbac';
+import { normalizeRoleName, hasPerm } from '@/shared/lib/rbac';
 import { LoginScreen } from '@/pages/login';
 import { Dashboard } from '@/pages/dashboard';
 import { StudentsList, StudentProfile, StudentNew } from '@/pages/students';
@@ -17,6 +17,7 @@ import { SettingsScreen } from '@/pages/settings';
 import { TransactionsScreen } from '@/pages/transactions';
 import { ReportsScreen } from '@/pages/reports';
 import { WaitingListScreen } from '@/pages/waiting-list';
+import { ExpensesScreen } from '@/pages/expenses';
 import { AuditLogsScreen } from '@/pages/audit-logs';
 import { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSelect } from '@/shared/ui/tweaks-panel';
 import { BrandMark } from '@/shared/ui/logo';
@@ -206,6 +207,7 @@ function AppShell() {
   if (route === 'contracts') crumbKeys.push('nav_contracts');
   if (route === 'contracts-view') { crumbKeys.push('nav_contracts'); crumbKeys.push('crumb_view'); activeNav = 'contracts'; }
   if (route === 'transactions') crumbKeys.push('nav_transactions');
+  if (route === 'expenses') crumbKeys.push('nav_expenses');
   if (route === 'gate') crumbKeys.push('nav_gate');
   if (route === 'users') crumbKeys.push('nav_users');
   if (route === 'roles') crumbKeys.push('crumb_roles');
@@ -275,6 +277,10 @@ function AppShell() {
           {route === 'reports' && <ReportsScreen onNav={navigate}/>}
           {route === 'reports-debtors' && <ReportsScreen initialTab="debtors" onNav={navigate}/>}
           {route === 'waiting-list' && <WaitingListScreen onToast={showToast}/>}
+          {route === 'expenses' && (
+            <ExpensesScreen onToast={showToast}
+              canEdit={hasPerm(T.role, 'finance:expenses:edit') || permissions.some(p => (typeof p === 'string' ? p : p?.code || p?.name) === 'finance:expenses:edit')}/>
+          )}
           {route === 'audit-logs' && <AuditLogsScreen/>}
           </div>
         </div>
