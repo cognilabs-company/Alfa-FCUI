@@ -15,3 +15,4 @@ export * from './waiting-list';
 export * from './audit';
 export * from './analytics';
 export * from './expenses';
+export * from './payroll';

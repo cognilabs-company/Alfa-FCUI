@@ -256,6 +256,23 @@ Natija: o'quvchi + shartnoma (PDF serverda tayyorlanadi) → "Shartnomani ko'ris
 
 ---
 
+## 10.1 Oyliklar (Payroll)
+**Vebda bor:**
+- Oy tanlovi (oldingi/keyingi oy, "Bugun"); xodim qidiruvi; "to'xtatilgan profillar ham".
+- Jamlama: oy uchun jami hisoblangan, berildi / qoldiq ulushi, bonus va jarimalar yig'indisi, xodimlar soni (ochiq / yopilgan).
+- Ro'yxat: xodim (ism, telefon), maosh (summa, oylik/kunlik), ish kunlari (yakshanba hisobga olinmaydi), hisoblangan (+bonus −jarima), berildi, qoldiq, status (Ochiq / Yopilgan).
+- Xodim tafsiloti: ish kunlari, asosiy, hisoblangan, bonus, jarima, berildi, qoldiq; **berilgan pullar** ro'yxati (tahrirlash/o'chirish), **bonus va jarimalar** ro'yxati (tahrirlash/o'chirish); tugmalar: maoshni o'zgartirish, bonus/jarima, pul berish (oy yopilgan bo'lsa o'chiq).
+- Amallar: **xodim qo'shish** (foydalanuvchini tanlash → maosh turi oylik/kunlik, summa, amal qilish boshlanishi, faol, izoh), **bonus/jarima qo'shish** (tur, summa, sana, izoh), **pul berish** (summa — standart qoldiq, sana, izoh), **oyni yopish** (bitta xodim yoki hammasi), **oyni qayta ochish**.
+- Hisoblash (serverda): kunlik → summa × ish kunlari; oylik → summa (oyning bir qismi uchun ish kunlariga mutanosib); hisoblangan = asosiy + bonus − jarima; qoldiq = hisoblangan − berildi.
+
+**API:** `GET /payroll/summary?from_date&to_date&user_id&include_inactive_profiles`, `GET /payroll/employees?search&include_without_profile&status&page&page_size`, `GET /payroll/profiles?user_id&is_active`, `PUT /payroll/users/{id}/salary-profile {salary_type, amount, effective_from, is_active, note}`, `GET/POST /payroll/adjustments`, `PATCH/DELETE /payroll/adjustments/{id}`, `GET/POST /payroll/payments`, `PATCH/DELETE /payroll/payments/{id}`, `POST /payroll/closures {user_ids[], year, month, note}` (bo'sh `user_ids` = hammasi), `DELETE /payroll/closures/{year}/{month}?user_id`.
+
+**Ruxsat:** `payroll:view`; o'zgartirish — `payroll:manage`.
+
+**Mobilda:** oy — gorizontal segment; xodim qatori → tafsilot ekrani; "Pul berish" — eng tez amal (summa oldindan qoldiq bilan to'ldirilgan); oy yopilgan xodimda tahrirlash tugmalari yashirin.
+
+---
+
 ## 11. Hisobotlar
 Tablar:
 
@@ -364,15 +381,16 @@ Menyuda yashirilgan (kod bor, tugma o'chirilgan). Sana oralig'i (standart bugun)
 
 ## 19. Backend holati (2026-09-20) — mobil jamoa bilishi kerak
 
-Jonli API (`api.alpha.cognilabs.org`) da **hali deploy qilinmagan**, lekin kodi tayyor:
+Jonli API (`api.alpha.cognilabs.org`) da quyidagilar **deploy qilingan va ishlayapti**:
 - prorated birinchi to'lov (`POST /students` da `initial_payment_*`, `TransactionRead.payment_type/period_*`);
 - analitika aggregatlari (`/reports/revenue-dynamics`, `/kpis`, `/debt-aging`, `/expected-vs-collected`, `/students-dynamics`, `/attendance/dynamics`), `GroupRead.capacity`, `DashboardSummary.total_debt`, `TransactionRead.group_id`, `Student.status_changed_at`;
-- xarajatlar (`/expenses`).
+- xarajatlar (`/expenses`, `/expenses/summary` — `from_date`/`to_date` majburiy, bo'lmasa `422`);
+- oyliklar (`/payroll/*`).
 
-Frontend bularni **mavjudligini tekshirib** ishlatadi (yo'q bo'lsa eski usul). Mobil ilova ham shunday qilsin: `/openapi.json` ni bir marta o'qib, qaysi endpoint borligini aniqlash.
+Frontend har holda **mavjudligini tekshirib** ishlatadi (eski serverda eski usulga qaytadi). Mobil ilova ham shunday qilsin: `/openapi.json` ni bir marta o'qib, qaysi endpoint borligini aniqlash.
 
 Ma'lum kamchiliklar:
-- `GET /reports/finance` `source` maydoni `"PaymentSource.CASH"` ko'rinishida (tuzatish deploydan keyin) — hozircha `PaymentSource.` prefiksini kesib olish kerak.
-- `/transactions` `page_size` maksimum 100.
+- `GET /reports/kpis` dagi `collected_this_month` amalda **davr yig'indisini** qaytaradi (joriy oyni emas) — "shu oy" qiymatini `revenue-dynamics` (group_by=month) dan oling.
+- `/transactions` `page_size` maksimum 100 (yangi backendda 500).
 - "Parolni unutdim" endpointi yo'q.
 - Push uchun qurilma ro'yxati endpointi yo'q.

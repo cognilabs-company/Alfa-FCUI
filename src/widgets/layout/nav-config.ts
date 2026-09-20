@@ -13,6 +13,7 @@ export const NAV_ITEMS = [
     { id: 'contracts', labelKey: 'nav_contracts', icon: 'FileText', perm: 'contracts:view' },
     { id: 'transactions', labelKey: 'nav_transactions', icon: 'Wallet', perm: 'finance:transactions:view' },
     { id: 'expenses', labelKey: 'nav_expenses', icon: 'Coins', perm: 'finance:expenses:view' },
+    { id: 'payroll', labelKey: 'nav_payroll', icon: 'HandCoins', perm: 'payroll:view' },
     { id: 'reports', labelKey: 'nav_reports', icon: 'Reports', perm: 'finance:transactions:view' },
     // { id: 'gate', labelKey: 'gate_title', icon: 'Gate', perm: 'gate:logs:view' },
   ]},

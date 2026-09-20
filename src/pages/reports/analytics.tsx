@@ -124,7 +124,8 @@ export function AnalyticsTab({ onNav }) {
   const totalDebt = Number(data?.debtAging?.total_debt ?? k?.total_debt) || debtTotal(debtors);
   const debtorsCount = Number(k?.debtors_count) || (data?.debtAging?.top_debtors ? null : debtors.length) || debtors.length;
   const mrr = Number(k?.mrr ?? data?.contractStats?.total_monthly_fee) || 0;
-  const thisMonth = Number(k?.collected_this_month) || (revenue[revenue.length - 1]?.value || 0);
+  // 'This month' comes from the month series itself — the KPI field has proven to be the range total.
+  const thisMonth = revenue[revenue.length - 1]?.value ?? (Number(k?.collected_this_month) || 0);
   const activeStudents = Number(k?.active_students ?? data?.summary?.active_students)
     || (data?.students || []).filter(s => String(s.status).toLowerCase() === 'active').length;
   const arpu = Number(k?.arpu) || (activeStudents ? revenueTotal / months / activeStudents : 0);

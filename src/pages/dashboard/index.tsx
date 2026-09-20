@@ -200,7 +200,7 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
     const window60 = agg ? agg.slice(-60) : revenueSeries(txs, daysBack(60), dayKey);
     const daily = window60.slice(-30);
     const byMonth = agg
-      ? [{ value: 0 }, { value: daily.filter(d => d.date.getMonth() === new Date().getMonth()).reduce((s, d) => s + d.value, 0) }]
+      ? [{ value: 0 }, { value: agg.filter(d => d.date.getMonth() === new Date().getMonth() && d.date.getFullYear() === new Date().getFullYear()).reduce((s, d) => s + d.value, 0) }]
       : revenueSeries(txs, monthsBack(2), monthKey);
     const total30 = daily.reduce((s, d) => s + d.value, 0);
     const prev30 = window60.slice(0, Math.max(window60.length - 30, 0)).reduce((s, d) => s + d.value, 0);
@@ -217,7 +217,7 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
       total30,
       paidCount,
       avgCheck: paidCount ? total30 / paidCount : 0,
-      thisMonth: Number(analytics?.kpis?.collected_this_month) || byMonth[1]?.value || 0,
+      thisMonth: byMonth[1]?.value || Number(analytics?.kpis?.collected_this_month) || 0,
       monthDelta: delta(total30, prev30),
       mrr: Number(analytics?.kpis?.mrr ?? analytics?.contractStats?.total_monthly_fee) || 0,
       sourceItems: Object.entries(parts).filter(([, v]) => v > 0)
