@@ -18,6 +18,7 @@ import {
   apiPatchContractStatus,
   apiGetGateLogs,
   apiGetGroups,
+  apiGetGroupsForSelect,
   apiGetUsers,
   apiCreateUser,
   apiUpdateUser,

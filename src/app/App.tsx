@@ -3,6 +3,7 @@ import React from 'react';
 import { Icon } from '@/shared/ui/icons';
 import { Sidebar, Topbar } from '@/widgets/layout';
 import { normalizeRoleName, hasPerm } from '@/shared/lib/rbac';
+import { startTableLabels } from '@/shared/lib/table-labels';
 import { LoginScreen } from '@/pages/login';
 import { Dashboard } from '@/pages/dashboard';
 import { StudentsList, StudentProfile, StudentNew } from '@/pages/students';
@@ -83,6 +84,9 @@ function AppShell() {
   const toastTimer = React.useRef(null);
   const contentRef = React.useRef(null);
   const isNarrow = useMediaQuery('(max-width: 900px)');
+
+  // Phones render table rows as cards; the labels are stamped from each table header.
+  React.useEffect(() => startTableLabels(), []);
 
   React.useEffect(() => {
     setUnauthorizedHandler(() => {

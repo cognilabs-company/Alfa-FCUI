@@ -3395,18 +3395,9 @@ button.bar-row:hover { background: var(--hover); }
   .content { padding: 18px 16px 48px; }
   .page-head { margin-bottom: 16px; }
   .page-title { font-size: 21px; }
-  .agenda-day { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-  .agenda-date { position: static; flex-direction: row; align-items: center; gap: 12px; padding: 4px 2px 0; }
-  .cal-leaf { width: 58px; margin-top: 6px; border-radius: 13px; }
-  .cal-leaf::before { left: 13px; } .cal-leaf::after { right: 13px; }
-  .leaf-top { padding: 7px 2px 4px; font-size: 9.5px; border-radius: 13px 13px 0 0; }
-  .leaf-num { font-size: 22px; padding: 5px 0 6px; }
-  .leaf-wd { display: none; }
-  .agenda-date-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
-  .agenda-date-text b { font-size: 15px; font-weight: 800; }
-  .agenda-date-text span { font-size: 12.5px; font-weight: 600; color: var(--muted); }
-  .agenda-count { display: block; margin-left: auto; font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; }
-  .agenda-item { grid-template-columns: 74px 5px minmax(0, 1fr) auto; gap: 12px; padding-left: 12px; }
+  .agenda-head { padding: 10px 12px; gap: 10px; }
+  .agenda-head .day-text span { font-size: 11px; }
+  .agenda-item { grid-template-columns: 74px 4px minmax(0, 1fr) auto; gap: 12px; padding-left: 12px; }
   .agenda-item > .badge { display: none; }
   .agenda-time span { display: block; margin-left: 0; }
   .agenda-time small { white-space: normal; align-items: flex-start; line-height: 1.3; }
@@ -3418,7 +3409,7 @@ button.bar-row:hover { background: var(--hover); }
   .wc-count { display: none; }
 
   .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .table { min-width: 680px; }
+  .table:has(thead) { min-width: 680px; }
   .table-toolbar { position: sticky; left: 0; }
   .report-table-scroll { width: 100%; max-width: 100%; overflow-x: auto; }
   .compact-report-table { min-width: 100%; }
@@ -3465,6 +3456,8 @@ button.bar-row:hover { background: var(--hover); }
   /* scoreboard tiles stay two-up on phones */
   .grid-4:has(> .stat),
   .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  /* …but the dashboard KPIs carry a chart and a legend, so they take the full row */
+  .grid-4:has(> .kpi) { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .grid-4:has(> .stat) .stat-icon { width: 32px; height: 32px; border-radius: 10px; }
   .grid-4:has(> .stat) .stat-label { font-size: 10px; }
   .col-span-2 { grid-column: auto; }
@@ -3496,6 +3489,85 @@ button.bar-row:hover { background: var(--hover); }
   .table-toolbar > .search { flex-basis: 100%; max-width: none; }
   .table-toolbar > .searchable-select { flex: 1 1 140px; }
 
+  /* Tables become cards: the phone shows every column, labelled, instead of a
+     sideways scroller. The matrix (performance) keeps its grid. */
+  .table-wrap,
+  .table-scroll,
+  .card:has(> .table) { overflow-x: visible; }
+  .table-wrap:has(> .table-scroll > .performance-table),
+  .table-wrap:has(> .performance-table) { overflow-x: auto; }
+
+  .table:not(.performance-table):has(thead) { display: block; min-width: 0; }
+  .table:not(.performance-table):has(thead) thead { display: none; }
+  .table:not(.performance-table):has(thead) tbody { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+  .table:not(.performance-table):has(thead) tbody tr {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 2px 10px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+  }
+  .card .table:not(.performance-table):has(thead) tbody tr,
+  .modal .table:not(.performance-table):has(thead) tbody tr { background: var(--surface-2); border-color: transparent; }
+  .table:not(.performance-table):has(thead) tbody tr:last-child td { border-bottom: 0; }
+  .table:not(.performance-table):has(thead) tbody td {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(78px, 36%) minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    height: auto;
+    min-height: 0;
+    padding: 5px 0;
+    border: 0;
+    white-space: normal;
+  }
+  .table:not(.performance-table):has(thead) tbody td::before {
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  /* every child of a labelled cell stacks in the value column, hugging its left edge
+     (chips and badges must not stretch across the card) */
+  .table:not(.performance-table):has(thead) tbody td > * { grid-column: 2; justify-self: start; }
+  .table:not(.performance-table):has(thead) tbody td.cell-main > *,
+  .table:not(.performance-table):has(thead) tbody td.cell-lead > *,
+  .table:not(.performance-table):has(thead) tbody td.cell-actions > * { grid-column: auto; }
+
+  /* title line: checkbox · first cell · row menu */
+  .table:not(.performance-table):has(thead) tbody td.cell-main {
+    grid-column: 2;
+    grid-row: 1;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0 0 6px;
+    font-size: 14px;
+  }
+  .table:not(.performance-table):has(thead) tbody td.cell-main::before { display: none; }
+  .table:not(.performance-table):has(thead) tbody td.cell-lead { grid-column: 1; grid-row: 1; padding: 0 0 6px; display: flex; }
+  .table:not(.performance-table):has(thead) tbody td.cell-lead::before,
+  .table:not(.performance-table):has(thead) tbody td.cell-actions::before { display: none; }
+  .table:not(.performance-table):has(thead) tbody td.cell-actions { grid-column: 3; grid-row: 1; justify-self: end; padding: 0 0 6px; display: flex; }
+  .table:not(.performance-table):has(thead) tbody td:empty { display: none; }
+  /* inline right-alignment from the desktop layout must not survive in a card */
+  .table:not(.performance-table):has(thead) tbody td[style*="text-align: right"],
+  .table:not(.performance-table):has(thead) tbody td[style*="text-align:right"],
+  .table:not(.performance-table):has(thead) tbody td.money { text-align: left !important; }
+  .table:not(.performance-table):has(thead) tbody td.empty-cell { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr); padding: 22px 0; text-align: center; }
+  .table:not(.performance-table):has(thead) tbody td.empty-cell::before { display: none; }
+  /* rows no longer need the hover tint — each card already stands apart */
+  .table:not(.performance-table):has(thead) tbody tr:hover td { background: transparent; }
+  .table:not(.performance-table):has(thead) tbody tr.selected { border-color: var(--accent-border); background: var(--selected); }
+  .table:not(.performance-table):has(thead) tbody tr.selected td { background: transparent; box-shadow: none; }
+
+  /* small tables without a header (modal detail lists) just stop stretching */
+  .table:not(:has(thead)) { min-width: 0; }
+
   .compact-report-table { width: 100%; min-width: 320px !important; }
   .compact-report-table th,
   .compact-report-table td { padding-inline: 8px; }
@@ -3522,6 +3594,48 @@ button.bar-row:hover { background: var(--hover); }
 
   .detail-grid,
   .detail-grid.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* long text wraps instead of being cut with an ellipsis — the phone has the height */
+  .feed-text,
+  .agenda-main .title,
+  .debt-main .name,
+  .table .row-name .name { white-space: normal; }
+  .feed-item { align-items: start; }
+
+  /* the wizard fits the width: only the step you are on spells itself out */
+  .stepper { gap: 4px; padding: 5px; overflow: visible; }
+  .stepper-step { flex: 0 0 auto; min-width: 0; padding: 8px; gap: 8px; }
+  .stepper-step.active { flex: 1 1 auto; }
+  .stepper-step:not(.active) .step-meta { display: none; }
+  .stepper-step .step-meta { min-width: 0; }
+  .stepper-step .step-meta span { white-space: normal; }
+
+  /* every tab is reachable without a sideways swipe */
+  .tabs { display: flex; flex-wrap: wrap; overflow: visible; border-radius: 18px; }
+  .card > .tabs { max-width: calc(100% - 24px); }
+  .tab { flex: 1 1 auto; justify-content: center; }
+  .settings-nav { flex-wrap: wrap; overflow: visible; }
+  .settings-nav .menu-item { flex: 1 0 auto; justify-content: center; }
+
+  .kpi-legend span { white-space: normal; }
+
+  /* summary legends: the label wraps rather than getting clipped */
+  .summary-card .dist-legend div > span { white-space: normal; }
+
+  /* donut legend: label shrinks, value and share stay readable */
+  .donut-wrap { flex-direction: column; align-items: stretch; gap: 14px; }
+  .donut-wrap > svg { align-self: center; }
+  .donut-wrap .chart-legend { width: 100%; }
+  .donut-wrap .chart-legend > div {
+    display: grid;
+    grid-template-columns: 9px minmax(0, 1fr) auto auto;
+    align-items: baseline;
+    column-gap: 8px;
+  }
+  .donut-wrap .chart-legend > div > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .donut-wrap .chart-legend b { margin-left: 0; white-space: nowrap; }
+  .chart-card-head { flex-wrap: wrap; }
+  .chart-card-head .ch-right { margin-left: 0; text-align: left; }
 
   .toast { left: 12px; right: 12px; bottom: 12px; max-width: none; }
 
