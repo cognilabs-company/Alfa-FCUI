@@ -5,9 +5,18 @@ import {
   normalizeContractMonthlyFeePayload, normalizeContractDatesPayload,
 } from './client';
 
+// The list endpoints filter source/status by enum NAME (CASH, SUCCESS) even
+// though they return the values in lower case — normalise before sending.
+function txQuery(params = {}) {
+  const p = { ...params };
+  if (p.source) p.source = String(p.source).toUpperCase();
+  if (p.status) p.status = String(p.status).toUpperCase();
+  return new URLSearchParams(p).toString();
+}
+
 // Transactions
 export async function apiGetTransactions(params = {}) {
-  const q = new URLSearchParams(params).toString();
+  const q = txQuery(params);
   return apiFetch(`/transactions${q ? '?' + q : ''}`);
 }
 
@@ -17,12 +26,12 @@ export async function apiGetUnassignedTransactions(params = {}) {
 }
 
 export async function apiGetTransactionsWithName(params = {}) {
-  const q = new URLSearchParams(params).toString();
+  const q = txQuery(params);
   return apiFetch(`/transactions/withname${q ? '?' + q : ''}`);
 }
 
 export async function apiGetTransactionStats(params = {}) {
-  const q = new URLSearchParams(params).toString();
+  const q = txQuery(params);
   return apiFetch(`/transactions/transactionstatistics${q ? '?' + q : ''}`);
 }
 

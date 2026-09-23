@@ -93,6 +93,11 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
   const [payersLoading, setPayersLoading] = React.useState(false);
   const [payersYear, setPayersYear] = React.useState(new Date().getFullYear());
   const [payersMonth, setPayersMonth] = React.useState('');
+  const [payersGroup, setPayersGroup] = React.useState('');
+  const [debtorsGroup, setDebtorsGroup] = React.useState('');
+  const [attFrom, setAttFrom] = React.useState('');
+  const [attTo, setAttTo] = React.useState('');
+  const [groups, setGroups] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState('');
   const [financeFrom, setFinanceFrom] = React.useState(() => {
@@ -139,24 +144,42 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
   }, [financeFrom, financeTo]);
 
   React.useEffect(() => {
+    apiGetGroupsForSelect().then(r => setGroups(r?.data || [])).catch(() => {});
+  }, []);
+
+  React.useEffect(() => {
     if (tab !== 'debtors') return;
     setDebtorsLoading(true);
-    apiGetDebtors({ page_size: 100 })
+    const params = { page_size: 100 };
+    if (debtorsGroup) params.group_id = debtorsGroup;
+    apiGetDebtors(params)
       .then(res => setDebtors(res?.data || []))
       .catch(() => setDebtors([]))
       .finally(() => setDebtorsLoading(false));
-  }, [tab]);
+  }, [tab, debtorsGroup]);
 
   React.useEffect(() => {
     if (tab !== 'payers') return;
     setPayersLoading(true);
     const params = { payment_year: payersYear, page_size: 100 };
     if (payersMonth) params.payment_month = payersMonth;
+    if (payersGroup) params.group_id = payersGroup;
     apiGetPayers(params)
       .then(res => setPayers(res?.data || []))
       .catch(() => setPayers([]))
       .finally(() => setPayersLoading(false));
-  }, [tab, payersYear, payersMonth]);
+  }, [tab, payersYear, payersMonth, payersGroup]);
+
+  // Attendance report follows its own date range (all time by default).
+  React.useEffect(() => {
+    if (tab !== 'attendance' || !loadedOnce.current) return;
+    const params = {};
+    if (attFrom) params.from_date = attFrom;
+    if (attTo) params.to_date = attTo;
+    apiGetAttendanceGroupsReport(params)
+      .then(res => setAttendanceGroups(res?.data || []))
+      .catch(() => setAttendanceGroups([]));
+  }, [tab, attFrom, attTo]);
 
   // Only the first load replaces the page; changing the finance range keeps
   // the tabs and date pickers mounted.
@@ -182,7 +205,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
   }
   async function handleDebtorsExport() {
     try {
-      const blob = await apiDownloadDebtors();
+      const blob = await apiDownloadDebtors(debtorsGroup ? { group_id: debtorsGroup } : {});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -200,6 +223,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
     try {
       const params = { payment_year: payersYear };
       if (payersMonth) params.payment_month = payersMonth;
+      if (payersGroup) params.group_id = payersGroup;
       const blob = await apiDownloadPayers(params);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -360,7 +384,14 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
 
       {tab === 'attendance' && (
         <div className="card" style={{ padding: 20 }}>
-          <div className="card-title" style={{ marginBottom: 14 }}>{t('rpt_att_groups')}</div>
+          <div className="toolbar" style={{ marginBottom: 14 }}>
+            <div className="card-title">{t('rpt_att_groups')}</div>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <DateInput value={attFrom} onChange={setAttFrom} placeholder={t('cal_from')} />
+              <DateInput value={attTo} onChange={setAttTo} placeholder={t('cal_to')} />
+              {(attFrom || attTo) && <button className="btn ghost" onClick={() => { setAttFrom(''); setAttTo(''); }}><I.X size={14} /> {t('clear_filters')}</button>}
+            </div>
+          </div>
           {attendanceGroups.length === 0 ? (
             <div className="empty" style={{ padding: 18 }}>{t('rpt_att_not_found')}</div>
           ) : (
@@ -392,6 +423,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
       {tab === 'debtors' && (
         <div>
           <div className="toolbar">
+            <SearchableGroupSelect value={debtorsGroup} onChange={v => setDebtorsGroup(v === 'all' ? '' : v)} groups={groups} placeholder={t('students_all_groups')} />
             <span className="chip danger">{debtors.length} {tp('rpt_debtors_count_sfx', debtors.length)}</span>
             <button className="btn" style={{ marginLeft: 'auto' }} onClick={handleDebtorsExport}><I.Download size={15} /> Excel</button>
           </div>
@@ -455,6 +487,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
               ]}
               style={{ minWidth: 140 }}
             />
+            <SearchableGroupSelect value={payersGroup} onChange={v => setPayersGroup(v === 'all' ? '' : v)} groups={groups} placeholder={t('students_all_groups')} />
             <span className="chip success" style={{ marginLeft: 'auto' }}>{payers.length} {tp('rpt_payers_count_sfx', payers.length)}</span>
             <button className="btn" onClick={handlePayersExport}><I.Download size={15} /> Excel</button>
           </div>

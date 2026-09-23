@@ -70,8 +70,8 @@ export async function apiDownloadPaymentsExcel(params = {}) {
   return (await apiBlob(withQuery('/reports/payments-excel', params))).blob;
 }
 
-export async function apiDownloadDebtors() {
-  return (await apiBlob('/reports/debtors/export')).blob;
+export async function apiDownloadDebtors(params = {}) {
+  return (await apiBlob(withQuery('/reports/debtors/export', params))).blob;
 }
 
 export async function apiDownloadPayers(params = {}) {

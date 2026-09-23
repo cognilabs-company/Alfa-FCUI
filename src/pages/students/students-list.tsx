@@ -49,6 +49,17 @@ export function StudentsList({ onOpen, onNew, onToast }) {
   const [menuPos, setMenuPos] = React.useState({ x: 0, y: 0 });
   // student_id -> contract_number. Source of truth for the row label + contract-number search.
   const [contractByStudent, setContractByStudent] = React.useState({});
+  // Full roster for local search (phone / PNFL / address); the server only searches names.
+  const rosterRef = React.useRef(null);
+  async function roster() {
+    if (rosterRef.current) return rosterRef.current;
+    try {
+      const res = await apiGetStudents({ page_size: 500, include_archived: true });
+      rosterRef.current = res?.data || [];
+    } catch { rosterRef.current = []; }
+    return rosterRef.current;
+  }
+  const digits = (v) => String(v || '').replace(/\D/g, '');
   const PAGE_SIZE = 10;
   const loadedOnce = React.useRef(false);
 
@@ -67,26 +78,27 @@ export function StudentsList({ onOpen, onNew, onToast }) {
       let totalPages = res?.meta?.total_pages || 1;
       let totalCount = res?.meta?.total || 0;
 
-      // Contract-number search: the server search may not cover contract_number,
-      // so on page 1 we resolve the query against the contract map and pull in
-      // any matching students the server didn't already return.
+      // The server search only covers names. On page 1 the query is also matched
+      // locally against phone, PNFL, address and contract number, and any
+      // students the server missed are merged in (respecting the status/group filters).
       const effPage = overrides.page ?? page;
       const query = String(overrides.search ?? q ?? '').trim().toLowerCase();
+      const qDigits = digits(query);
       if (query && effPage === 1) {
         const have = new Set(data.map(s => s.id));
-        const matchIds = Object.keys(contractByStudent)
-          .filter(sid => String(contractByStudent[sid]).toLowerCase().includes(query))
-          .map(Number)
-          .filter(id => !have.has(id))
-          .slice(0, 20);
-        if (matchIds.length) {
-          const extra = (await Promise.all(
-            matchIds.map(id => apiGetStudent(id).then(r => r?.data).catch(() => null))
-          )).filter(Boolean);
-          if (extra.length) {
-            data = [...extra, ...data];
-            totalCount = totalCount + extra.length;
-          }
+        const effStatus = overrides.status ?? status;
+        const effGroup = overrides.group_id ?? groupId;
+        const extra = (await roster()).filter((s) => {
+          if (have.has(s.id)) return false;
+          if (effStatus !== 'all' && String(s.status || '').toLowerCase() !== String(effStatus).toLowerCase()) return false;
+          if (effGroup && String(s.group_id) !== String(effGroup)) return false;
+          const byDigits = qDigits.length >= 4 && (digits(s.phone).includes(qDigits) || digits(s.pnfl).includes(qDigits));
+          const byText = [s.pnfl, s.address, contractByStudent[s.id]].some(v => String(v || '').toLowerCase().includes(query));
+          return byDigits || byText;
+        }).slice(0, 50);
+        if (extra.length) {
+          data = [...extra, ...data];
+          totalCount = totalCount + extra.length;
         }
       }
 
