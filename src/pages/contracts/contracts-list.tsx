@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React from 'react';
 import { Icon } from '@/shared/ui/icons';
+import { SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
 import {
@@ -78,6 +79,17 @@ import { statusChip } from './status-chip';
 
 // ─── Contracts ───────────────────────────────────────────────────────────────
 
+/**
+ * The contract carries two people: the student it is for, and the customer
+ * (the parent) who signs and pays. The list is about the student — the
+ * customer belongs on the contract card, not in this column.
+ */
+function studentNameOf(c) {
+  return c.student_full_name
+    || c.custom_fields?.student?.full_name
+    || (c.student_id ? `#${c.student_id}` : '—');
+}
+
 export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }) {
   const I = Icon;
   const { t, tp } = useT();
@@ -85,7 +97,7 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
   const [stats, setStats] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [query, setQuery] = React.useState('');
-  // the two tabs are the whole filter: live contracts, or the archive
+  // one select drives the list: live contracts, or the archive
   const [tab, setTab] = React.useState('active');
   const [page, setPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);
@@ -204,27 +216,20 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
         })()
       )}
 
-      <div className="seg" style={{ marginBottom: 14 }}>
-        {[
-          { key: 'active', labelKey: 'status_active', icon: I.Sealed },
-          { key: 'archived', labelKey: 'status_archived', icon: I.Archive },
-        ].map(tb => (
-          <button
-            key={tb.key}
-            className={tab === tb.key ? 'active' : ''}
-            onClick={() => { setPage(1); setTab(tb.key); }}
-          >
-            <tb.icon size={16} weight={tab === tb.key ? 'fill' : 'duotone'}/> {t(tb.labelKey)}
-          </button>
-        ))}
-      </div>
-
       <div className="table-wrap">
         <div className="table-toolbar">
           <div className="search">
             <span className="icon-l"><I.Search size={15} /></span>
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('contracts_search')} />
           </div>
+          <SearchableSelect
+            value={tab}
+            onChange={v => { setPage(1); setTab(v); }}
+            options={[
+              { value: 'active', label: t('status_active') },
+              { value: 'archived', label: t('status_archived') },
+            ]}
+          />
           <div className="toolbar-meta">{totalCount} {tp('students_results', totalCount)}</div>
         </div>
 
@@ -251,10 +256,11 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
                   <td style={{ fontWeight: 800, whiteSpace: 'nowrap' }}>{c.contract_number}</td>
                   <td className="student-link" onClick={c.student_id ? e => { e.stopPropagation(); onNavigateToStudent?.(c.student_id); } : undefined}
                     style={{ color: 'var(--text-2)', fontWeight: 650, ...(c.student_id && onNavigateToStudent ? { cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'var(--border-strong)', textUnderlineOffset: 3 } : {}) }}>
-                    {c.customer_full_name ?? c.custom_fields?.customer?.full_name ?? '—'}
+                    {studentNameOf(c)}
                   </td>
                   <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>
-                    {fmtDate(c.contract_start_date ?? c.start_date)} <span style={{ color: 'var(--muted)' }}>→</span> {fmtDate(c.contract_end_date ?? c.end_date)}
+                    {/* one element, so the phone's card layout keeps the range on one line */}
+                    <span>{fmtDate(c.contract_start_date ?? c.start_date)} <span style={{ color: 'var(--muted)' }}>→</span> {fmtDate(c.contract_end_date ?? c.end_date)}</span>
                   </td>
                   <td className="money">{fmt.format(c.monthly_fee_amount ?? c.monthly_fee ?? 0)} {t('currency')}</td>
                   <td>{statusChip(c.status, t)}</td>
