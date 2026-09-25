@@ -103,13 +103,22 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
   // Short first payment: a child joining mid-month pays for the part-month at
   // the door, long before the documents (and so the contract) exist.
   const [proratedSupported, setProratedSupported] = React.useState(false);
-  const [prorated, setProrated] = React.useState(false);
-  const usingProrated = prorated && proratedSupported;
+  // the payment is simply left empty when there is none — no switch to remember
+  const usingProrated = proratedSupported && Number(form.initial_payment_amount) > 0;
 
   // complete
   const [completing, setCompleting] = React.useState(null);
   const [cForm, setCForm] = React.useState(emptyComplete);
+  const [cStep, setCStep] = React.useState(1);
   const [completeSaving, setCompleteSaving] = React.useState(false);
+
+  // A step earns its tick only once everything required inside it is filled —
+  // the same rule the new-student wizard uses.
+  const cStepValid = {
+    1: !!(cForm.date_of_birth && cForm.height && cForm.weight && String(cForm.pnfl).trim() && cForm.group_id),
+    2: !!(cForm.customer_full_name.trim() && cForm.customer_passport_number.trim() && cForm.customer_address.trim() && cForm.monthly_fee_amount),
+    3: true,
+  };
 
   const [openMenuId, setOpenMenuId] = React.useState(null);
   const [menuPos, setMenuPos] = React.useState({ x: 0, y: 0 });
@@ -175,7 +184,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
   function openNew() {
     setEditing(null);
     setForm(emptyPending);
-    setProrated(false);
     setShowForm(true);
   }
 
@@ -187,7 +195,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       date_of_birth: r.date_of_birth || '', document_due_date: r.document_due_date || '', note: r.note || '',
     });
     // the payment is taken once, when the record is opened
-    setProrated(false);
     setShowForm(true);
     setOpenMenuId(null);
   }
@@ -197,11 +204,11 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       notify.error(t('toast_required'));
       return;
     }
-    if (usingProrated) {
-      if (!(Number(form.initial_payment_amount) > 0)) { notify.error(t('prorated_err_amount')); return; }
-      if (!form.initial_payment_end_date || form.initial_payment_end_date <= form.initial_payment_start_date) {
-        notify.error(t('prorated_err_dates')); return;
-      }
+    // an amount that is filled in but not a real one would go out as nothing
+    const typedAmount = String(form.initial_payment_amount ?? '').trim();
+    if (typedAmount && !(Number(typedAmount) > 0)) { notify.error(t('prorated_err_amount')); return; }
+    if (usingProrated && (!form.initial_payment_end_date || form.initial_payment_end_date <= form.initial_payment_start_date)) {
+      notify.error(t('prorated_err_dates')); return;
     }
     setSaving(true);
     try {
@@ -247,6 +254,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
 
   function openComplete(r) {
     setCompleting(r);
+    setCStep(1);
     setOpenMenuId(null);
     const year = new Date().getFullYear();
     setCForm({
@@ -265,6 +273,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
     const need = ['date_of_birth', 'height', 'weight', 'pnfl', 'group_id',
       'customer_full_name', 'customer_passport_number', 'customer_address', 'monthly_fee_amount'];
     if (need.some(k => !String(cForm[k] ?? '').trim())) {
+      setCStep(cStepValid[1] ? 2 : 1);
       notify.error(t('toast_required'));
       return;
     }
@@ -481,24 +490,17 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
               <textarea rows={2} value={form.note} onChange={e => setF('note', e.target.value)} placeholder={t('ps_note_ph')}/>
             </div>
 
-            {!editing && (
+            {!editing && proratedSupported && (
               <div className="col-span-2">
-                <div className={'opt-card' + (usingProrated ? ' on' : '')}>
-                  <label className="switch" title={proratedSupported ? t('prorated_toggle') : t('prorated_unsupported')}>
-                    <input type="checkbox" checked={usingProrated} disabled={!proratedSupported}
-                      onChange={e => setProrated(e.target.checked)}/>
-                    <i/>
-                  </label>
-                  <div className="opt-text">
-                    <div className="opt-title"><I.HandCoins size={16}/> {t('prorated_toggle')}</div>
-                    <div className="opt-desc">{proratedSupported ? t('prorated_hint_pending') : t('prorated_unsupported')}</div>
-                  </div>
+                <div className="card-title" style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <I.HandCoins size={16}/> {t('prorated_toggle')}
                 </div>
+                <div className="hint" style={{ marginBottom: 12 }}>{t('prorated_hint_pending')}</div>
 
-                {usingProrated && (
-                  <div className="grid-2" style={{ gap: 14, marginTop: 14 }}>
+                {(
+                  <div className="grid-2" style={{ gap: 14 }}>
                     <div className="field">
-                      <label>{t('prorated_amount')} <span className="req">*</span></label>
+                      <label>{t('prorated_amount')}</label>
                       <input type="number" min="1" value={form.initial_payment_amount}
                         onChange={e => setF('initial_payment_amount', e.target.value)} placeholder="150000"/>
                     </div>
@@ -531,10 +533,12 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
                       <label>{t('field_comment')}</label>
                       <input value={form.initial_payment_comment} onChange={e => setF('initial_payment_comment', e.target.value)}/>
                     </div>
-                    <div className="alert info col-span-2" style={{ margin: 0 }}>
-                      <I.Calendar size={16}/>
-                      <span>{t('prorated_contract_auto').replace('{date}', fmtDate(form.initial_payment_end_date))}</span>
-                    </div>
+                    {Number(form.initial_payment_amount) > 0 && (
+                      <div className="alert info col-span-2" style={{ margin: 0 }}>
+                        <I.Calendar size={16}/>
+                        <span>{t('prorated_contract_auto').replace('{date}', fmtDate(form.initial_payment_end_date))}</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -550,13 +554,38 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
           subtitle={<>{nameOf(completing)} · {t('ps_complete_sub')}</>}
           footer={<>
             <button className="btn ghost" onClick={() => setCompleting(null)}>{t('cancel')}</button>
-            <button className="btn primary" onClick={saveComplete} disabled={completeSaving}>
-              <I.Check size={14}/> {completeSaving ? t('saving') : t('ps_complete_btn')}
-            </button>
+            <div style={{ flex: 1 }}/>
+            {cStep > 1 && <button className="btn" onClick={() => setCStep(cStep - 1)}><I.ArrowLeft size={14}/> {t('prev')}</button>}
+            {cStep < 3 && <button className="btn primary" onClick={() => setCStep(cStep + 1)}>{t('next')} <I.ArrowRight size={14}/></button>}
+            {cStep === 3 && (
+              <button className="btn primary" onClick={saveComplete} disabled={completeSaving}>
+                <I.Check size={14}/> {completeSaving ? t('saving') : t('ps_complete_btn')}
+              </button>
+            )}
           </>}
         >
-          <div className="card-title" style={{ marginBottom: 10 }}>{t('ps_section_student')}</div>
-          <div className="grid-2" style={{ gap: 14, marginBottom: 18 }}>
+          <div className="stepper">
+            {[t('step1_label'), t('step2_label'), t('step3_label')].map((label, i) => {
+              const n = i + 1;
+              const active = cStep === n;
+              const done = cStep > n && cStepValid[n];
+              const incomplete = cStep > n && !cStepValid[n];
+              return (
+                <button key={n} type="button"
+                  className={'stepper-step' + (active ? ' active' : '') + (done ? ' done' : '') + (incomplete ? ' incomplete' : '')}
+                  aria-current={active ? 'step' : undefined}
+                  onClick={() => setCStep(n)}>
+                  <span className="step-num">{done ? <I.Check size={15} strokeWidth={2.6}/> : incomplete ? '!' : n}</span>
+                  <span className="step-meta">
+                    <small>{t('step_label')} {n}</small>
+                    <span>{label}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="grid-2" style={{ gap: 14, marginBottom: 18, display: cStep === 1 ? 'grid' : 'none' }}>
             <div className="field">
               <label>{t('field_first_name')}</label>
               <input value={cForm.first_name} onChange={e => setC('first_name', e.target.value)}/>
@@ -605,8 +634,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
             </div>
           </div>
 
-          <div className="card-title" style={{ marginBottom: 10 }}>{t('ps_section_contract')}</div>
-          <div className="grid-2" style={{ gap: 14, marginBottom: 18 }}>
+          <div className="grid-2" style={{ gap: 14, marginBottom: 18, display: cStep === 2 ? 'grid' : 'none' }}>
             <div className="field col-span-2">
               <label>{t('field_customer_name')} <span className="req">*</span></label>
               <input value={cForm.customer_full_name} onChange={e => setC('customer_full_name', e.target.value)} placeholder="Karimov Ravshan Akmalovich"/>
@@ -644,19 +672,35 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
             </div>
           </div>
 
-          <div className="card-title" style={{ marginBottom: 10 }}>{t('ps_section_files')}</div>
-          <div className="form-row">
-            <div className="field">
-              <label>{t('file_photo_label')}</label>
-              <input type="file" accept="image/*" onChange={e => setC('photo', e.target.files?.[0] || null)}/>
+          <div style={{ display: cStep === 3 ? 'block' : 'none' }}>
+            <div className="grid-3" style={{ gap: 14 }}>
+              {[
+                { key: 'photo', label: t('file_photo_label'), desc: t('file_photo_desc'), icon: 'Camera', accept: 'image/*' },
+                { key: 'passport', label: t('file_passport_label'), desc: t('file_passport_desc'), icon: 'File', accept: '.pdf,image/*' },
+                { key: 'extra_file', label: t('file_extra_label'), desc: t('file_extra_desc'), icon: 'FileText', accept: '' },
+              ].map(f => {
+                const Ic = I[f.icon];
+                const picked = cForm[f.key];
+                return (
+                  <div key={f.key} className={'dropzone' + (picked ? ' filled' : '')} style={{ minHeight: 170 }}>
+                    <span className="dropzone-icon">{picked ? <I.Check size={22}/> : <Ic size={22}/>}</span>
+                    <div style={{ fontWeight: 750, color: 'var(--text)', fontSize: 13.5 }}>{f.label}</div>
+                    <div>{picked ? picked.name : f.desc}</div>
+                    <label className="btn sm" style={{ marginTop: 6, cursor: 'pointer' }}>
+                      <I.Upload size={14}/> {t('upload_btn')}
+                      <input type="file" style={{ display: 'none' }} accept={f.accept || undefined}
+                        onChange={e => setC(f.key, e.target.files?.[0] || null)}/>
+                    </label>
+                  </div>
+                );
+              })}
             </div>
-            <div className="field">
-              <label>{t('file_passport_label')}</label>
-              <input type="file" accept=".pdf,image/*" onChange={e => setC('passport', e.target.files?.[0] || null)}/>
-            </div>
-            <div className="field">
-              <label>{t('file_extra_label')}</label>
-              <input type="file" onChange={e => setC('extra_file', e.target.files?.[0] || null)}/>
+            <div className="alert success" style={{ marginTop: 14, alignItems: 'center' }}>
+              <I.Check size={18}/>
+              <div>
+                <div style={{ fontWeight: 800 }}>{t('new_student_ready_title')}</div>
+                <div style={{ fontWeight: 600, opacity: 0.85 }}>{t('ps_complete_ready')}</div>
+              </div>
             </div>
           </div>
         </Modal>

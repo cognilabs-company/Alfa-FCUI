@@ -148,9 +148,7 @@ const UZ = {
   ps_complete_sub: "O'quvchi va shartnoma yaratiladi",
   ps_complete_btn: "To'liq ro'yxatga olish",
   ps_completed: "O'quvchi to'liq ro'yxatdan o'tkazildi",
-  ps_section_student: "O'quvchi ma'lumotlari",
-  ps_section_contract: 'Ota-ona va shartnoma',
-  ps_section_files: 'Fayllar',
+  ps_complete_ready: "O'quvchi va shartnoma serverda yaratiladi, shartnoma PDFi avtomatik tayyorlanadi.",
   ps_start_locked: "Birinchi qisqa to'lov davri tugagan kundan boshlanadi",
   students_years: 'yosh',
   // Student profile
@@ -1298,9 +1296,7 @@ const RU: typeof UZ = {
   ps_complete_sub: 'Будут созданы ученик и контракт',
   ps_complete_btn: 'Оформить полностью',
   ps_completed: 'Ученик полностью оформлен',
-  ps_section_student: 'Данные ученика',
-  ps_section_contract: 'Родитель и контракт',
-  ps_section_files: 'Файлы',
+  ps_complete_ready: 'Ученик и контракт создаются на сервере, PDF контракта генерируется автоматически.',
   ps_start_locked: 'Начинается со дня окончания периода первого платежа',
   students_years: 'год|года|лет',
   // Student profile
