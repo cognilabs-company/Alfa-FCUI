@@ -6,7 +6,7 @@ import { normalizeRoleName, hasPerm } from '@/shared/lib/rbac';
 import { startTableLabels } from '@/shared/lib/table-labels';
 import { LoginScreen } from '@/pages/login';
 import { Dashboard } from '@/pages/dashboard';
-import { StudentsList, StudentProfile, StudentNew } from '@/pages/students';
+import { StudentsList, StudentProfile, StudentNew, PendingStudents } from '@/pages/students';
 import { GroupsScreen } from '@/pages/groups';
 import { SessionsScreen } from '@/pages/sessions';
 import { AttendanceMark } from '@/pages/attendance';
@@ -204,6 +204,7 @@ function AppShell() {
   if (route === 'students') crumbKeys.push('nav_students');
   if (route === 'students-profile') { crumbKeys.push('nav_students'); crumbKeys.push('crumb_profile'); activeNav = 'students'; }
   if (route === 'students-new') { crumbKeys.push('nav_students'); crumbKeys.push('crumb_new'); activeNav = 'students'; }
+  if (route === 'students-pending') { crumbKeys.push('nav_students'); crumbKeys.push('ps_tab'); activeNav = 'students'; }
   if (route === 'groups') crumbKeys.push('nav_groups');
   if (route === 'sessions') crumbKeys.push('nav_sessions');
   if (route === 'attendance') crumbKeys.push('crumb_attendance');
@@ -262,7 +263,16 @@ function AppShell() {
         <div className="content" ref={contentRef} style={{ '--page-eyebrow': eyebrow }}>
           <div key={pageKey} className="page-enter">
           {route === 'dashboard' && <Dashboard role={T.role} user={currentUser} onNav={navigate} onOpenGroup={(id) => { setGroupId(id); setRoute('groups'); }}/>}
-          {route === 'students' && <StudentsList onOpen={(id) => { setStudentId(id); setRoute('students-profile'); }} onNew={() => setRoute('students-new')} onToast={showToast}/>}
+          {route === 'students' && (
+            <StudentsList onOpen={(id) => { setStudentId(id); setRoute('students-profile'); }} onNew={() => setRoute('students-new')} onToast={showToast}
+              onTab={(k) => k === 'pending' && navigate('students-pending')}/>
+          )}
+          {route === 'students-pending' && (
+            <PendingStudents onToast={showToast}
+              onTab={(k) => k === 'students' && navigate('students')}
+              onOpenStudent={(id) => { setStudentId(id); setRoute('students-profile'); }}
+              canEdit={hasPerm(T.role, 'students:edit') || permissions.some(p => (typeof p === 'string' ? p : p?.code || p?.name) === 'students:edit')}/>
+          )}
           {route === 'students-profile' && <StudentProfile studentId={studentId} onBack={() => navigate('students')}/>}
           {route === 'students-new' && <StudentNew onBack={() => navigate('students')} onCreated={() => { showToast(t('toast_student_created')); navigate('students'); }} onViewContract={(cid) => { setContractId(cid); navigate('contracts-view'); }}/>}
           {route === 'groups' && <GroupsScreen onOpen={(id) => { setGroupId(id); }} selectedGroupId={groupId} onCloseGroup={() => setGroupId(null)} onToast={showToast} onOpenStudent={(id) => { setStudentId(id); setRoute('students-profile'); }} />}

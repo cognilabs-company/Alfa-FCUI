@@ -19,6 +19,7 @@ import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
 import { fmtDate } from '@/shared/lib/format';
 import { calcAge, fullName, normalizeStatus } from './lib';
+import { StudentsTabs } from './students-tabs';
 
 // Filters survive navigating into a student profile and back (the list
 // unmounts on route change, so plain state would reset them).
@@ -27,7 +28,7 @@ function loadSavedFilters() {
   try { return JSON.parse(sessionStorage.getItem(FILTERS_KEY)) || {}; } catch { return {}; }
 }
 
-export function StudentsList({ onOpen, onNew, onToast }) {
+export function StudentsList({ onOpen, onNew, onToast, onTab }) {
   const I = Icon;
   const { t, tp } = useT();
   const [students, setStudents] = React.useState([]);
@@ -232,6 +233,8 @@ export function StudentsList({ onOpen, onNew, onToast }) {
           <button className="btn primary" onClick={onNew}><I.UserPlus size={15}/> {t('students_new')}</button>
         </div>
       </div>
+
+      <StudentsTabs active="students" onChange={onTab}/>
 
       <div className={"table-wrap" + (loading ? " is-loading" : "")}>
         <div className="seg" style={{ marginBottom: 12 }} role="tablist">

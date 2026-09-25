@@ -3,6 +3,7 @@ export * from './auth';
 export * from './users';
 export * from './roles';
 export * from './students';
+export * from './pending-students';
 export * from './groups';
 export * from './sessions';
 export * from './coach';

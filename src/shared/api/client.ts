@@ -157,9 +157,12 @@ export async function apiFetch(path, options = {}) {
     }
     const detail = error.response?.data?.detail;
     // FastAPI validation errors come as an array of {loc, msg, type}
-    if (Array.isArray(detail)) throw new Error(translateApiError('__validation__'));
-    const err = new Error(translateApiError(detail || (error.response?.status ? `Xatolik: ${error.response.status}` : '__network__')));
-    err.status = error.response?.status; // callers can tell a missing endpoint (404) from a real failure
+    const err = Array.isArray(detail)
+      ? new Error(translateApiError('__validation__'))
+      : new Error(translateApiError(detail || (error.response?.status ? `Xatolik: ${error.response.status}` : '__network__')));
+    // Every failure carries its status, so callers can tell a missing endpoint
+    // (404, or a 422 from a path that lands on a different route) from a real failure.
+    err.status = error.response?.status;
     throw err;
   }
 }
