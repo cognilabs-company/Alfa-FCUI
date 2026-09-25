@@ -76,7 +76,9 @@ export function SessionsScreen({ onMark }) {
   const [editForm, setEditForm] = React.useState({ group_id: '', session_date: '', topic: '', start_time: '', end_time: '', station: '', description: '' });
   const [newSession, setNewSession] = React.useState({
     group_id: '',
-    session_dates: [todayIso],
+    // No date is preselected: a preselected today quietly rides along when the
+    // coach is scheduling a later week, adding a session nobody asked for.
+    session_dates: [],
     topic: '',
     start_time: '10:00',
     end_time: '11:00',
@@ -227,7 +229,7 @@ export function SessionsScreen({ onMark }) {
         await apiCreateSession({ ...base, session_date: d });
       }
       setShowCreate(false);
-      setNewSession((p) => ({ ...p, topic: '', station: '', description: '', session_dates: [todayIso] }));
+      setNewSession((p) => ({ ...p, topic: '', station: '', description: '', session_dates: [] }));
       const [sRes] = await Promise.all([apiGetSessions()]);
       setSessions(sRes?.data || []);
     } catch (e) {

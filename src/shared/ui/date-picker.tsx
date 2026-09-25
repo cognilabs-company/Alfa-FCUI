@@ -45,15 +45,18 @@ function CalendarPop({ anchorRef, value, onPick, lang, t, withTime, time, onTime
       if (popRef.current?.contains(e.target) || anchorRef.current?.contains(e.target)) return;
       onClose();
     }
-    function key(e) { if (e.key === 'Escape') onClose(); }
+    // Capture phase + stopPropagation: Escape belongs to the calendar while it
+    // is open. Without this the modal underneath also hears it and closes,
+    // throwing away everything the user has typed.
+    function key(e) { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }
     function scroll(e) { if (!popRef.current?.contains(e.target)) onClose(); }
     document.addEventListener('mousedown', down);
-    document.addEventListener('keydown', key);
+    document.addEventListener('keydown', key, true);
     window.addEventListener('scroll', scroll, true);
     window.addEventListener('resize', onClose);
     return () => {
       document.removeEventListener('mousedown', down);
-      document.removeEventListener('keydown', key);
+      document.removeEventListener('keydown', key, true);
       window.removeEventListener('scroll', scroll, true);
       window.removeEventListener('resize', onClose);
     };
