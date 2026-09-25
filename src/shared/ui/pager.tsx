@@ -1,12 +1,14 @@
 // @ts-nocheck
 import React from 'react';
 import { Icon } from './icons';
+import { useT } from '../i18n/lang';
 
 /**
  * Shared pagination bar: "11 — 20 / 134" on the left, numbered pages on the right.
  * Renders nothing when there is a single page and no count to show.
  */
 export function Pager({ page, totalPages, onPage, total, pageSize, detached = false }) {
+  const { t } = useT();
   const pages = Math.max(1, totalPages || 1);
   if (pages <= 1 && !total) return null;
 
@@ -29,7 +31,7 @@ export function Pager({ page, totalPages, onPage, total, pageSize, detached = fa
       <span>{range}</span>
       {pages > 1 && (
         <div className="pager-pages">
-          <button className="btn sm ghost" disabled={start <= 1} onClick={() => onPage(start - 1)} aria-label="Previous pages">
+          <button className="btn sm ghost" disabled={start <= 1} onClick={() => onPage(start - 1)} aria-label={t('pager_prev_block')}>
             <Icon.ChevronLeft size={15}/>
           </button>
           {nums.map(p => (
@@ -37,7 +39,7 @@ export function Pager({ page, totalPages, onPage, total, pageSize, detached = fa
               {p}
             </button>
           ))}
-          <button className="btn sm ghost" disabled={end >= pages} onClick={() => onPage(end + 1)} aria-label="Next pages">
+          <button className="btn sm ghost" disabled={end >= pages} onClick={() => onPage(end + 1)} aria-label={t('pager_next_block')}>
             <Icon.ChevronRight size={15}/>
           </button>
         </div>

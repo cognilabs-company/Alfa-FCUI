@@ -448,7 +448,7 @@ export function SessionsScreen({ onMark }) {
                             </div>
                             {sessionStatusBadge(s._status, t)}
                             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-                              <button className="icon-btn plain" aria-label="Actions" onClick={(e) => {
+                              <button className="icon-btn plain" aria-label={t('actions')} onClick={(e) => {
                                 if (openMenuSessionId === s.id) { setOpenMenuSessionId(null); return; }
                                 setMenuPos(menuPosition(e.currentTarget, 3));
                                 setOpenMenuSessionId(s.id);

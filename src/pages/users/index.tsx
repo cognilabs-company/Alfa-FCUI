@@ -484,7 +484,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
           <div className="page-actions">
             {selectedIds.length > 0 && (
               <button className="btn danger" onClick={bulkDeleteUsers} disabled={bulkDeleting}>
-                <I.Trash2 size={14} /> {bulkDeleting ? t('deleting') : `${selectedIds.length} ${t('delete')}`}
+                <I.Trash2 size={14} /> {bulkDeleting ? t('deleting') : `${t('delete')} (${selectedIds.length})`}
               </button>
             )}
             <button className="btn primary" onClick={() => setShowCreateUser(true)}><I.UserPlus size={15} /> {t('users_new')}</button>
@@ -523,7 +523,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
                       ? <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(u.id)} aria-label={u.full_name} />
                       : <I.Sealed size={20} weight="fill" color="var(--accent-ink)"/>}
                     <div style={{ position: 'relative' }}>
-                      <button className="icon-btn plain" aria-label="Actions" onClick={(e) => {
+                      <button className="icon-btn plain" aria-label={t('actions')} onClick={(e) => {
                         e.stopPropagation();
                         if (openMenuUserId === u.id) {
                           setOpenMenuUserId(null);
@@ -667,7 +667,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
               <input value={userForm.phone} onChange={e => setUserForm(p => ({ ...p, phone: e.target.value }))} placeholder="+998901234567" />
             </div>
             <div className="field">
-              <label>Email</label>
+              <label>{t('users_col_email')}</label>
               <input value={userForm.email} onChange={e => setUserForm(p => ({ ...p, email: e.target.value }))} placeholder="email@example.com" />
             </div>
             <div className="field">
@@ -720,7 +720,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
               <input value={editUserForm.phone} onChange={e => setEditUserForm(p => ({ ...p, phone: e.target.value }))} placeholder="+998901234567" />
             </div>
             <div className="field">
-              <label>Email</label>
+              <label>{t('users_col_email')}</label>
               <input value={editUserForm.email} onChange={e => setEditUserForm(p => ({ ...p, email: e.target.value }))} placeholder="email@example.com" />
             </div>
             <div className="field">

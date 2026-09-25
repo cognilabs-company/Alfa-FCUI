@@ -76,6 +76,7 @@ import {
 } from '@/shared/api';
 
 import { fmt, fmtDate, fmtDateTime, fmtMln, fmtMoneyRoll, monthLabel } from '@/shared/lib/format';
+import { paymentSourceLabel } from '@/shared/lib/labels';
 import { Pager } from '@/shared/ui/pager';
 import { CountUp } from '@/shared/ui/count-up';
 import { Stat } from '@/shared/ui/stat';
@@ -312,12 +313,7 @@ export function TransactionsScreen({ onToast } = {}) {
   }
 
   function sourceLabel(v) {
-    const s = String(v || '').trim().toLowerCase();
-    if (s === 'cash') return t('tx_src_cash');
-    if (s === 'click') return 'Click';
-    if (s === 'payme') return 'Payme';
-    if (s === 'bank') return t('tx_src_bank');
-    return String(v || '—');
+    return paymentSourceLabel(v, t);
   }
 
   function statusLabel(v) {

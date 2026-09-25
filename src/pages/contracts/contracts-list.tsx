@@ -1,8 +1,6 @@
 // @ts-nocheck
 import React from 'react';
 import { Icon } from '@/shared/ui/icons';
-import { DateInput, DateTimeInput } from '@/shared/ui/date-picker';
-import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
 import {
@@ -11,7 +9,6 @@ import {
   apiGetContractPdf,
   apiRegenerateContractPdf,
   apiGetContractStats,
-  apiTerminateContract,
   apiPatchContractMonthlyFee,
   apiPatchContractDates,
   apiPatchContractStatus,
@@ -63,7 +60,6 @@ import {
   apiGetStudent,
   apiGetStudentTransactions,
   apiDeleteUsersBulk,
-  apiGetTerminatedContracts,
   apiUpdateContract,
   apiDeleteTransaction,
   apiDeleteTransactionsBulk,
@@ -86,27 +82,29 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
   const I = Icon;
   const { t, tp } = useT();
   const [contracts, setContracts] = React.useState([]);
-  const [terminated, setTerminated] = React.useState([]);
   const [stats, setStats] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [query, setQuery] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState('all');
+  // the two tabs are the whole filter: live contracts, or the archive
   const [tab, setTab] = React.useState('active');
   const [page, setPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);
   const [totalCount, setTotalCount] = React.useState(0);
-  const [terminating, setTerminating] = React.useState(null);
-  const [terminateReason, setTerminateReason] = React.useState('');
-  const [terminateAt, setTerminateAt] = React.useState('');
-  const [terminateModal, setTerminateModal] = React.useState(false);
+  const [archiving, setArchiving] = React.useState(null);
+  const [archiveBusy, setArchiveBusy] = React.useState(false);
   const PAGE_SIZE = 10;
 
-  async function loadActive(overrides = {}) {
+  async function loadContracts(overrides = {}) {
     setLoading(true);
     try {
-      const params = { page: overrides.page ?? page, page_size: PAGE_SIZE };
-      if (overrides.query !== undefined ? overrides.query : query) params.search = overrides.query !== undefined ? overrides.query : query;
-      if ((overrides.status !== undefined ? overrides.status : statusFilter) !== 'all') params.status = overrides.status !== undefined ? overrides.status : statusFilter;
+      const effTab = overrides.tab ?? tab;
+      const effQuery = overrides.query ?? query;
+      const params = {
+        page: overrides.page ?? page,
+        page_size: PAGE_SIZE,
+        status: effTab === 'archived' ? 'ARCHIVED' : 'ACTIVE',
+      };
+      if (effQuery) params.search = effQuery;
       const [cRes, sRes] = await Promise.allSettled([
         apiGetContracts(params),
         apiGetContractStats(),
@@ -115,64 +113,40 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
       setContracts(cData?.data || []);
       setTotalPages(cData?.meta?.total_pages || 1);
       setTotalCount(cData?.meta?.total || 0);
-      setStats(sRes.status === 'fulfilled' ? (sRes.value?.data || null) : null);
+      if (sRes.status === 'fulfilled') setStats(sRes.value?.data || null);
     } finally {
       setLoading(false);
     }
   }
 
-  async function loadTerminated(overrides = {}) {
-    setLoading(true);
-    try {
-      const res = await apiGetTerminatedContracts({ page: overrides.page ?? page, page_size: PAGE_SIZE });
-      setTerminated(res?.data || []);
-      setTotalPages(res?.meta?.total_pages || 1);
-      setTotalCount(res?.meta?.total || 0);
-    } catch {
-      setTerminated([]);
-      setTotalPages(1);
-      setTotalCount(0);
-    } finally { setLoading(false); }
-  }
-
-  React.useEffect(() => {
-    apiGetContractStats().then(r => setStats(r?.data || null)).catch(() => {});
-  }, []);
-
   React.useEffect(() => {
     setPage(1);
-    if (tab === 'terminated') { loadTerminated({ page: 1 }); return; }
     const timer = setTimeout(() => {
-      loadActive({ page: 1, query, status: statusFilter });
+      loadContracts({ page: 1, query, tab });
     }, query ? 400 : 0);
     return () => clearTimeout(timer);
-  }, [query, statusFilter, tab]);
+  }, [query, tab]);
 
-  function openTerminate(contract) {
-    setTerminating(contract);
-    setTerminateReason('');
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    setTerminateAt(now.toISOString().slice(0, 16));
-    setTerminateModal(true);
-  }
-
-  async function confirmTerminate() {
-    if (!terminating || !terminateReason.trim()) return;
+  // Archiving parks a contract without ending it: the status flips to ARCHIVED
+  // and back to ACTIVE, so nothing is lost the way a termination would lose it.
+  async function confirmArchive() {
+    if (!archiving) return;
+    const toArchive = tab !== 'archived';
+    setArchiveBusy(true);
     try {
-      await apiTerminateContract(terminating.id, {
-        termination_reason: terminateReason,
-        terminated_at: terminateAt ? new Date(terminateAt).toISOString() : new Date().toISOString(),
-      });
-      setTerminateModal(false);
-      onToast?.(t('toast_contract_terminated'));
-      loadActive({ page: 1 });
+      await apiPatchContractStatus(archiving.id, { status: toArchive ? 'ARCHIVED' : 'ACTIVE' });
+      setArchiving(null);
+      onToast?.(t(toArchive ? 'toast_contract_archived' : 'toast_contract_unarchived'));
+      loadContracts({ page: 1 });
+      setPage(1);
     } catch (e) {
       onToast?.(e.message, 'error');
+    } finally {
+      setArchiveBusy(false);
     }
   }
 
-  const rows = tab === 'terminated' ? terminated : contracts;
+  const rows = contracts;
 
   return (
     <div>
@@ -188,8 +162,12 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
         (() => {
           const parts = [
             { key: 'active', label: t('status_active'), value: Number(stats.active) || 0, color: '#4ADE80', icon: I.Sealed },
+            { key: 'archived', label: t('status_archived'), value: Number(stats.archived) || 0, color: '#7A8B83', icon: I.Archive },
             { key: 'expired', label: t('status_cancelled'), value: Number(stats.expired) || 0, color: '#FBBF24', icon: I.Hourglass },
-            { key: 'terminated', label: t('status_terminated'), value: Number(stats.terminated) || 0, color: '#FF6B5E', icon: I.XCircle },
+            // contracts terminated before archiving replaced it stay visible while any remain
+            ...(Number(stats.terminated) > 0
+              ? [{ key: 'terminated', label: t('status_terminated'), value: Number(stats.terminated), color: '#FF6B5E', icon: I.XCircle }]
+              : []),
           ];
           const sum = parts.reduce((s, p) => s + p.value, 0) || 1;
           return (
@@ -228,15 +206,15 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
 
       <div className="seg" style={{ marginBottom: 14 }}>
         {[
-          { key: 'active', labelKey: 'status_active' },
-          { key: 'terminated', labelKey: 'status_terminated' },
+          { key: 'active', labelKey: 'status_active', icon: I.Sealed },
+          { key: 'archived', labelKey: 'status_archived', icon: I.Archive },
         ].map(tb => (
           <button
             key={tb.key}
             className={tab === tb.key ? 'active' : ''}
             onClick={() => { setPage(1); setTab(tb.key); }}
           >
-            {t(tb.labelKey)}
+            <tb.icon size={16} weight={tab === tb.key ? 'fill' : 'duotone'}/> {t(tb.labelKey)}
           </button>
         ))}
       </div>
@@ -247,18 +225,6 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
             <span className="icon-l"><I.Search size={15} /></span>
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('contracts_search')} />
           </div>
-          {tab === 'active' && (
-            <SearchableSelect
-              value={statusFilter}
-              onChange={v => setStatusFilter(v)}
-              options={[
-                { value: 'all', label: t('contracts_all_statuses') },
-                { value: 'ACTIVE', label: t('status_active') },
-                { value: 'EXPIRED', label: t('status_cancelled') },
-                { value: 'ARCHIVED', label: t('status_archived') },
-              ]}
-            />
-          )}
           <div className="toolbar-meta">{totalCount} {tp('students_results', totalCount)}</div>
         </div>
 
@@ -293,9 +259,13 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
                   <td className="money">{fmt.format(c.monthly_fee_amount ?? c.monthly_fee ?? 0)} {t('currency')}</td>
                   <td>{statusChip(c.status, t)}</td>
                   <td onClick={e => e.stopPropagation()}>
-                    {c.status === 'ACTIVE' && (
-                      <button className="btn sm danger-ghost" onClick={() => openTerminate(c)}>
-                        <I.XCircle size={13} /> {t('contracts_terminate')}
+                    {c.status === 'ARCHIVED' ? (
+                      <button className="btn sm" onClick={() => setArchiving(c)}>
+                        <I.ArrowLeft size={13} /> {t('contracts_unarchive')}
+                      </button>
+                    ) : c.status === 'ACTIVE' && (
+                      <button className="btn sm" onClick={() => setArchiving(c)}>
+                        <I.Archive size={13} /> {t('contracts_archive')}
                       </button>
                     )}
                   </td>
@@ -307,34 +277,31 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
 
         <Pager page={page} totalPages={totalPages} total={totalCount} pageSize={PAGE_SIZE} onPage={(p) => {
           setPage(p);
-          if (tab === 'terminated') loadTerminated({ page: p });
-          else loadActive({ page: p });
+          loadContracts({ page: p });
         }}/>
       </div>
 
-      {terminateModal && (
-        <Modal icon={I.XCircle} tone="danger"
-          size="sm"
-          onClose={() => setTerminateModal(false)}
-          title={t('contracts_terminate_title')}
-          subtitle={<>{t('nav_contracts')}: <strong>{terminating?.contract_number}</strong></>}
-          footer={<>
-            <button className="btn ghost" onClick={() => setTerminateModal(false)}>{t('cancel')}</button>
-            <button className="btn danger" onClick={confirmTerminate} disabled={!terminateReason.trim()}>
-              <I.XCircle size={14} /> {t('contracts_terminate')}
-            </button>
-          </>}
-        >
-          <div className="field" style={{ marginBottom: 12 }}>
-            <label>{t('contracts_termination_reason_label')} <span className="req">*</span></label>
-            <textarea rows={3} value={terminateReason} onChange={e => setTerminateReason(e.target.value)} placeholder="" />
-          </div>
-          <div className="field">
-            <label>{t('contracts_terminated_at')} *</label>
-            <DateTimeInput value={terminateAt} onChange={setTerminateAt} />
-          </div>
-        </Modal>
-      )}
+      {archiving && (() => {
+        const toArchive = tab !== 'archived';
+        return (
+          <Modal icon={I.Archive}
+            size="sm"
+            onClose={() => setArchiving(null)}
+            title={t(toArchive ? 'contracts_archive_title' : 'contracts_unarchive_title')}
+            subtitle={<>{t('nav_contracts')}: <strong>{archiving.contract_number}</strong></>}
+            footer={<>
+              <button className="btn ghost" onClick={() => setArchiving(null)}>{t('cancel')}</button>
+              <button className="btn primary" onClick={confirmArchive} disabled={archiveBusy}>
+                <I.Archive size={14} /> {t(toArchive ? 'contracts_archive' : 'contracts_unarchive')}
+              </button>
+            </>}
+          >
+            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)', lineHeight: 1.6 }}>
+              {t(toArchive ? 'contracts_archive_confirm' : 'contracts_unarchive_confirm')}
+            </p>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }

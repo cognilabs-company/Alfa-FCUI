@@ -298,9 +298,9 @@ export function SettingsScreen({ theme, setTheme } = {}) {
 
           {activeTab === 'integrations' && (
             <div className="form-stack">
-              <div className="field"><label>Click merchant id</label><input value={settings.click_merchant_id || ''} onChange={(e) => setVal('click_merchant_id', e.target.value)} /></div>
-              <div className="field"><label>Payme merchant id</label><input value={settings.payme_merchant_id || ''} onChange={(e) => setVal('payme_merchant_id', e.target.value)} /></div>
-              <div className="field"><label>SMS provider token</label><input value={settings.sms_token || ''} onChange={(e) => setVal('sms_token', e.target.value)} /></div>
+              <div className="field"><label>{t('settings_click_merchant')}</label><input value={settings.click_merchant_id || ''} onChange={(e) => setVal('click_merchant_id', e.target.value)} /></div>
+              <div className="field"><label>{t('settings_payme_merchant')}</label><input value={settings.payme_merchant_id || ''} onChange={(e) => setVal('payme_merchant_id', e.target.value)} /></div>
+              <div className="field"><label>{t('settings_sms_token')}</label><input value={settings.sms_token || ''} onChange={(e) => setVal('sms_token', e.target.value)} /></div>
             </div>
           )}
 

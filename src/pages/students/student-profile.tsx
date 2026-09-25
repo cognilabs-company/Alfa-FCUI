@@ -543,7 +543,9 @@ export function StudentProfile({ studentId, onBack }) {
                 options={[
                   { value: 'active', label: t('status_active') },
                   { value: 'inactive', label: t('status_inactive') },
-                  { value: 'archived', label: t('status_archived') },
+                  // archiving is a contract-level action, so it is not offered here;
+                  // an already archived student still sees their own status
+                  ...(editForm.status === 'archived' ? [{ value: 'archived', label: t('status_archived') }] : []),
                 ]}
                 style={{ width: '100%' }}
                 direction="up"

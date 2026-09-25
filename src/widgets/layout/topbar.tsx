@@ -34,10 +34,10 @@ export function Topbar({ crumbs, role, onRoleSwitch, canSwitchRole, theme, onThe
 
   return (
     <header className="topbar">
-      <button className="icon-btn mobile-menu-button" onClick={onMenu} aria-label="Open navigation">
+      <button className="icon-btn mobile-menu-button" onClick={onMenu} aria-label={t('nav_expand')}>
         <I.Menu size={18}/>
       </button>
-      <nav className="crumbs" aria-label="Breadcrumb">
+      <nav className="crumbs" aria-label={t('nav_breadcrumb')}>
         {crumbs.map((c, i) => (
           <React.Fragment key={i}>
             {i > 0 && <I.ChevronRight size={13}/>}

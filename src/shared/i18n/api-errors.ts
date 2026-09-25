@@ -55,14 +55,14 @@ const RULES = [
   [/^Coach with ID (\d+) not found$/i, 'ID $1 murabbiy topilmadi', 'Тренер с ID $1 не найден'],
 
   // Sessions / attendance
-  [/^Session not found$/i, "Mashg'ulot topilmadi", 'Занятие не найдено'],
-  [/^Session not found or group has been deleted$/i, "Mashg'ulot topilmadi yoki guruh o'chirilgan", 'Занятие не найдено или группа удалена'],
-  [/^Session not found or you do not have permission to mark attendance$/i, "Mashg'ulot topilmadi yoki davomat belgilashga ruxsat yo'q", 'Занятие не найдено или нет права отмечать посещаемость'],
-  [/^Session not found or you do not have permission to upload konspekt$/i, "Mashg'ulot topilmadi yoki konspekt yuklashga ruxsat yo'q", 'Занятие не найдено или нет права загружать конспект'],
-  [/^Session not found or you do not have permission to view it$/i, "Mashg'ulot topilmadi yoki ko'rishga ruxsat yo'q", 'Занятие не найдено или нет права просматривать'],
-  [/^Session ID mismatch$/i, "Mashg'ulot ID mos emas", 'Несовпадение ID занятия'],
-  [/^No sessions provided$/i, "Mashg'ulotlar ko'rsatilmagan", 'Занятия не указаны'],
-  [/^Bu dars uchun davomat allaqachon qilib bo'lingan\..*$/i, "Bu dars uchun davomat allaqachon qilib bo'lingan. Bir darsga faqat bir marta davomat qilish mumkin.", 'Посещаемость для этого занятия уже отмечена. Отмечать можно только один раз.'],
+  [/^Session not found$/i, "Sessiya topilmadi", 'Сессия не найдена'],
+  [/^Session not found or group has been deleted$/i, "Sessiya topilmadi yoki guruh o'chirilgan", 'Сессия не найдена или группа удалена'],
+  [/^Session not found or you do not have permission to mark attendance$/i, "Sessiya topilmadi yoki davomat belgilashga ruxsat yo'q", 'Сессия не найдена или нет права отмечать посещаемость'],
+  [/^Session not found or you do not have permission to upload konspekt$/i, "Sessiya topilmadi yoki konspekt yuklashga ruxsat yo'q", 'Сессия не найдена или нет права загружать конспект'],
+  [/^Session not found or you do not have permission to view it$/i, "Sessiya topilmadi yoki ko'rishga ruxsat yo'q", 'Сессия не найдена или нет права просматривать'],
+  [/^Session ID mismatch$/i, "Sessiya ID mos emas", 'Несовпадение ID сессии'],
+  [/^No sessions provided$/i, "Sessiyalar ko'rsatilmagan", 'Сессии не указаны'],
+  [/^Bu dars uchun davomat allaqachon qilib bo'lingan\..*$/i, "Bu dars uchun davomat allaqachon qilib bo'lingan. Bir darsga faqat bir marta davomat qilish mumkin.", 'Посещаемость для этой сессии уже отмечена. Отмечать можно только один раз.'],
 
   // Performance table
   [/^Performance table not found for this season$/i, 'Bu mavsum uchun natijalar jadvali topilmadi', 'Таблица результатов для этого сезона не найдена'],
@@ -73,8 +73,8 @@ const RULES = [
 
   // Contracts
   [/^Contract not found$/i, 'Shartnoma topilmadi', 'Контракт не найден'],
-  [/^Contract is already terminated$/i, 'Shartnoma allaqachon bekor qilingan', 'Контракт уже расторгнут'],
-  [/^Could not generate unique terminated contract number$/i, "Bekor qilingan shartnoma raqamini yaratib bo'lmadi", 'Не удалось создать номер расторгнутого контракта'],
+  [/^Contract is already terminated$/i, 'Shartnoma allaqachon tugatilgan', 'Контракт уже завершён'],
+  [/^Could not generate unique terminated contract number$/i, "Tugatilgan shartnoma raqamini yaratib bo'lmadi", 'Не удалось создать номер завершённого контракта'],
   [/^PDF not generated for this contract$/i, 'Bu shartnoma uchun PDF yaratilmagan', 'PDF для этого контракта не создан'],
   [/^PDF file not found: (.+)$/i, 'PDF fayl topilmadi: $1', 'PDF файл не найден: $1'],
 

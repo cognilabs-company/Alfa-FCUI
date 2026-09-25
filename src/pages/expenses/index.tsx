@@ -335,7 +335,7 @@ export function ExpensesScreen({ onToast, canEdit = true }) {
                         <td onClick={(e) => e.stopPropagation()}>
                           {canEdit && (
                             <>
-                              <button className="icon-btn plain" aria-label="Actions" onClick={(e) => {
+                              <button className="icon-btn plain" aria-label={t('actions')} onClick={(e) => {
                                 e.stopPropagation();
                                 if (openMenuId === r.id) setOpenMenuId(null);
                                 else { setMenuPos(menuPosition(e.currentTarget, 2)); setOpenMenuId(r.id); }

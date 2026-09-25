@@ -186,7 +186,7 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
                   options={['O(+)', 'O(-)', 'A(+)', 'A(-)', 'B(+)', 'B(-)', 'AB(+)', 'AB(-)'].map(v => ({ value: v, label: v }))}
                 />
               </div>
-              <div className="field"><label>{t('field_nationality')}</label><input value={form.millati} onChange={e => setF('millati', e.target.value)} placeholder="O'zbek"/></div>
+              <div className="field"><label>{t('field_nationality')}</label><input value={form.millati} onChange={e => setF('millati', e.target.value)} placeholder={t('ph_nationality')}/></div>
               <div className="field col-span-2"><label>{t('field_address')}</label><input value={form.address} onChange={e => setF('address', e.target.value)} placeholder={t('ph_address')}/></div>
               <div className="field"><label>{t('field_group2')}</label>
                 <SearchableGroupSelect value={form.group_id} onChange={v => setF('group_id', v)} groups={groups} placeholder={t('not_selected')} />

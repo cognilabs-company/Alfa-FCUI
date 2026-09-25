@@ -2,6 +2,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './icons';
+import { useT } from '../i18n/lang';
 
 /**
  * Shared modal. Dark "floodlight" header with an icon tile, light body,
@@ -13,6 +14,7 @@ import { Icon } from './icons';
  * </Modal>
  */
 export function Modal({ open = true, onClose, title, subtitle, size, footer, children, headerExtra, icon, tone }) {
+  const { t } = useT();
   React.useEffect(() => {
     if (!open) return;
     function onKey(e) { if (e.key === 'Escape') onClose?.(); }
@@ -37,7 +39,7 @@ export function Modal({ open = true, onClose, title, subtitle, size, footer, chi
             </div>
             {headerExtra && <div className="modal-extra">{headerExtra}</div>}
             {onClose && (
-              <button className="modal-close" onClick={onClose} aria-label="Close">
+              <button className="modal-close" onClick={onClose} aria-label={t('close')}>
                 <Icon.X size={16} />
               </button>
             )}

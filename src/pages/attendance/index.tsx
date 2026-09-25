@@ -41,9 +41,16 @@ export function AttendanceMark({ sessionId, onBack }) {
         const stuRes = await apiGetGroupStudents(sess.group_id);
         const active = (stuRes?.data || []).filter(s => s.status === 'active');
         setStudents(active);
-        const init = {};
-        active.forEach(s => { init[s.id] = 'present'; });
+        // Nobody starts out marked — only what the session already holds is
+        // restored, so an untouched student is visibly "not marked yet".
+        const init = {}, initComments = {};
+        for (const a of sess.attendances || []) {
+          if (a?.student_id == null) continue;
+          init[a.student_id] = a.status;
+          if (a.comment) initComments[a.student_id] = a.comment;
+        }
         setMarks(init);
+        setComments(initComments);
       }
     }).catch(() => {}).finally(() => setLoading(false));
   }, [sessionId]);
@@ -53,11 +60,14 @@ export function AttendanceMark({ sessionId, onBack }) {
   // Optimistic per-click save: status goes to the backend immediately,
   // reverts on failure. POST first, PUT when the record already exists.
   async function setMark(id, status) {
-    const prev = marks[id] || 'present';
-    setMarks(p => ({ ...p, [id]: status }));
+    const prev = marks[id];
     if (prev === status) return;
+    setMarks(p => ({ ...p, [id]: status }));
     setRowSaving(p => ({ ...p, [id]: true }));
-    const payload = { student_id: id, status, comment: comments[id] || undefined };
+    // a present student needs no reason, so any earlier one is dropped
+    const comment = status === 'present' ? undefined : (comments[id] || undefined);
+    if (status === 'present' && comments[id]) setComments(p => ({ ...p, [id]: '' }));
+    const payload = { student_id: id, status, comment };
     try {
       try {
         await apiMarkAttendance(sessionId, payload);
@@ -65,11 +75,22 @@ export function AttendanceMark({ sessionId, onBack }) {
         await apiUpdateAttendance(sessionId, payload);
       }
     } catch (e) {
-      setMarks(p => ({ ...p, [id]: prev }));
+      setMarks(p => { const n = { ...p }; if (prev) n[id] = prev; else delete n[id]; return n; });
       notify.error(e.message);
     } finally {
       setRowSaving(p => ({ ...p, [id]: false }));
     }
+  }
+
+  // The reason travels with the status, so it is saved when the coach leaves the field.
+  async function saveComment(id) {
+    const status = marks[id];
+    if (!status || status === 'present') return;
+    try {
+      const payload = { student_id: id, status, comment: comments[id] || undefined };
+      try { await apiMarkAttendance(sessionId, payload); }
+      catch { await apiUpdateAttendance(sessionId, payload); }
+    } catch { /* the final Save sends everything again */ }
   }
 
   async function markAll(status) {
@@ -82,8 +103,9 @@ export function AttendanceMark({ sessionId, onBack }) {
       await apiMarkBulkAttendance(sessionId, students.map(s => ({
         student_id: s.id,
         status,
-        comment: comments[s.id] || undefined,
+        comment: status === 'present' ? undefined : (comments[s.id] || undefined),
       })));
+      if (status === 'present') setComments({});
     } catch (e) {
       setMarks(prevMarks);
       notify.error(e.message);
@@ -93,17 +115,22 @@ export function AttendanceMark({ sessionId, onBack }) {
   }
 
   const counts = { present: 0, absent: 0, late: 0 };
-  Object.values(marks).forEach(m => { if (counts[m] !== undefined) counts[m]++; });
+  students.forEach(s => { const m = marks[s.id]; if (counts[m] !== undefined) counts[m]++; });
+  const marked = counts.present + counts.late + counts.absent;
+  const unmarked = students.length - marked;
 
   async function handleSave() {
     if (!sessionId) return;
+    // an unmarked student is left alone rather than silently recorded as absent
+    const attendances = students.filter(s => marks[s.id]).map(s => ({
+      student_id: s.id,
+      status: marks[s.id],
+      comment: marks[s.id] === 'present' ? undefined : (comments[s.id] || undefined),
+    }));
+    if (!attendances.length) { notify.error(t('att_nothing_marked')); return; }
+    if (unmarked > 0 && !await confirmDialog(t('att_save_unmarked').replace('{n}', String(unmarked)))) return;
     setSaving(true);
     try {
-      const attendances = students.map(s => ({
-        student_id: s.id,
-        status: marks[s.id] || 'absent',
-        comment: comments[s.id] || undefined,
-      }));
       await apiMarkBulkAttendance(sessionId, attendances);
       onBack?.();
     } catch (e) {
@@ -139,19 +166,26 @@ export function AttendanceMark({ sessionId, onBack }) {
 
       <div className="grid-4" style={{ marginBottom: 16 }}>
         <Stat feature label={t('profile_attendance')} icon={I.Activity}
-          value={students.length ? Math.round(counts.present / students.length * 100) : '—'}
-          format={(n) => `${Math.round(n)}%`}/>
-        <Stat label={t('att_present_count')} value={counts.present} sub={`${t('total')}: ${students.length}`} tone="success" icon={I.CheckCircle}/>
+          value={marked ? Math.round(counts.present / marked * 100) : '—'}
+          format={(n) => `${Math.round(n)}%`}
+          sub={`${t('att_marked')}: ${marked}/${students.length}`}/>
+        <Stat label={t('att_present_count')} value={counts.present} tone="success" icon={I.CheckCircle}/>
         <Stat label={t('att_late_count')} value={counts.late} tone="warning" icon={I.Clock}/>
-        <Stat label={t('att_absent_count')} value={counts.absent} tone="danger" icon={I.XCircle}/>
+        <Stat label={unmarked > 0 ? t('att_unmarked_count') : t('att_absent_count')}
+          value={unmarked > 0 ? unmarked : counts.absent}
+          sub={unmarked > 0 ? `${t('att_absent_count')}: ${counts.absent}` : undefined}
+          tone={unmarked > 0 ? 'default' : 'danger'} icon={unmarked > 0 ? I.Dashed : I.XCircle}/>
       </div>
 
       {students.length === 0 && <div className="card empty">{t('att_no_students')}</div>}
 
       {students.length > 0 && (
         <>
-          <div className="table-toolbar" style={{ marginBottom: 14 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><I.ListChecks size={17}/> {t('att_mark_all')}</span>
+          <div className="table-toolbar mark-toolbar" style={{ marginBottom: 14 }}>
+            <span className="mark-progress">
+              <I.ListChecks size={17}/> {t('att_marked')}: <b>{marked}/{students.length}</b>
+            </span>
+            <span className="mark-all-label">{t('att_mark_all')}</span>
             <button className="btn sm" disabled={saving} onClick={() => markAll('present')}>
               <I.CheckCircle size={16} color="var(--success)" weight="fill"/> {t('att_btn_present')}
             </button>
@@ -162,24 +196,31 @@ export function AttendanceMark({ sessionId, onBack }) {
           </div>
           <div className="mark-grid">
             {students.map(s => {
-              const m = marks[s.id] || 'present';
+              const m = marks[s.id] || '';
               const name = `${s.first_name} ${s.last_name}`;
+              const states = [
+                { k: 'present', l: t('att_btn_present'), icon: 'CheckCircle' },
+                { k: 'late', l: t('att_btn_late'), icon: 'Clock' },
+                { k: 'absent', l: t('att_btn_absent'), icon: 'XCircle' },
+              ];
+              const cur = states.find(b => b.k === m);
+              const CurIc = cur ? I[cur.icon] : I.Dashed;
+              // only a missed or late session needs explaining
+              const needsReason = m === 'late' || m === 'absent';
               return (
-                <div key={s.id} className={'mark-card ' + m}>
-                  <div className="row-name">
-                    <div className="avatar" style={{ background: avatarColor(s.id), width: 42, height: 42, borderRadius: 14 }}>{s.first_name?.[0]}{s.last_name?.[0]}</div>
-                    <div className="meta" style={{ flex: 1 }}>
-                      <span className="name" style={{ fontSize: 14.5 }}>{name}</span>
+                <div key={s.id} className={'mark-card ' + (m || 'unmarked')}>
+                  <div className="mark-head">
+                    <div className="avatar" style={{ background: avatarColor(s.id), width: 40, height: 40, borderRadius: 13 }}>{s.first_name?.[0]}{s.last_name?.[0]}</div>
+                    <div className="meta">
+                      <span className="name">{name}</span>
                       <span className="sub">#{String(s.id).padStart(4, '0')}</span>
                     </div>
-                    {rowSaving[s.id] && <span className="empty loading" style={{ padding: 0, transform: 'scale(0.6)' }}/>}
+                    {rowSaving[s.id]
+                      ? <span className="empty loading" style={{ padding: 0, transform: 'scale(0.55)' }}/>
+                      : <span className="mark-state"><CurIc size={15} weight={cur ? 'fill' : 'duotone'}/> {cur ? cur.l : t('att_unmarked')}</span>}
                   </div>
                   <div className="att-toggle" role="radiogroup" aria-label={name}>
-                    {[
-                      { k: 'present', l: t('att_btn_present'), icon: 'CheckCircle' },
-                      { k: 'late', l: t('att_btn_late'), icon: 'Clock' },
-                      { k: 'absent', l: t('att_btn_absent'), icon: 'XCircle' },
-                    ].map(b => {
+                    {states.map(b => {
                       const Ic = I[b.icon];
                       const sel = m === b.k;
                       return (
@@ -192,7 +233,16 @@ export function AttendanceMark({ sessionId, onBack }) {
                       );
                     })}
                   </div>
-                  <input className="input" placeholder={m !== 'present' ? t('att_placeholder_reason') : t('att_placeholder_optional')} value={comments[s.id] || ''} onChange={e => setComments({ ...comments, [s.id]: e.target.value })}/>
+                  {needsReason && (
+                    <label className="mark-reason">
+                      <span>{t('att_reason_label')} <i className="req">*</i></span>
+                      <input className={'input' + (comments[s.id]?.trim() ? '' : ' needed')}
+                        placeholder={t('att_placeholder_reason')}
+                        value={comments[s.id] || ''}
+                        onChange={e => setComments({ ...comments, [s.id]: e.target.value })}
+                        onBlur={() => saveComment(s.id)}/>
+                    </label>
+                  )}
                 </div>
               );
             })}

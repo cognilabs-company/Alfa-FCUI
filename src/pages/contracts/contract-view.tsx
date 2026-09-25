@@ -287,7 +287,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
             <I.Edit size={15} /> {t('edit')}
           </button>
           <div ref={moreRef} style={{ position: 'relative' }}>
-            <button className="btn" aria-haspopup="menu" aria-expanded={moreOpen} aria-label="More actions" onClick={() => setMoreOpen(o => !o)}>
+            <button className="btn" aria-haspopup="menu" aria-expanded={moreOpen} aria-label={t('actions')} onClick={() => setMoreOpen(o => !o)}>
               <I.More size={16} /> <I.ChevronDown size={14} />
             </button>
             {moreOpen && (

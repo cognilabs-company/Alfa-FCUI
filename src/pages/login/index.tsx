@@ -64,7 +64,7 @@ export function LoginScreen({ onLogin }) {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 28 }}>
-            <div className="seg" role="group" aria-label="Language">
+            <div className="seg" role="group" aria-label={t('lang_label')}>
               {[['uz', 'UZ'], ['ru', 'RU']].map(([code, label]) => (
                 <button key={code} type="button" className={lang === code ? 'active' : ''}
                   onClick={(e) => { if (lang !== code) revealFrom(e, () => setLang(code)); }}>
@@ -89,7 +89,7 @@ export function LoginScreen({ onLogin }) {
             <div className="input-icon">
               <span className="icon-l"><I.Lock size={16}/></span>
               <input id="login-password" autoComplete="current-password" type={showPw ? 'text' : 'password'} value={pw} onChange={e => setPw(e.target.value)} placeholder="••••••••" style={{ paddingRight: 44 }}/>
-              <button type="button" className="input-trail" onClick={() => setShowPw(!showPw)} aria-label={showPw ? 'Hide password' : 'Show password'}>
+              <button type="button" className="input-trail" onClick={() => setShowPw(!showPw)} aria-label={showPw ? t('pwd_hide') : t('pwd_show')}>
                 {showPw ? <I.EyeOff size={16}/> : <I.Eye size={16}/>}
               </button>
             </div>

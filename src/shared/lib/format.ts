@@ -88,8 +88,7 @@ function parseDateValue(value) {
  * doesn't jump from "999 999" to "1.0 mln" mid-roll. target decides the unit.
  */
 export function fmtMoneyRoll(n, target = n, lang = currentLang()) {
-  const unit = lang === 'ru' ? 'млн' : 'mln';
-  if (Math.abs(Number(target) || 0) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} ${unit}`;
+  if (Math.abs(Number(target) || 0) >= 1_000_000) return mln(n, lang);
   return fmt.format(Math.round(n));
 }
 
@@ -97,7 +96,12 @@ export function fmtMoneyRoll(n, target = n, lang = currentLang()) {
 export function fmtMln(v, lang = currentLang()) {
   const n = Number(v) || 0;
   if (!n) return '0';
-  const unit = lang === 'ru' ? 'млн' : 'mln';
   if (Math.abs(n) < 1_000_000) return fmt.format(n);
-  return `${(n / 1_000_000).toFixed(1)} ${unit}`;
+  return mln(n, lang);
+}
+
+/** Millions with the decimal mark each language actually writes: "1.3 mln" / "1,3 млн". */
+function mln(n, lang) {
+  const value = (n / 1_000_000).toFixed(1);
+  return lang === 'ru' ? `${value.replace('.', ',')} млн` : `${value} mln`;
 }

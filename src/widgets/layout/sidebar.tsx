@@ -34,7 +34,7 @@ export function Sidebar({ active, onNav, role, userPermissions = [], collapsed, 
   const toggleLabel = collapsed ? t('nav_expand') : t('nav_collapse');
 
   return (
-    <aside className={'sidebar' + (mobileOpen ? ' mobile-open' : '')} aria-label="Main navigation">
+    <aside className={'sidebar' + (mobileOpen ? ' mobile-open' : '')} aria-label={t('nav_main_aria')}>
       <div className="sidebar-header">
         {collapsed ? <BrandMark size={40}/> : <AlphaWordmark height={40}/>}
         <button className="sidebar-toggle" onClick={onToggle} title={toggleLabel} aria-label={toggleLabel}>

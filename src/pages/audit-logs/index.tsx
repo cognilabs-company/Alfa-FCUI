@@ -185,7 +185,7 @@ export function AuditLogsScreen() {
           value={entityType}
           onChange={v => { setEntityType(v); setPage(1); }}
           options={[
-            { value: '', label: `${t('all')} ${t('audit_col_entity').toLowerCase()}` },
+            { value: '', label: t('audit_all_entities') },
             { value: 'student', label: t('audit_ent_student') },
             { value: 'user', label: t('audit_ent_user') },
             { value: 'contract', label: t('audit_ent_contract') },
@@ -199,7 +199,7 @@ export function AuditLogsScreen() {
           value={action}
           onChange={v => { setAction(v); setPage(1); }}
           options={[
-            { value: '', label: `${t('all')} ${t('audit_col_action').toLowerCase()}` },
+            { value: '', label: t('audit_all_actions') },
             { value: 'CREATE', label: t('audit_act_CREATE') },
             { value: 'UPDATE', label: t('audit_act_UPDATE') },
             { value: 'DELETE', label: t('audit_act_DELETE') },

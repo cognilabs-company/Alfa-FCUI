@@ -403,7 +403,7 @@ export function PayrollScreen({ onToast, canManage = true }) {
                             : <Badge tone="success" icon={I.Dashed}>{t('pr_open')}</Badge>}
                         </td>
                         <td onClick={(e) => e.stopPropagation()}>
-                          <button className="icon-btn plain" aria-label="Actions" onClick={(e) => {
+                          <button className="icon-btn plain" aria-label={t('actions')} onClick={(e) => {
                             e.stopPropagation();
                             if (openMenuId === u.user_id) setOpenMenuId(null);
                             else { setMenuPos(menuPosition(e.currentTarget, menuFor(u).length)); setOpenMenuId(u.user_id); }

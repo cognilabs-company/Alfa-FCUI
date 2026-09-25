@@ -7,6 +7,7 @@ import { Badge } from '@/shared/ui/status';
 import { apiGetDashboard, apiGetGroupsForSelect, apiGetSessions } from '@/shared/api';
 import { useT } from '@/shared/i18n/lang';
 import { fmt, fmtMln, fmtMoneyRoll, fmtDate, monthShort, toLocalISO, weekdayLong, todayISO } from '@/shared/lib/format';
+import { paymentSourceLabel } from '@/shared/lib/labels';
 import { Trend, ChartLegend } from '@/shared/ui/charts';
 import { loadDashboardAnalytics } from '@/shared/api';
 import { daysBack, dayKey, monthsBack, monthKey, revenueSeries, seriesFromDynamics, delta } from '@/shared/lib/analytics';
@@ -75,7 +76,7 @@ function RevenueKpi({ loading, total, breakdown, lang, onClick, t }) {
   const I = Icon;
   const parts = (breakdown || []).filter((b) => Number(b.amount) > 0);
   const sum = parts.reduce((s, b) => s + Number(b.amount), 0) || 1;
-  const labelOf = (src) => (src === 'payme' ? 'Payme' : src === 'click' ? 'Click' : src === 'cash' ? t('tx_src_cash') : t('dash_other'));
+  const labelOf = (src) => paymentSourceLabel(src, t);
 
   return (
     <div className="kpi revenue" role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => onKeyActivate(e, onClick)}>
@@ -209,8 +210,7 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
       for (const [k, v] of Object.entries(d.parts)) acc[k] = (acc[k] || 0) + v;
       return acc;
     }, {});
-    const label = (id) => (id === 'payme' ? 'Payme' : id === 'click' ? 'Click'
-      : id === 'cash' ? t('tx_src_cash') : id === 'bank' ? t('tx_src_bank') : t('dash_other'));
+    const label = (id) => paymentSourceLabel(id, t);
     return {
       title: t('an_dash_title'),
       daily,

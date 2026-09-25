@@ -75,6 +75,7 @@ import {
 } from '@/shared/api';
 
 import { fmt, fmtMln, fmtMoneyRoll, monthLabel, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
+import { paymentSourceLabel } from '@/shared/lib/labels';
 import { Stat } from '@/shared/ui/stat';
 import { AnalyticsTab } from './analytics';
 import { avatarColor } from '@/shared/lib/avatar';
@@ -347,7 +348,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
                       <tbody>
                         {financeReport.breakdown.map((b, i) => (
                           <tr key={i}>
-                            <td><span className="chip">{b.source || '—'}</span></td>
+                            <td><span className="chip">{paymentSourceLabel(b.source, t)}</span></td>
                             <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt.format(b.total_amount || 0)} {t('currency')}</td>
                             <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{b.transaction_count || 0}</td>
                           </tr>

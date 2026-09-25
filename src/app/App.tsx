@@ -243,7 +243,7 @@ function AppShell() {
         mobileOpen={mobileNavOpen}
         onSignOut={handleSignOut}
       />
-      {mobileNavOpen && <button className="mobile-nav-backdrop" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)} />}
+      {mobileNavOpen && <button className="mobile-nav-backdrop" aria-label={t('close')} onClick={() => setMobileNavOpen(false)} />}
       <div className="main">
         <Topbar
           crumbs={crumbKeys}

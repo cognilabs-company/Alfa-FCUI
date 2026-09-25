@@ -148,9 +148,9 @@ function CalendarPop({ anchorRef, value, onPick, lang, t, withTime, time, onTime
           {t('cal_today')}
         </button>
         {multi
-          ? <button type="button" className="btn primary sm" onClick={onClose}>OK</button>
+          ? <button type="button" className="btn primary sm" onClick={onClose}>{t('cal_ok')}</button>
           : withTime
-            ? <button type="button" className="btn primary sm" onClick={onClose}>OK</button>
+            ? <button type="button" className="btn primary sm" onClick={onClose}>{t('cal_ok')}</button>
             : (value ? <button type="button" className="btn ghost sm" onClick={() => onPick('', true)}>{t('cal_clear')}</button> : null)}
       </div>
     </div>,

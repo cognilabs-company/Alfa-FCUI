@@ -130,7 +130,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
       });
       setShowNew(false);
       setNewGroup({ name: '', description: '', coach_id: '' });
-      onToast?.(`"${newGroup.name.trim()}" ${t('toast_group_added')}`);
+      onToast?.(t('toast_group_added').replace('{name}', newGroup.name.trim()));
       await loadData();
     } catch (e) {
       onToast?.(e.message, 'error');
@@ -165,11 +165,11 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
   }
 
   async function handleDeleteGroup(g) {
-    if (!await confirmDialog(`"${g.name}" ${t('confirm_delete_group')}`)) return;
+    if (!await confirmDialog(t('confirm_delete_group').replace('{name}', g.name))) return;
     try {
       await apiDeleteGroup(g.id);
       setOpenMenuGroupId(null);
-      onToast?.(`"${g.name}" ${t('toast_group_deleted')}`);
+      onToast?.(t('toast_group_deleted').replace('{name}', g.name));
       await loadData();
     } catch (e) {
       onToast?.(e.message, 'error');
@@ -230,7 +230,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
         <div className="page-actions">
           {selectedIds.length > 0 && (
             <button className="btn ghost danger-ghost" onClick={handleBulkDelete} disabled={bulkDeleting}>
-              <I.Trash size={14}/> {bulkDeleting ? t('deleting') : `${selectedIds.length} ${t('delete')}`}
+              <I.Trash size={14}/> {bulkDeleting ? t('deleting') : `${t('delete')} (${selectedIds.length})`}
             </button>
           )}
           <label className="check-line" style={{ marginRight: 6 }}>
@@ -403,7 +403,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
                     <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>{g.waiting_list_count ?? '—'}</td>
                     <td><Badge tone="success" icon={I.CheckCircle}>{t('status_active')}</Badge></td>
                     <td style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-                      <button className="icon-btn plain" aria-label="Actions" onClick={(e) => {
+                      <button className="icon-btn plain" aria-label={t('actions')} onClick={(e) => {
                         if (openMenuGroupId === g.id) { setOpenMenuGroupId(null); return; }
 
                         setMenuPos(menuPosition(e.currentTarget, 4));

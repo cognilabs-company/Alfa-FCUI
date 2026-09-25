@@ -225,7 +225,7 @@ export function StudentsList({ onOpen, onNew, onToast }) {
         <div className="page-actions">
           {selected.length > 0 && !isDeletedStatusFilter && (
             <button className="btn danger" onClick={handleBulkDelete} disabled={bulkDeleting}>
-              <I.Trash2 size={14}/> {bulkDeleting ? t('deleting') : `${selected.length} ${t('delete')}`}
+              <I.Trash2 size={14}/> {bulkDeleting ? t('deleting') : `${t('delete')} (${selected.length})`}
             </button>
           )}
           <button className="btn" onClick={handleExport}><I.Download size={15}/> {t('students_excel_export')}</button>
@@ -239,7 +239,6 @@ export function StudentsList({ onOpen, onNew, onToast }) {
             { value: 'all', label: t('students_all_statuses'), icon: I.Stack },
             { value: 'active', label: t('status_active'), icon: I.CheckCircle },
             { value: 'inactive', label: t('status_inactive'), icon: I.Pause },
-            { value: 'archived', label: t('status_archived'), icon: I.Archive },
             { value: 'DELETED', label: t('status_deleted'), icon: I.Prohibit },
           ].map(opt => (
             <button key={opt.value} type="button" role="tab" aria-selected={status === opt.value}
@@ -305,7 +304,7 @@ export function StudentsList({ onOpen, onNew, onToast }) {
                       {studentStatusBadge(s.status, t)}
                     </td>
                     <td onClick={e => e.stopPropagation()} style={{ position: 'relative' }}>
-                      <button className="icon-btn plain" aria-label="Actions" onClick={(e) => {
+                      <button className="icon-btn plain" aria-label={t('actions')} onClick={(e) => {
                         e.stopPropagation();
                         if (openMenuStudentId === s.id) {
                           setOpenMenuStudentId(null);

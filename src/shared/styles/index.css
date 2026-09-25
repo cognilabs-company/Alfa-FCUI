@@ -3097,15 +3097,28 @@ textarea.input { height: auto; padding: 11px 13px; resize: vertical; min-height:
    Attendance marking cards
    ============================================================ */
 
-.mark-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 12px; }
+.mark-toolbar { flex-wrap: wrap; }
+.mark-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.mark-progress b { color: var(--text); font-variant-numeric: tabular-nums; }
+.mark-all-label { font-size: 12.5px; font-weight: 700; color: var(--muted); margin-left: 4px; }
+
+/* align-items: start — a card grows only for its own reason field, it does not
+   stretch to match the tallest card in its row. */
+.mark-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 12px; align-items: start; }
 .mark-card {
   --mark: var(--border-strong);
   position: relative;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px;
-  padding-left: 20px;
+  padding: 14px 16px 16px 20px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -3116,6 +3129,35 @@ textarea.input { height: auto; padding: 11px 13px; resize: vertical; min-height:
 .mark-card.present { --mark: var(--success); }
 .mark-card.late { --mark: var(--warning); }
 .mark-card.absent { --mark: var(--danger); }
+/* Nothing chosen yet: a dashed spine and a muted card, so an unmarked student
+   is impossible to mistake for a marked one. */
+.mark-card.unmarked { border-style: dashed; background: var(--surface-2); }
+.mark-card.unmarked::before { background: repeating-linear-gradient(var(--border-strong) 0 6px, transparent 6px 12px); }
+
+.mark-head { display: flex; align-items: center; gap: 11px; }
+.mark-head .meta { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.3; }
+.mark-head .meta .name { font-size: 14.5px; font-weight: 750; }
+.mark-head .meta .sub { font-size: 11.5px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mark-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mark) 14%, transparent);
+  color: var(--mark);
+  font-size: 11.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.mark-card.unmarked .mark-state { background: var(--surface); color: var(--muted); }
+
+.mark-reason { display: flex; flex-direction: column; gap: 5px; }
+.mark-reason > span { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.mark-reason .req { color: var(--danger); font-style: normal; }
+/* a still-empty reason keeps a soft hint of the card's own colour */
+.mark-reason .input.needed { border-color: color-mix(in srgb, var(--mark) 45%, var(--border)); }
 /* Three equal tiles, icon above the label. minmax(0, 1fr) + min-width: 0 keep long
    labels (RU "Отсутствовал") inside the card; the ellipsis is only a last resort. */
 .mark-card .att-toggle {
@@ -3140,6 +3182,9 @@ textarea.input { height: auto; padding: 11px 13px; resize: vertical; min-height:
 }
 .mark-card .att-toggle button > span { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .mark-card .att-toggle button:not(.on):hover { background: var(--surface); }
+/* the muted card and the toggle strip share a tint, so swap them to keep the strip visible */
+.mark-card.unmarked .att-toggle { background: var(--surface); }
+.mark-card.unmarked .att-toggle button:not(.on):hover { background: var(--surface-2); }
 .mark-card .att-toggle button.present:not(.on) svg { color: var(--success); }
 .mark-card .att-toggle button.late:not(.on) svg { color: var(--warning); }
 .mark-card .att-toggle button.absent:not(.on) svg { color: var(--danger); }
