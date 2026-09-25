@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React from 'react';
 import { Icon } from '@/shared/ui/icons';
-import { DateInput } from '@/shared/ui/date-picker';
+import { DateInput, DateTimeInput } from '@/shared/ui/date-picker';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal } from '@/shared/ui/modal';
 import { Badge } from '@/shared/ui/status';
@@ -11,16 +11,32 @@ import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
 import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
-import { fmtDate, todayISO } from '@/shared/lib/format';
+import { fmtDate, todayISO, toLocalISO } from '@/shared/lib/format';
 import {
   apiGetPendingStudents, apiCreatePendingStudent, apiUpdatePendingStudent,
-  apiDeletePendingStudent, apiCompletePendingStudent, apiGetGroupsForSelect,
+  apiDeletePendingStudent, apiCompletePendingStudent, apiSupportsPendingProrated,
+  apiGetGroupsForSelect,
 } from '@/shared/api';
 import { StudentsTabs } from './students-tabs';
 
 const PAGE_SIZE = 20;
 
-const emptyPending = { first_name: '', last_name: '', phone: '', date_of_birth: '', document_due_date: '', note: '' };
+/** First day of the month after the given date — where a short first period naturally ends. */
+function firstOfNextMonth(iso = todayISO()) {
+  const [y, m] = String(iso).split('-').map(Number);
+  if (!y || !m) return todayISO();
+  return toLocalISO(new Date(y, m, 1));
+}
+
+const emptyPending = {
+  first_name: '', last_name: '', phone: '', date_of_birth: '', document_due_date: '', note: '',
+  initial_payment_amount: '',
+  initial_payment_start_date: todayISO(),
+  initial_payment_end_date: firstOfNextMonth(),
+  initial_payment_source: 'cash',
+  initial_payment_paid_at: '',
+  initial_payment_comment: '',
+};
 const emptyComplete = {
   first_name: '', last_name: '', date_of_birth: '', height: '', weight: '',
   ampula: '', millati: '', pnfl: '', phone: '', address: '', group_id: '',
@@ -84,6 +100,11 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
   const [editing, setEditing] = React.useState(null);
   const [form, setForm] = React.useState(emptyPending);
   const [saving, setSaving] = React.useState(false);
+  // Short first payment: a child joining mid-month pays for the part-month at
+  // the door, long before the documents (and so the contract) exist.
+  const [proratedSupported, setProratedSupported] = React.useState(false);
+  const [prorated, setProrated] = React.useState(false);
+  const usingProrated = prorated && proratedSupported;
 
   // complete
   const [completing, setCompleting] = React.useState(null);
@@ -122,6 +143,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
 
   React.useEffect(() => {
     apiGetGroupsForSelect().then(r => setGroups(r?.data || [])).catch(() => {});
+    apiSupportsPendingProrated().then(setProratedSupported).catch(() => setProratedSupported(false));
   }, []);
 
   React.useEffect(() => {
@@ -153,15 +175,19 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
   function openNew() {
     setEditing(null);
     setForm(emptyPending);
+    setProrated(false);
     setShowForm(true);
   }
 
   function openEdit(r) {
     setEditing(r);
     setForm({
+      ...emptyPending,
       first_name: r.first_name || '', last_name: r.last_name || '', phone: r.phone || '',
       date_of_birth: r.date_of_birth || '', document_due_date: r.document_due_date || '', note: r.note || '',
     });
+    // the payment is taken once, when the record is opened
+    setProrated(false);
     setShowForm(true);
     setOpenMenuId(null);
   }
@@ -170,6 +196,12 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
     if (!form.first_name.trim() || !form.last_name.trim() || !form.document_due_date) {
       notify.error(t('toast_required'));
       return;
+    }
+    if (usingProrated) {
+      if (!(Number(form.initial_payment_amount) > 0)) { notify.error(t('prorated_err_amount')); return; }
+      if (!form.initial_payment_end_date || form.initial_payment_end_date <= form.initial_payment_start_date) {
+        notify.error(t('prorated_err_dates')); return;
+      }
     }
     setSaving(true);
     try {
@@ -181,6 +213,14 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
         document_due_date: form.document_due_date,
         note: form.note.trim() || undefined,
       };
+      if (usingProrated) {
+        payload.initial_payment_amount = Number(form.initial_payment_amount);
+        payload.initial_payment_start_date = form.initial_payment_start_date;
+        payload.initial_payment_end_date = form.initial_payment_end_date;
+        payload.initial_payment_source = form.initial_payment_source || 'cash';
+        if (form.initial_payment_paid_at) payload.initial_payment_paid_at = form.initial_payment_paid_at;
+        if (form.initial_payment_comment) payload.initial_payment_comment = form.initial_payment_comment;
+      }
       if (editing) await apiUpdatePendingStudent(editing.id, payload);
       else await apiCreatePendingStudent(payload);
       onToast?.(t(editing ? 'ps_updated' : 'ps_created'));
@@ -424,6 +464,65 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
               <label>{t('field_comment')}</label>
               <textarea rows={2} value={form.note} onChange={e => setF('note', e.target.value)} placeholder={t('ps_note_ph')}/>
             </div>
+
+            {!editing && (
+              <div className="col-span-2">
+                <div className={'opt-card' + (usingProrated ? ' on' : '')}>
+                  <label className="switch" title={proratedSupported ? t('prorated_toggle') : t('prorated_unsupported')}>
+                    <input type="checkbox" checked={usingProrated} disabled={!proratedSupported}
+                      onChange={e => setProrated(e.target.checked)}/>
+                    <i/>
+                  </label>
+                  <div className="opt-text">
+                    <div className="opt-title"><I.HandCoins size={16}/> {t('prorated_toggle')}</div>
+                    <div className="opt-desc">{proratedSupported ? t('prorated_hint_pending') : t('prorated_unsupported')}</div>
+                  </div>
+                </div>
+
+                {usingProrated && (
+                  <div className="grid-2" style={{ gap: 14, marginTop: 14 }}>
+                    <div className="field">
+                      <label>{t('prorated_amount')} <span className="req">*</span></label>
+                      <input type="number" min="1" value={form.initial_payment_amount}
+                        onChange={e => setF('initial_payment_amount', e.target.value)} placeholder="150000"/>
+                    </div>
+                    <div className="field">
+                      <label>{t('prorated_source')}</label>
+                      <SearchableSelect value={form.initial_payment_source} onChange={v => setF('initial_payment_source', v)}
+                        options={[
+                          { value: 'cash', label: t('tx_src_cash') },
+                          { value: 'payme', label: 'Payme' },
+                          { value: 'click', label: 'Click' },
+                          { value: 'bank', label: t('tx_src_bank') },
+                        ]}/>
+                    </div>
+                    <div className="field">
+                      <label>{t('prorated_start')}</label>
+                      <DateInput value={form.initial_payment_start_date} onChange={v => {
+                        setF('initial_payment_start_date', v);
+                        if (!form.initial_payment_end_date || form.initial_payment_end_date <= v) setF('initial_payment_end_date', firstOfNextMonth(v));
+                      }}/>
+                    </div>
+                    <div className="field">
+                      <label>{t('prorated_end')} <span className="req">*</span></label>
+                      <DateInput value={form.initial_payment_end_date} onChange={v => setF('initial_payment_end_date', v)}/>
+                    </div>
+                    <div className="field">
+                      <label>{t('prorated_paid_at')}</label>
+                      <DateTimeInput value={form.initial_payment_paid_at} onChange={v => setF('initial_payment_paid_at', v)}/>
+                    </div>
+                    <div className="field">
+                      <label>{t('field_comment')}</label>
+                      <input value={form.initial_payment_comment} onChange={e => setF('initial_payment_comment', e.target.value)}/>
+                    </div>
+                    <div className="alert info col-span-2" style={{ margin: 0 }}>
+                      <I.Calendar size={16}/>
+                      <span>{t('prorated_contract_auto').replace('{date}', fmtDate(form.initial_payment_end_date))}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </Modal>
       )}
