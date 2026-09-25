@@ -11,7 +11,7 @@ import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
 import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
-import { fmtDate, todayISO, toLocalISO } from '@/shared/lib/format';
+import { fmt, fmtDate, todayISO, toLocalISO } from '@/shared/lib/format';
 import {
   apiGetPendingStudents, apiCreatePendingStudent, apiUpdatePendingStudent,
   apiDeletePendingStudent, apiCompletePendingStudent, apiSupportsPendingProrated,
@@ -254,7 +254,10 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       // the pending record already knows these; the form starts from them
       first_name: r.first_name || '', last_name: r.last_name || '',
       date_of_birth: r.date_of_birth || '', phone: r.phone || '',
-      contract_start_date: todayISO(), contract_end_date: `${year}-12-31`,
+      // a short first payment fixes where the monthly contract starts — the
+      // server uses initial_payment_end_date whatever the form sends
+      contract_start_date: r.initial_payment_end_date || todayISO(),
+      contract_end_date: `${year}-12-31`,
     });
   }
 
@@ -353,9 +356,9 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
                 <thead>
                   <tr>
                     <th>{t('students_col_name')}</th>
-                    <th>{t('students_col_phone')}</th>
                     <th>{t('students_col_birth')}</th>
-                    <th>{t('ps_due_label')}</th>
+                    <th>{t('ps_col_due')}</th>
+                    <th>{t('ps_col_initial')}</th>
                     <th>{t('students_col_status')}</th>
                     <th>{t('field_comment')}</th>
                     <th></th>
@@ -376,15 +379,28 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
                             </div>
                             <div className="meta">
                               <span className="name">{nameOf(r)}</span>
-                              <span className="sub">#{String(r.id).padStart(4, '0')}</span>
+                              {/* the phone rides under the name; a column of its own pushed
+                                  the "complete" button past the edge of the card */}
+                              <span className="sub">{r.phone || '—'}</span>
                             </div>
                           </div>
                         </td>
-                        <td>{r.phone || '—'}</td>
                         <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>{r.date_of_birth ? fmtDate(r.date_of_birth) : '—'}</td>
                         <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5, fontWeight: 700 }}>{fmtDate(r.document_due_date)}</td>
+                        <td>
+                          {Number(r.initial_payment_amount) > 0 ? (
+                            <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.35 }}>
+                              <b style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt.format(Number(r.initial_payment_amount))} {t('currency')}</b>
+                              {r.initial_payment_end_date && (
+                                <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>
+                                  {fmtDate(r.initial_payment_start_date)} → {fmtDate(r.initial_payment_end_date)}
+                                </span>
+                              )}
+                            </span>
+                          ) : <span style={{ color: 'var(--muted)' }}>—</span>}
+                        </td>
                         <td><StateBadge row={r} t={t} tp={tp}/></td>
-                        <td style={{ color: 'var(--muted)', fontSize: 12.5, maxWidth: 200 }}>{r.note || '—'}</td>
+                        <td className="cell-note" title={r.note || ''}>{r.note || '—'}</td>
                         <td>
                           {canEdit && !done && (
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
@@ -613,7 +629,14 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
             </div>
             <div className="field">
               <label>{t('field_contract_start')}</label>
-              <DateInput value={cForm.contract_start_date} onChange={v => setC('contract_start_date', v)}/>
+              {completing.initial_payment_end_date ? (
+                <>
+                  <input value={fmtDate(completing.initial_payment_end_date)} readOnly/>
+                  <div className="hint">{t('ps_start_locked')}</div>
+                </>
+              ) : (
+                <DateInput value={cForm.contract_start_date} onChange={v => setC('contract_start_date', v)}/>
+              )}
             </div>
             <div className="field">
               <label>{t('field_contract_end')}</label>

@@ -2451,6 +2451,8 @@ textarea.input { height: auto; padding: 11px 13px; resize: vertical; min-height:
 .att-toggle button.on.absent { background: var(--danger); color: #fff; }
 [data-theme="dark"] .att-toggle button.on { color: #0E1311 !important; }
 .table td .input { width: 100%; height: 34px; border-radius: 10px; }
+/* a free-text note must not push the row's buttons off the edge */
+.table td.cell-note { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12.5px; }
 
 /* ---------- Performance table ---------- */
 
@@ -3603,6 +3605,8 @@ button.bar-row:hover { background: var(--hover); }
   .table:not(.performance-table):has(thead) tbody td[style*="text-align: right"],
   .table:not(.performance-table):has(thead) tbody td[style*="text-align:right"],
   .table:not(.performance-table):has(thead) tbody td.money { text-align: left !important; }
+  /* the desktop width cap would squeeze a note into a narrow column of words */
+  .table td.cell-note { max-width: none; white-space: normal; overflow: visible; }
   .table:not(.performance-table):has(thead) tbody td.empty-cell { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr); padding: 22px 0; text-align: center; }
   .table:not(.performance-table):has(thead) tbody td.empty-cell::before { display: none; }
   /* rows no longer need the hover tint — each card already stands apart */
