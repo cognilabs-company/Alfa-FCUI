@@ -35,7 +35,7 @@ function firstOfNextMonth(iso = todayISO()) {
 
 const emptyPending = {
   first_name: '', last_name: '', phone: '', date_of_birth: '', document_due_date: '', note: '',
-  initial_payment_amount: '',
+  group_id: '',
   initial_payment_start_date: todayISO(),
   initial_payment_end_date: firstOfNextMonth(),
   initial_payment_source: 'cash',
@@ -220,6 +220,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       ...emptyPending,
       first_name: r.first_name || '', last_name: r.last_name || '', phone: r.phone || '',
       date_of_birth: r.date_of_birth || '', document_due_date: r.document_due_date || '', note: r.note || '',
+      group_id: String(r.group_id || ''),
     });
     // payments are taken once, when the record is opened
     setProrated(false);
@@ -234,7 +235,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       return;
     }
     if (usingProrated) {
-      if (!(Number(form.initial_payment_amount) > 0)) { notify.error(t('prorated_err_amount')); return; }
+      if (!form.group_id) { notify.error(t('ps_err_group')); return; }
       if (!form.initial_payment_end_date || form.initial_payment_end_date <= form.initial_payment_start_date) {
         notify.error(t('prorated_err_dates')); return;
       }
@@ -254,7 +255,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
         note: form.note.trim() || undefined,
       };
       if (usingProrated) {
-        payload.initial_payment_amount = Number(form.initial_payment_amount);
+        payload.group_id = Number(form.group_id);
         payload.initial_payment_start_date = form.initial_payment_start_date;
         payload.initial_payment_end_date = form.initial_payment_end_date;
         payload.initial_payment_source = form.initial_payment_source || 'cash';
@@ -305,6 +306,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       // the pending record already knows these; the form starts from them
       first_name: r.first_name || '', last_name: r.last_name || '',
       date_of_birth: r.date_of_birth || '', phone: r.phone || '',
+      group_id: String(r.group_id || ''),
       // a short first payment fixes where the monthly contract starts — the
       // server uses initial_payment_end_date whatever the form sends
       contract_start_date: r.initial_payment_end_date || todayISO(),
@@ -448,6 +450,14 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
                                   {shortDay(r.initial_payment_start_date)} → {shortDay(r.initial_payment_end_date)}
                                 </span>
                               )}
+                              {Number(r.initial_payment_session_count) > 0 && (
+                                <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>
+                                  {r.initial_payment_session_count} {t('ps_sessions_sfx')}
+                                  {Number(r.initial_payment_price_per_session) > 0
+                                    ? ' × ' + fmt.format(Number(r.initial_payment_price_per_session))
+                                    : ''}
+                                </span>
+                              )}
                             </span>
                           ) : <span style={{ color: 'var(--muted)' }}>—</span>}
                         </td>
@@ -557,9 +567,8 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
                 {prorated && (
                   <div className="grid-2" style={{ gap: 14, marginTop: 14 }}>
                     <div className="field">
-                      <label>{t('prorated_amount')} <span className="req">*</span></label>
-                      <input type="number" min="1" value={form.initial_payment_amount}
-                        onChange={e => setF('initial_payment_amount', e.target.value)} placeholder="150000"/>
+                      <label>{t('field_group2')} <span className="req">*</span></label>
+                      <SearchableGroupSelect value={form.group_id} onChange={v => setF('group_id', v)} groups={groups} placeholder={t('not_selected')}/>
                     </div>
                     <div className="field">
                       <label>{t('prorated_source')}</label>
@@ -590,12 +599,15 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
                       <label>{t('ps_pay_comment')}</label>
                       <input value={form.initial_payment_comment} onChange={e => setF('initial_payment_comment', e.target.value)}/>
                     </div>
-                    {form.initial_payment_end_date && (
-                      <div className="alert info col-span-2" style={{ margin: 0 }}>
-                        <I.Calendar size={16}/>
-                        <span>{t('prorated_contract_auto').replace('{date}', fmtDate(form.initial_payment_end_date))}</span>
-                      </div>
-                    )}
+                    <div className="alert info col-span-2" style={{ margin: 0 }}>
+                      <I.HandCoins size={16}/>
+                      <span>
+                        {t('ps_pay_auto')}
+                        {form.initial_payment_end_date
+                          ? ' · ' + t('prorated_contract_auto').replace('{date}', fmtDate(form.initial_payment_end_date))
+                          : ''}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>

@@ -156,6 +156,9 @@ const UZ = {
   ps_col_full: "To'liq to'lov",
   ps_err_months: "To'lov oylarini tanlang",
   ps_pay_comment: "To'lov izohi",
+  ps_pay_auto: "Summani server hisoblaydi: davr ichidagi mashg'ulotlar soni × bir mashg'ulot narxi",
+  ps_sessions_sfx: "ta mashg'ulot",
+  ps_err_group: "Guruhni tanlang",
   students_years: 'yosh',
   // Student profile
   profile_back: "O'quvchilar ro'yxati",
@@ -1310,6 +1313,9 @@ const RU: typeof UZ = {
   ps_col_full: 'Полный платёж',
   ps_err_months: 'Выберите месяцы платежа',
   ps_pay_comment: 'Комментарий к платежу',
+  ps_pay_auto: 'Сумму считает сервер: число тренировок за период × цена одной тренировки',
+  ps_sessions_sfx: 'тренировка|тренировки|тренировок',
+  ps_err_group: 'Выберите группу',
   students_years: 'год|года|лет',
   // Student profile
   profile_back: 'Список учеников',
