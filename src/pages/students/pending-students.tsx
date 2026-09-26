@@ -11,7 +11,7 @@ import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
 import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
-import { fmt, fmtDate, todayISO, toLocalISO } from '@/shared/lib/format';
+import { fmt, fmtDate, monthLabel, monthShort, todayISO, toLocalISO } from '@/shared/lib/format';
 import {
   apiGetPendingStudents, apiCreatePendingStudent, apiUpdatePendingStudent,
   apiDeletePendingStudent, apiCompletePendingStudent, apiGetGroupsForSelect,
@@ -19,6 +19,12 @@ import {
 import { StudentsTabs } from './students-tabs';
 
 const PAGE_SIZE = 20;
+
+/** "18 Sen" — enough to read a period in a narrow column, the year lives elsewhere. */
+function shortDay(iso) {
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${Number(m[3])} ${monthShort(Number(m[2]) - 1)}` : '—';
+}
 
 /** First day of the month after the given date — where a short first period naturally ends. */
 function firstOfNextMonth(iso = todayISO()) {
@@ -35,6 +41,12 @@ const emptyPending = {
   initial_payment_source: 'cash',
   initial_payment_paid_at: '',
   initial_payment_comment: '',
+  full_payment_amount: '',
+  full_payment_source: 'cash',
+  full_payment_paid_at: '',
+  full_payment_comment: '',
+  full_payment_year: new Date().getFullYear(),
+  full_payment_months: [],
 };
 const emptyComplete = {
   first_name: '', last_name: '', date_of_birth: '', height: '', weight: '',
@@ -104,6 +116,8 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
   // the door, long before the documents (and so the contract) exist.
   const [prorated, setProrated] = React.useState(false);
   const usingProrated = prorated;
+  // …and a whole month may be paid up front, before any contract exists
+  const [fullPay, setFullPay] = React.useState(false);
 
   // complete
   const [completing, setCompleting] = React.useState(null);
@@ -196,6 +210,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
     setEditing(null);
     setForm(emptyPending);
     setProrated(false);
+    setFullPay(false);
     setShowForm(true);
   }
 
@@ -206,8 +221,9 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       first_name: r.first_name || '', last_name: r.last_name || '', phone: r.phone || '',
       date_of_birth: r.date_of_birth || '', document_due_date: r.document_due_date || '', note: r.note || '',
     });
-    // the payment is taken once, when the record is opened
+    // payments are taken once, when the record is opened
     setProrated(false);
+    setFullPay(false);
     setShowForm(true);
     setOpenMenuId(null);
   }
@@ -222,6 +238,10 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       if (!form.initial_payment_end_date || form.initial_payment_end_date <= form.initial_payment_start_date) {
         notify.error(t('prorated_err_dates')); return;
       }
+    }
+    if (fullPay) {
+      if (!(Number(form.full_payment_amount) > 0)) { notify.error(t('prorated_err_amount')); return; }
+      if (!form.full_payment_months.length) { notify.error(t('ps_err_months')); return; }
     }
     setSaving(true);
     try {
@@ -240,6 +260,14 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
         payload.initial_payment_source = form.initial_payment_source || 'cash';
         if (form.initial_payment_paid_at) payload.initial_payment_paid_at = form.initial_payment_paid_at;
         if (form.initial_payment_comment) payload.initial_payment_comment = form.initial_payment_comment;
+      }
+      if (fullPay) {
+        payload.full_payment_amount = Number(form.full_payment_amount);
+        payload.full_payment_source = form.full_payment_source || 'cash';
+        payload.full_payment_year = Number(form.full_payment_year) || new Date().getFullYear();
+        payload.full_payment_months = [...form.full_payment_months].sort((a, b) => a - b);
+        if (form.full_payment_paid_at) payload.full_payment_paid_at = form.full_payment_paid_at;
+        if (form.full_payment_comment) payload.full_payment_comment = form.full_payment_comment;
       }
       if (editing) await apiUpdatePendingStudent(editing.id, payload);
       else await apiCreatePendingStudent(payload);
@@ -381,9 +409,9 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
                 <thead>
                   <tr>
                     <th>{t('students_col_name')}</th>
-                    <th>{t('students_col_birth')}</th>
                     <th>{t('ps_col_due')}</th>
                     <th>{t('ps_col_initial')}</th>
+                    <th>{t('ps_col_full')}</th>
                     <th>{t('students_col_status')}</th>
                     <th>{t('field_comment')}</th>
                     <th></th>
@@ -410,7 +438,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
                             </div>
                           </div>
                         </td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>{r.date_of_birth ? fmtDate(r.date_of_birth) : '—'}</td>
                         <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5, fontWeight: 700 }}>{fmtDate(r.document_due_date)}</td>
                         <td>
                           {Number(r.initial_payment_amount) > 0 ? (
@@ -418,7 +445,20 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
                               <b style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt.format(Number(r.initial_payment_amount))} {t('currency')}</b>
                               {r.initial_payment_end_date && (
                                 <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>
-                                  {fmtDate(r.initial_payment_start_date)} → {fmtDate(r.initial_payment_end_date)}
+                                  {shortDay(r.initial_payment_start_date)} → {shortDay(r.initial_payment_end_date)}
+                                </span>
+                              )}
+                            </span>
+                          ) : <span style={{ color: 'var(--muted)' }}>—</span>}
+                        </td>
+                        <td>
+                          {Number(r.full_payment_amount) > 0 ? (
+                            <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.35 }}>
+                              <b style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt.format(Number(r.full_payment_amount))} {t('currency')}</b>
+                              {!!(r.full_payment_months || []).length && (
+                                <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>
+                                  {r.full_payment_months.map(m => monthShort(m - 1)).join(', ')}
+                                  {r.full_payment_year ? ` · ${r.full_payment_year}` : ''}
                                 </span>
                               )}
                             </span>
@@ -547,7 +587,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
                       <DateTimeInput value={form.initial_payment_paid_at} onChange={v => setF('initial_payment_paid_at', v)}/>
                     </div>
                     <div className="field">
-                      <label>{t('field_comment')}</label>
+                      <label>{t('ps_pay_comment')}</label>
                       <input value={form.initial_payment_comment} onChange={e => setF('initial_payment_comment', e.target.value)}/>
                     </div>
                     {form.initial_payment_end_date && (
@@ -560,6 +600,73 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
                 )}
               </div>
             )}
+
+            {!editing && (
+              <div className="col-span-2">
+                <div className={'opt-card' + (fullPay ? ' on' : '')}>
+                  <label className="switch" title={t('ps_full_toggle')}>
+                    <input type="checkbox" checked={fullPay} onChange={e => setFullPay(e.target.checked)}/>
+                    <i/>
+                  </label>
+                  <div className="opt-text">
+                    <div className="opt-title"><I.Wallet size={16}/> {t('ps_full_toggle')}</div>
+                    <div className="opt-desc">{t('ps_full_hint')}</div>
+                  </div>
+                </div>
+
+                {fullPay && (
+                  <div className="grid-2" style={{ gap: 14, marginTop: 14 }}>
+                    <div className="field">
+                      <label>{t('ps_full_amount')} <span className="req">*</span></label>
+                      <input type="number" min="1" value={form.full_payment_amount}
+                        onChange={e => setF('full_payment_amount', e.target.value)} placeholder="500000"/>
+                    </div>
+                    <div className="field">
+                      <label>{t('prorated_source')}</label>
+                      <SearchableSelect value={form.full_payment_source} onChange={v => setF('full_payment_source', v)}
+                        options={[
+                          { value: 'cash', label: t('tx_src_cash') },
+                          { value: 'payme', label: 'Payme' },
+                          { value: 'click', label: 'Click' },
+                          { value: 'bank', label: t('tx_src_bank') },
+                        ]}/>
+                    </div>
+                    <div className="field">
+                      <label>{t('tx_py_label').replace(' *', '')}</label>
+                      <input type="number" value={form.full_payment_year}
+                        onChange={e => setF('full_payment_year', e.target.value)}/>
+                    </div>
+                    <div className="field">
+                      <label>{t('prorated_paid_at')}</label>
+                      <DateTimeInput value={form.full_payment_paid_at} onChange={v => setF('full_payment_paid_at', v)}/>
+                    </div>
+                    <div className="field col-span-2">
+                      <label>{t('tx_months_select_label')}</label>
+                      <div className="choice-grid months">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => {
+                          const on = form.full_payment_months.includes(m);
+                          return (
+                            <label key={m} className={'choice' + (on ? ' on' : '')} style={{ position: 'relative' }}>
+                              <input type="checkbox" checked={on}
+                                onChange={e => setF('full_payment_months', e.target.checked
+                                  ? [...form.full_payment_months, m]
+                                  : form.full_payment_months.filter(x => x !== m))}/>
+                              {on && <I.Check size={13} strokeWidth={2.6}/>}
+                              {monthLabel(m - 1)}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="field col-span-2">
+                      <label>{t('ps_pay_comment')}</label>
+                      <input value={form.full_payment_comment} onChange={e => setF('full_payment_comment', e.target.value)}/>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="field col-span-2">
               <label>{t('field_comment')}</label>
               <textarea rows={2} value={form.note} onChange={e => setF('note', e.target.value)} placeholder={t('ps_note_ph')}/>
