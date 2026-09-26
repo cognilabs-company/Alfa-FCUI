@@ -73,6 +73,7 @@ import {
   apiCreateManualTransactionWithProof,
   apiGetWaitingListNext,
   apiGetAuditLogs,
+  apiGetPendingStudents,
 } from '@/shared/api';
 
 import { fmt, fmtDate, fmtDateTime, fmtMln, fmtMoneyRoll, monthLabel } from '@/shared/lib/format';
@@ -130,6 +131,9 @@ export function TransactionsScreen({ onToast } = {}) {
   const [manualContractLoading, setManualContractLoading] = React.useState(false);
   const [manualContractError, setManualContractError] = React.useState('');
 
+  // pending students are not in /students yet; their names come from their own list
+  const [pendingNames, setPendingNames] = React.useState({});
+
   const [assignTxId, setAssignTxId] = React.useState(null);
   const [assignForm, setAssignForm] = React.useState({ student_id: '', contract_id: '' });
   const [assigning, setAssigning] = React.useState(false);
@@ -165,6 +169,13 @@ export function TransactionsScreen({ onToast } = {}) {
   }
 
   React.useEffect(() => { loadData(); }, [scope, source, statusFilter, fromDate, toDate, paymentYear, page]);
+
+  React.useEffect(() => {
+    apiGetPendingStudents({ page: 1, page_size: 200, include_converted: true })
+      .then(res => setPendingNames(Object.fromEntries((res?.data || [])
+        .map(p => [p.id, `${p.first_name || ''} ${p.last_name || ''}`.trim()]))))
+      .catch(() => { /* older server, or no access — rows fall back to the id */ });
+  }, []);
 
   React.useEffect(() => {
     const query = manualForm.contract_number.trim();
@@ -316,6 +327,16 @@ export function TransactionsScreen({ onToast } = {}) {
     return paymentSourceLabel(v, t);
   }
 
+  /** Who paid: a student, or a child whose documents have not arrived yet. */
+  function payerName(tx) {
+    if (tx.student_full_name) return tx.student_full_name;
+    if (tx.student_id) return `#${tx.student_id}`;
+    if (tx.pending_student_id) return pendingNames[tx.pending_student_id] || `#${tx.pending_student_id}`;
+    return '—';
+  }
+
+  const isInitial = (tx) => String(tx.payment_type || '').toUpperCase() === 'INITIAL';
+
   function statusLabel(v) {
     const s = String(v || '').trim().toLowerCase();
     if (s === 'success') return { cls: 'success', text: t('tx_st_success') };
@@ -461,10 +482,15 @@ export function TransactionsScreen({ onToast } = {}) {
                     <input type="checkbox" checked={checked} onChange={e => setSelectedIds(p => e.target.checked ? [...p, tx.id] : p.filter(x => x !== tx.id))} />
                   </td>
                   <td className="num" style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>{fmtDateTime(tx.paid_at || tx.created_at)}</td>
-                  <td style={{ fontWeight: 700 }}>{tx.student_full_name || `#${tx.student_id || '—'}`}</td>
+                  <td style={{ fontWeight: 700 }}>
+                    {payerName(tx)}
+                    {!tx.student_id && tx.pending_student_id && (
+                      <div className="muted" style={{ fontSize: 11.5, fontWeight: 600 }}>{t('ps_tab')}</div>
+                    )}
+                  </td>
                   <td>
                     <span className="chip">{sourceLabel(tx.source)}</span>
-                    {tx.payment_type === 'INITIAL' && <span className="chip warning" style={{ marginLeft: 6 }}>{t('tx_type_initial')}</span>}
+                    {isInitial(tx) && <span className="chip warning" style={{ marginLeft: 6 }}>{t('tx_type_initial')}</span>}
                   </td>
                   <td className="muted" style={{ fontSize: 12.5 }}>{(tx.payment_months || []).map(m => monthName(m)).join(', ') || '—'}</td>
                   <td className="money" style={{ textAlign: 'right' }}>{fmt.format(tx.amount || 0)} {t('currency')}</td>
@@ -514,12 +540,12 @@ export function TransactionsScreen({ onToast } = {}) {
                 ) },
                 { label: t('transactions_col_date'), value: fmtDateTime(detail.paid_at || detail.created_at) },
                 { label: t('tx_months_col'), value: (detail.payment_months || []).map(m => monthName(m)).join(', ') || '—' },
-                ...(detail.payment_type ? [{ label: t('tx_type_col'), value: detail.payment_type === 'INITIAL' ? t('tx_type_initial') : t('tx_type_monthly') }] : []),
+                ...(detail.payment_type ? [{ label: t('tx_type_col'), value: isInitial(detail) ? t('tx_type_initial') : t('tx_type_monthly') }] : []),
                 ...(detail.period_start_date || detail.period_end_date ? [{
                   label: t('prorated_period'),
                   value: fmtDate(detail.period_start_date) + ' → ' + fmtDate(detail.period_end_date),
                 }] : []),
-                { label: t('transactions_col_student'), value: detail.student_full_name || (detail.student_id ? `#${detail.student_id}` : '—') },
+                { label: t('transactions_col_student'), value: payerName(detail) },
                 { label: t('transactions_col_contract'), value: detail.contract_number || (detail.contract_id ? `#${detail.contract_id}` : '—') },
                 { label: t('tx_py_label'), value: detail.payment_year || '—' },
                 { label: 'External ID', value: detail.external_id || '—' },

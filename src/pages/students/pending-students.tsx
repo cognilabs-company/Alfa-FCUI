@@ -14,8 +14,7 @@ import { avatarColor } from '@/shared/lib/avatar';
 import { fmt, fmtDate, todayISO, toLocalISO } from '@/shared/lib/format';
 import {
   apiGetPendingStudents, apiCreatePendingStudent, apiUpdatePendingStudent,
-  apiDeletePendingStudent, apiCompletePendingStudent, apiSupportsPendingProrated,
-  apiGetGroupsForSelect,
+  apiDeletePendingStudent, apiCompletePendingStudent, apiGetGroupsForSelect,
 } from '@/shared/api';
 import { StudentsTabs } from './students-tabs';
 
@@ -87,6 +86,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
   const [page, setPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);
   const [totalCount, setTotalCount] = React.useState(0);
+  const [summary, setSummary] = React.useState({ all: 0, today: 0, soon: 0, overdue: 0 });
 
   // filters
   const [q, setQ] = React.useState('');
@@ -102,9 +102,8 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
   const [saving, setSaving] = React.useState(false);
   // Short first payment: a child joining mid-month pays for the part-month at
   // the door, long before the documents (and so the contract) exist.
-  const [proratedSupported, setProratedSupported] = React.useState(false);
-  // the payment is simply left empty when there is none — no switch to remember
-  const usingProrated = proratedSupported && Number(form.initial_payment_amount) > 0;
+  const [prorated, setProrated] = React.useState(false);
+  const usingProrated = prorated;
 
   // complete
   const [completing, setCompleting] = React.useState(null);
@@ -150,9 +149,33 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
     }
   }
 
+  /**
+   * The tiles describe the whole queue, not the page in view — counting the
+   * twenty rows in hand would quietly under-report as soon as there are more.
+   * Each count is one row asked of the server purely for its meta.total.
+   */
+  async function loadSummary() {
+    const day = (n) => {
+      const d = new Date();
+      d.setDate(d.getDate() + n);
+      return toLocalISO(d);
+    };
+    const count = async (params) => {
+      try { return (await apiGetPendingStudents({ ...params, page: 1, page_size: 1 }))?.meta?.total ?? 0; }
+      catch { return 0; }
+    };
+    const [all, today, soon, overdue] = await Promise.all([
+      count({}),
+      count({ from_due_date: day(0), to_due_date: day(0) }),
+      count({ from_due_date: day(1), to_due_date: day(2) }),
+      count({ overdue_only: true }),
+    ]);
+    setSummary({ all, today, soon, overdue });
+  }
+
   React.useEffect(() => {
     apiGetGroupsForSelect().then(r => setGroups(r?.data || [])).catch(() => {});
-    apiSupportsPendingProrated().then(setProratedSupported).catch(() => setProratedSupported(false));
+    loadSummary();
   }, []);
 
   React.useEffect(() => {
@@ -166,24 +189,13 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
     return () => window.removeEventListener('click', close);
   }, []);
 
-  // Counted from the page in hand; the guide leaves a stats endpoint for later.
-  const summary = React.useMemo(() => {
-    const s = { today: 0, soon: 0, overdue: 0 };
-    for (const r of rows) {
-      const d = dueState(r);
-      if (d.key === 'today') s.today++;
-      else if (d.key === 'soon') s.soon++;
-      else if (d.key === 'overdue') s.overdue++;
-    }
-    return s;
-  }, [rows]);
-
   const nameOf = (r) => `${r.first_name || ''} ${r.last_name || ''}`.trim() || `#${r.id}`;
   const isDone = (r) => !!(r.converted_at || r.converted_student_id);
 
   function openNew() {
     setEditing(null);
     setForm(emptyPending);
+    setProrated(false);
     setShowForm(true);
   }
 
@@ -195,6 +207,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       date_of_birth: r.date_of_birth || '', document_due_date: r.document_due_date || '', note: r.note || '',
     });
     // the payment is taken once, when the record is opened
+    setProrated(false);
     setShowForm(true);
     setOpenMenuId(null);
   }
@@ -204,11 +217,11 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       notify.error(t('toast_required'));
       return;
     }
-    // an amount that is filled in but not a real one would go out as nothing
-    const typedAmount = String(form.initial_payment_amount ?? '').trim();
-    if (typedAmount && !(Number(typedAmount) > 0)) { notify.error(t('prorated_err_amount')); return; }
-    if (usingProrated && (!form.initial_payment_end_date || form.initial_payment_end_date <= form.initial_payment_start_date)) {
-      notify.error(t('prorated_err_dates')); return;
+    if (usingProrated) {
+      if (!(Number(form.initial_payment_amount) > 0)) { notify.error(t('prorated_err_amount')); return; }
+      if (!form.initial_payment_end_date || form.initial_payment_end_date <= form.initial_payment_start_date) {
+        notify.error(t('prorated_err_dates')); return;
+      }
     }
     setSaving(true);
     try {
@@ -233,6 +246,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       onToast?.(t(editing ? 'ps_updated' : 'ps_created'));
       setShowForm(false);
       load();
+      loadSummary();
     } catch (e) {
       onToast?.(e.message, 'error');
     } finally {
@@ -247,6 +261,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       await apiDeletePendingStudent(r.id);
       onToast?.(t('ps_deleted'));
       load();
+      loadSummary();
     } catch (e) {
       onToast?.(e.message, 'error');
     }
@@ -292,6 +307,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       onToast?.(t('ps_completed'));
       // stay in the queue: whoever is processing documents usually has several
       load();
+      loadSummary();
     } catch (e) {
       onToast?.(e.message, 'error');
     } finally {
@@ -328,7 +344,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       ) : (
         <>
           <div className="grid-4" style={{ marginBottom: 14 }}>
-            <Stat feature label={t('total')} value={totalCount} icon={I.Clipboard}/>
+            <Stat feature label={t('total')} value={summary.all} icon={I.Clipboard}/>
             <Stat label={t('ps_sum_today')} value={summary.today} tone="warning" icon={I.Clock}/>
             <Stat label={t('ps_sum_soon')} value={summary.soon} tone="info" icon={I.Calendar}/>
             <Stat label={t('ps_sum_overdue')} value={summary.overdue} tone="danger" icon={I.AlertCircle}/>
@@ -490,17 +506,23 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
               <textarea rows={2} value={form.note} onChange={e => setF('note', e.target.value)} placeholder={t('ps_note_ph')}/>
             </div>
 
-            {!editing && proratedSupported && (
+            {!editing && (
               <div className="col-span-2">
-                <div className="card-title" style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <I.HandCoins size={16}/> {t('prorated_toggle')}
+                <div className={'opt-card' + (prorated ? ' on' : '')}>
+                  <label className="switch" title={t('prorated_toggle')}>
+                    <input type="checkbox" checked={prorated} onChange={e => setProrated(e.target.checked)}/>
+                    <i/>
+                  </label>
+                  <div className="opt-text">
+                    <div className="opt-title"><I.HandCoins size={16}/> {t('prorated_toggle')}</div>
+                    <div className="opt-desc">{t('prorated_hint_pending')}</div>
+                  </div>
                 </div>
-                <div className="hint" style={{ marginBottom: 12 }}>{t('prorated_hint_pending')}</div>
 
-                {(
-                  <div className="grid-2" style={{ gap: 14 }}>
+                {prorated && (
+                  <div className="grid-2" style={{ gap: 14, marginTop: 14 }}>
                     <div className="field">
-                      <label>{t('prorated_amount')}</label>
+                      <label>{t('prorated_amount')} <span className="req">*</span></label>
                       <input type="number" min="1" value={form.initial_payment_amount}
                         onChange={e => setF('initial_payment_amount', e.target.value)} placeholder="150000"/>
                     </div>
@@ -533,7 +555,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
                       <label>{t('field_comment')}</label>
                       <input value={form.initial_payment_comment} onChange={e => setF('initial_payment_comment', e.target.value)}/>
                     </div>
-                    {Number(form.initial_payment_amount) > 0 && (
+                    {form.initial_payment_end_date && (
                       <div className="alert info col-span-2" style={{ margin: 0 }}>
                         <I.Calendar size={16}/>
                         <span>{t('prorated_contract_auto').replace('{date}', fmtDate(form.initial_payment_end_date))}</span>
