@@ -501,11 +501,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
               <label>{t('ps_due_label')} <span className="req">*</span></label>
               <DateInput value={form.document_due_date} onChange={v => setF('document_due_date', v)}/>
             </div>
-            <div className="field col-span-2">
-              <label>{t('field_comment')}</label>
-              <textarea rows={2} value={form.note} onChange={e => setF('note', e.target.value)} placeholder={t('ps_note_ph')}/>
-            </div>
-
             {!editing && (
               <div className="col-span-2">
                 <div className={'opt-card' + (prorated ? ' on' : '')}>
@@ -565,6 +560,11 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
                 )}
               </div>
             )}
+            <div className="field col-span-2">
+              <label>{t('field_comment')}</label>
+              <textarea rows={2} value={form.note} onChange={e => setF('note', e.target.value)} placeholder={t('ps_note_ph')}/>
+            </div>
+
           </div>
         </Modal>
       )}
