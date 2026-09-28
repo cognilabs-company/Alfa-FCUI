@@ -35,7 +35,7 @@ function firstOfNextMonth(iso = todayISO()) {
 }
 
 const emptyPending = {
-  first_name: '', last_name: '', phone: '', date_of_birth: '', document_due_date: '', note: '',
+  first_name: '', last_name: '', phone: '', date_of_birth: '', document_due_date: '',
 };
 const emptyComplete = {
   first_name: '', last_name: '', date_of_birth: '', height: '', weight: '',
@@ -233,7 +233,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
     setForm({
       ...emptyPending,
       first_name: r.first_name || '', last_name: r.last_name || '', phone: r.phone || '',
-      date_of_birth: r.date_of_birth || '', document_due_date: r.document_due_date || '', note: r.note || '',
+      date_of_birth: r.date_of_birth || '', document_due_date: r.document_due_date || '',
       group_id: String(r.group_id || ''),
     });
     // payments are taken once, when the record is opened
@@ -258,7 +258,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
         phone: form.phone.trim() || undefined,
         date_of_birth: form.date_of_birth || undefined,
         document_due_date: form.document_due_date,
-        note: form.note.trim() || undefined,
       };
       if (withPayment) {
         payload.pre_contract_training = {
@@ -566,11 +565,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
             {!editing && (
               <PreContractTrainingFields enabled={preTraining} onToggle={setPreTraining} value={pct} onChange={setPct}/>
             )}
-            <div className="field col-span-2">
-              <label>{t('field_comment')}</label>
-              <textarea rows={2} value={form.note} onChange={e => setF('note', e.target.value)} placeholder={t('ps_note_ph')}/>
-            </div>
-
           </div>
         </Modal>
       )}
