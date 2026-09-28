@@ -304,8 +304,22 @@ export function StudentProfile({ studentId, onBack }) {
                       <td>
                         <span className="chip">{tx.source}</span>
                         {tx.payment_type === 'INITIAL' && <span className="chip warning" style={{ marginLeft: 6 }}>{t('tx_type_initial')}</span>}
+                        {tx.payment_type === 'pre_contract_training' && <span className="chip warning" style={{ marginLeft: 6 }}>{t('tx_type_pre_contract')}</span>}
                       </td>
-                      <td style={{ color: 'var(--muted)', fontSize: 12.5 }}>{tx.payment_months?.map(m => monthLabel(Number(m) - 1) || m).join(', ') || '—'}</td>
+                      {tx.payment_type === 'pre_contract_training' ? (
+                        // paid for a stretch of sessions, not for months
+                        <td style={{ color: 'var(--muted)', fontSize: 12.5, lineHeight: 1.4 }}>
+                          <div>{fmtDate(tx.period_start_date)} → {fmtDate(tx.period_end_date)}</div>
+                          {Number(tx.training_session_count) > 0 && (
+                            <div>
+                              {tx.training_session_count} {tp('ps_sessions_sfx', Number(tx.training_session_count))}
+                              {Number(tx.training_price_per_session) > 0 ? ` × ${fmt.format(tx.training_price_per_session)} ${t('currency')}` : ''}
+                            </div>
+                          )}
+                        </td>
+                      ) : (
+                        <td style={{ color: 'var(--muted)', fontSize: 12.5 }}>{tx.payment_months?.map(m => monthLabel(Number(m) - 1) || m).join(', ') || '—'}</td>
+                      )}
                       <td className="money" style={{ textAlign: 'right' }}>{fmt.format(tx.amount || 0)} {t('currency')}</td>
                       <td>
                         {txStatusBadge(tx.status, t)}

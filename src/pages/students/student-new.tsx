@@ -19,10 +19,7 @@ import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
 import { calcAge, fullName, normalizeStatus } from './lib';
 import { todayISO } from '@/shared/lib/format';
-
-// Backend bills pre-contract training at this rate; the admin can override the total.
-const PRE_CONTRACT_PRICE_PER_SESSION = 25000;
-const money = new Intl.NumberFormat('ru-RU');
+import { PreContractTrainingFields, emptyPreContract, preContractError } from './pre-contract-training';
 
 export function StudentNew({ onBack, onCreated, onViewContract }) {
   const I = Icon;
@@ -37,9 +34,9 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
   const [viewingContract, setViewingContract] = React.useState(false);
   const steps = [t('step1_label'), t('step2_label'), t('step3_label')];
 
-  // Training given before the contract is signed is billed separately: the admin
-  // types how many sessions there were, and the price per session is the backend's.
+  // Training given before the contract is signed is billed separately
   const [preTraining, setPreTraining] = React.useState(false);
+  const [pct, setPct] = React.useState(emptyPreContract);
 
   const [form, setForm] = React.useState({
     first_name: '', last_name: '', date_of_birth: '', height: '', weight: '',
@@ -48,30 +45,16 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
     monthly_fee_amount: '500000', uniform_fee_amount: '',
     contract_start_date: todayISO(),
     contract_end_date: new Date().getFullYear() + '-12-31',
-    pre_contract_training_start_date: todayISO(),
-    pre_contract_training_end_date: todayISO(),
-    pre_contract_training_session_count: '',
-    pre_contract_training_amount: '',
-    pre_contract_training_source: 'cash',
   });
   const [files, setFiles] = React.useState({ photo: null, passport: null, extra_file: null });
 
   function setF(field, value) { setForm(p => ({ ...p, [field]: value })); }
 
-  // The session count drives the suggested amount; the admin may then overwrite it.
-  function setSessionCount(value) {
-    const n = Number(value);
-    setForm(p => ({
-      ...p,
-      pre_contract_training_session_count: value,
-      pre_contract_training_amount: n > 0 ? String(n * PRE_CONTRACT_PRICE_PER_SESSION) : '',
-    }));
-  }
-
   // A step only earns its tick when every required field in it is filled
   const stepValid = {
     1: !!(form.first_name.trim() && form.last_name.trim() && form.date_of_birth && form.height && form.weight && form.pnfl.trim()),
-    2: !!(form.customer_full_name.trim() && form.customer_passport_number.trim() && form.customer_address.trim() && form.monthly_fee_amount),
+    2: !!(form.customer_full_name.trim() && form.customer_passport_number.trim() && form.customer_address.trim() && form.monthly_fee_amount)
+      && (!preTraining || !preContractError(pct)),
     3: true,
   };
 
@@ -89,12 +72,8 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
       setError(t('required_contract_fields'));
       return;
     }
-    if (preTraining) {
-      if (!(Number(form.pre_contract_training_session_count) > 0)) { setError(t('pct_err_count')); return; }
-      if (!form.pre_contract_training_start_date || !form.pre_contract_training_end_date
-        || form.pre_contract_training_end_date < form.pre_contract_training_start_date) { setError(t('pct_err_dates')); return; }
-      if (!(Number(form.pre_contract_training_amount) > 0)) { setError(t('pct_err_amount')); return; }
-    }
+    const pctError = preTraining ? preContractError(pct) : '';
+    if (pctError) { setError(t(pctError)); return; }
     setSaving(true);
     try {
       const fd = new FormData();
@@ -103,11 +82,14 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
       const contractFields = ['customer_full_name', 'customer_passport_number', 'customer_address', 'monthly_fee_amount', 'uniform_fee_amount', 'contract_start_date', 'contract_end_date'];
       contractFields.forEach(k => { if (form[k]) fd.append(k, form[k]); });
       if (preTraining) {
-        fd.append('pre_contract_training_start_date', form.pre_contract_training_start_date);
-        fd.append('pre_contract_training_end_date', form.pre_contract_training_end_date);
-        fd.append('pre_contract_training_session_count', String(Number(form.pre_contract_training_session_count)));
-        fd.append('pre_contract_training_amount', String(Number(form.pre_contract_training_amount)));
-        fd.append('pre_contract_training_source', form.pre_contract_training_source || 'cash');
+        fd.append('pre_contract_training_start_date', pct.start_date);
+        fd.append('pre_contract_training_end_date', pct.end_date);
+        fd.append('pre_contract_training_session_count', String(Number(pct.session_count)));
+        // left empty, the backend bills count × price itself
+        if (String(pct.amount).trim()) fd.append('pre_contract_training_amount', String(Number(pct.amount)));
+        fd.append('pre_contract_training_source', pct.source || 'cash');
+        if (pct.paid_at) fd.append('pre_contract_training_paid_at', pct.paid_at);
+        if (pct.comment.trim()) fd.append('pre_contract_training_comment', pct.comment.trim());
       }
       if (files.photo) fd.append('photo', files.photo);
       if (files.passport) fd.append('passport', files.passport);
@@ -198,66 +180,7 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
               <div className="field"><label>{t('field_contract_start')}</label><DateInput value={form.contract_start_date} onChange={v => setF('contract_start_date', v)}/></div>
               <div className="field"><label>{t('field_contract_end')}</label><DateInput value={form.contract_end_date} onChange={v => setF('contract_end_date', v)}/></div>
 
-              <div className="col-span-2">
-                <div className={'opt-card' + (preTraining ? ' on' : '')}>
-                  <label className="switch" title={t('pct_toggle')}>
-                    <input type="checkbox" checked={preTraining} onChange={e => setPreTraining(e.target.checked)}/>
-                    <i/>
-                  </label>
-                  <div className="opt-text">
-                    <div className="opt-title"><I.HandCoins size={16}/> {t('pct_toggle')}</div>
-                    <div className="opt-desc">{t('pct_hint')}</div>
-                  </div>
-                </div>
-
-                {preTraining && (
-                  <div className="grid-2" style={{ gap: 14, marginTop: 14 }}>
-                    <div className="field">
-                      <label>{t('pct_start')} <span className="req">*</span></label>
-                      <DateInput value={form.pre_contract_training_start_date} onChange={v => {
-                        setF('pre_contract_training_start_date', v);
-                        if (!form.pre_contract_training_end_date || form.pre_contract_training_end_date < v) setF('pre_contract_training_end_date', v);
-                      }}/>
-                    </div>
-                    <div className="field">
-                      <label>{t('pct_end')} <span className="req">*</span></label>
-                      <DateInput value={form.pre_contract_training_end_date} onChange={v => setF('pre_contract_training_end_date', v)}/>
-                    </div>
-                    <div className="field">
-                      <label>{t('pct_count')} <span className="req">*</span></label>
-                      <input type="number" min="1" value={form.pre_contract_training_session_count}
-                        onChange={e => setSessionCount(e.target.value)} placeholder="10"/>
-                    </div>
-                    <div className="field">
-                      <label>{t('pct_amount')} <span className="req">*</span></label>
-                      <input type="number" min="1" value={form.pre_contract_training_amount}
-                        onChange={e => setF('pre_contract_training_amount', e.target.value)} placeholder="250000"/>
-                    </div>
-                    <div className="field">
-                      <label>{t('prorated_source')}</label>
-                      <SearchableSelect value={form.pre_contract_training_source} onChange={v => setF('pre_contract_training_source', v)}
-                        options={[
-                          { value: 'cash', label: t('tx_src_cash') },
-                          { value: 'payme', label: 'Payme' },
-                          { value: 'click', label: 'Click' },
-                          { value: 'bank', label: t('tx_src_bank') },
-                        ]}/>
-                    </div>
-                    {Number(form.pre_contract_training_session_count) > 0 && (
-                      <div className="alert info col-span-2" style={{ margin: 0 }}>
-                        <I.HandCoins size={16}/>
-                        <span>
-                          {t('pct_calc')
-                            .replace('{n}', String(Number(form.pre_contract_training_session_count)))
-                            .replace('{price}', money.format(PRE_CONTRACT_PRICE_PER_SESSION))
-                            .replace('{total}', money.format(Number(form.pre_contract_training_session_count) * PRE_CONTRACT_PRICE_PER_SESSION))}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
+              <PreContractTrainingFields enabled={preTraining} onToggle={setPreTraining} value={pct} onChange={setPct}/>
             </div>
           )}
           {step === 3 && (

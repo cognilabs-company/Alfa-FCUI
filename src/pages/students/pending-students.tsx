@@ -14,9 +14,10 @@ import { avatarColor } from '@/shared/lib/avatar';
 import { fmt, fmtDate, monthShort, todayISO, toLocalISO } from '@/shared/lib/format';
 import {
   apiGetPendingStudents, apiCreatePendingStudent, apiUpdatePendingStudent,
-  apiDeletePendingStudent, apiCompletePendingStudent, apiGetGroupsForSelect,
+  apiDeletePendingStudent, apiCompletePendingStudent, apiGetGroupsForSelect, apiGetTransaction,
 } from '@/shared/api';
 import { StudentsTabs } from './students-tabs';
+import { PreContractTrainingFields, emptyPreContract, preContractError } from './pre-contract-training';
 
 const PAGE_SIZE = 20;
 
@@ -100,6 +101,12 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
   const [editing, setEditing] = React.useState(null);
   const [form, setForm] = React.useState(emptyPending);
   const [saving, setSaving] = React.useState(false);
+  // Training before the contract is paid at the door, while the documents are
+  // still missing — so it is taken here, once, when the record is opened.
+  const [preTraining, setPreTraining] = React.useState(false);
+  const [pct, setPct] = React.useState(emptyPreContract);
+  // That payment is a transaction of its own; a record carries only its id.
+  const [pctTx, setPctTx] = React.useState({});
   // complete
   const [completing, setCompleting] = React.useState(null);
   const [cForm, setCForm] = React.useState(emptyComplete);
@@ -179,6 +186,14 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
   }, [q, fromDue, toDue, overdueOnly, withDone]);
 
   React.useEffect(() => {
+    const ids = [...new Set(rows.map(r => r.pre_contract_training_transaction_id).filter(Boolean))]
+      .filter(id => !(id in pctTx));
+    if (!ids.length) return;
+    Promise.all(ids.map(id => apiGetTransaction(id).then(r => [id, r?.data || null]).catch(() => [id, null])))
+      .then(pairs => setPctTx(p => ({ ...p, ...Object.fromEntries(pairs) })));
+  }, [rows]);
+
+  React.useEffect(() => {
     const close = () => setOpenMenuId(null);
     window.addEventListener('click', close);
     return () => window.removeEventListener('click', close);
@@ -187,9 +202,29 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
   const nameOf = (r) => `${r.first_name || ''} ${r.last_name || ''}`.trim() || `#${r.id}`;
   const isDone = (r) => !!(r.converted_at || r.converted_student_id);
 
+  /** The money taken before the contract: a pre-contract training payment, or an older record's short first payment. */
+  function firstPayment(r) {
+    const tx = pctTx[r.pre_contract_training_transaction_id];
+    if (tx && Number(tx.amount) > 0) {
+      return {
+        amount: tx.amount, start: tx.period_start_date, end: tx.period_end_date,
+        count: tx.training_session_count, price: tx.training_price_per_session, preContract: true,
+      };
+    }
+    if (Number(r.initial_payment_amount) > 0) {
+      return {
+        amount: r.initial_payment_amount, start: r.initial_payment_start_date, end: r.initial_payment_end_date,
+        count: r.initial_payment_session_count, price: r.initial_payment_price_per_session,
+      };
+    }
+    return null;
+  }
+
   function openNew() {
     setEditing(null);
     setForm(emptyPending);
+    setPreTraining(false);
+    setPct(emptyPreContract());
     setShowForm(true);
   }
 
@@ -202,6 +237,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       group_id: String(r.group_id || ''),
     });
     // payments are taken once, when the record is opened
+    setPreTraining(false);
     setShowForm(true);
     setOpenMenuId(null);
   }
@@ -211,6 +247,9 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       notify.error(t('toast_required'));
       return;
     }
+    const withPayment = !editing && preTraining;
+    const pctError = withPayment ? preContractError(pct) : '';
+    if (pctError) { notify.error(t(pctError)); return; }
     setSaving(true);
     try {
       const payload = {
@@ -221,9 +260,28 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
         document_due_date: form.document_due_date,
         note: form.note.trim() || undefined,
       };
+      if (withPayment) {
+        payload.pre_contract_training = {
+          period_start_date: pct.start_date,
+          period_end_date: pct.end_date,
+          session_count: Number(pct.session_count),
+          // left out, the backend bills count × price itself
+          amount: String(pct.amount).trim() ? Number(pct.amount) : undefined,
+          source: pct.source || 'cash',
+          paid_at: pct.paid_at || undefined,
+          comment: pct.comment.trim() || undefined,
+        };
+      }
+      let dropped = false;
       if (editing) await apiUpdatePendingStudent(editing.id, payload);
-      else await apiCreatePendingStudent(payload);
-      onToast?.(t(editing ? 'ps_updated' : 'ps_created'));
+      else {
+        const res = await apiCreatePendingStudent(payload);
+        // A server without the pre-contract payment keeps the record and quietly
+        // drops the money; say so rather than let it look recorded.
+        dropped = withPayment && !res?.data?.pre_contract_training_transaction_id;
+      }
+      if (dropped) onToast?.(t('ps_pct_not_saved'), 'error');
+      else onToast?.(t(editing ? 'ps_updated' : 'ps_created'));
       setShowForm(false);
       load();
       loadSummary();
@@ -393,24 +451,27 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
                         </td>
                         <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5, fontWeight: 700 }}>{fmtDate(r.document_due_date)}</td>
                         <td>
-                          {Number(r.initial_payment_amount) > 0 ? (
-                            <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.35 }}>
-                              <b style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt.format(Number(r.initial_payment_amount))} {t('currency')}</b>
-                              {r.initial_payment_end_date && (
-                                <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>
-                                  {shortDay(r.initial_payment_start_date)} → {shortDay(r.initial_payment_end_date)}
-                                </span>
-                              )}
-                              {Number(r.initial_payment_session_count) > 0 && (
-                                <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>
-                                  {r.initial_payment_session_count} {t('ps_sessions_sfx')}
-                                  {Number(r.initial_payment_price_per_session) > 0
-                                    ? ' × ' + fmt.format(Number(r.initial_payment_price_per_session))
-                                    : ''}
-                                </span>
-                              )}
-                            </span>
-                          ) : <span style={{ color: 'var(--muted)' }}>—</span>}
+                          {(() => {
+                            const pay = firstPayment(r);
+                            if (!pay) return <span style={{ color: 'var(--muted)' }}>—</span>;
+                            return (
+                              <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.35 }}
+                                title={pay.preContract ? t('tx_type_pre_contract') : undefined}>
+                                <b style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt.format(Number(pay.amount))} {t('currency')}</b>
+                                {pay.end && (
+                                  <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>
+                                    {shortDay(pay.start)} → {shortDay(pay.end)}
+                                  </span>
+                                )}
+                                {Number(pay.count) > 0 && (
+                                  <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>
+                                    {pay.count} {tp('ps_sessions_sfx', Number(pay.count))}
+                                    {Number(pay.price) > 0 ? ' × ' + fmt.format(Number(pay.price)) : ''}
+                                  </span>
+                                )}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td>
                           {Number(r.full_payment_amount) > 0 ? (
@@ -502,6 +563,9 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
               <label>{t('ps_due_label')} <span className="req">*</span></label>
               <DateInput value={form.document_due_date} onChange={v => setF('document_due_date', v)}/>
             </div>
+            {!editing && (
+              <PreContractTrainingFields enabled={preTraining} onToggle={setPreTraining} value={pct} onChange={setPct}/>
+            )}
             <div className="field col-span-2">
               <label>{t('field_comment')}</label>
               <textarea rows={2} value={form.note} onChange={e => setF('note', e.target.value)} placeholder={t('ps_note_ph')}/>

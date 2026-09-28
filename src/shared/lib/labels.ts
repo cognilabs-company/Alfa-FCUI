@@ -10,5 +10,6 @@ export function paymentSourceLabel(value, t) {
   if (s === 'click') return 'Click';
   if (s === 'cash') return t('tx_src_cash');
   if (s === 'bank') return t('tx_src_bank');
+  if (s === 'manual') return t('tx_src_manual');
   return s ? t('dash_other') : '—';
 }
