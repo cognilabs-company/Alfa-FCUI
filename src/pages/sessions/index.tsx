@@ -4,7 +4,7 @@ import { Icon } from '@/shared/ui/icons';
 import { DateInput, DateTimeInput, MultiDateInput } from '@/shared/ui/date-picker';
 import {
   apiGetGroups, apiGetGroupsForSelect, apiGetHeadCoachGroups, apiGetGroup, apiGetGroupStudents, apiCreateGroup, apiUpdateGroup, apiDeleteGroup, apiDeleteGroupsBulk,
-  apiGetSessions, apiGetSessionDetails, apiGetCoachSessionDetails, apiCreateHeadCoachSessionsBulk, apiGetStudents, unwrapDataArray,
+  apiGetSessions, apiGetSessionDetails, apiGetCoachSessionDetails, apiCreateHeadCoachSessionsBulk, apiGetStudents,
   apiUpdateSession, apiDeleteSession,
   apiGetCoaches, apiDownloadGroupStudentsExport, apiDownloadCoachGroupPerformanceTableExport,
   apiMarkAttendance, apiMarkBulkAttendance, apiAddPerformanceTableMatch,
@@ -297,9 +297,10 @@ export function SessionsScreen({ onMark }) {
     setSaving(true);
     try {
       const group_id = Number(newSession.group_id);
-      const session_details = pickedDates.map(d => {
+      const sessions = pickedDates.map(d => {
         const p = newSession.plans[d];
         return {
+          group_id,
           session_date: d,
           topic: p.topic.trim(),
           station: p.station.trim() || undefined,
@@ -308,23 +309,15 @@ export function SessionsScreen({ onMark }) {
           description: p.description.trim() || undefined,
         };
       });
-      // One request for every date, each with its own plan
-      let created = [];
-      try {
-        created = unwrapDataArray(await apiCreateHeadCoachSessionsBulk({ group_id, session_details }));
-      } catch (e) {
-        if (e.status !== 422) throw e;
-      }
-      // A server from before per-date plans knows only `sessions[]`: it ignores
-      // session_details and creates nothing, or refuses the shape. The same rows
-      // then go again in the old shape, which both versions accept.
-      if (!created.length) {
-        await apiCreateHeadCoachSessionsBulk({ sessions: session_details.map(s => ({ group_id, ...s })) });
-      }
+      // One request for every date, each with its own plan. Sent as sessions[]:
+      // the server in use knows no other shape (to group_id + session_details it
+      // answers 400 "No sessions provided"), and the guide keeps this one working
+      // after the backend update too.
+      await apiCreateHeadCoachSessionsBulk({ sessions });
       setShowCreate(false);
       setCreateTried(false);
       setNewSession(p => ({ ...p, session_dates: [], plans: {} }));
-      notify.success(tp('sessions_created', session_details.length));
+      notify.success(tp('sessions_created', sessions.length));
       const params = {};
       if (groupFilter) params.group_id = groupFilter;
       const sRes = await apiGetSessions(params);
