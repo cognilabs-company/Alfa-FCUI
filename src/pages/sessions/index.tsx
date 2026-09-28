@@ -4,7 +4,7 @@ import { Icon } from '@/shared/ui/icons';
 import { DateInput, DateTimeInput, MultiDateInput } from '@/shared/ui/date-picker';
 import {
   apiGetGroups, apiGetGroupsForSelect, apiGetHeadCoachGroups, apiGetGroup, apiGetGroupStudents, apiCreateGroup, apiUpdateGroup, apiDeleteGroup, apiDeleteGroupsBulk,
-  apiGetSessions, apiGetSessionDetails, apiGetCoachSessionDetails, apiCreateSession,
+  apiGetSessions, apiGetSessionDetails, apiGetCoachSessionDetails, apiCreateSession, apiGetStudents,
   apiUpdateSession, apiDeleteSession,
   apiGetCoaches, apiDownloadGroupStudentsExport, apiDownloadCoachGroupPerformanceTableExport,
   apiMarkAttendance, apiMarkBulkAttendance, apiAddPerformanceTableMatch,
@@ -69,6 +69,10 @@ export function SessionsScreen({ onMark }) {
   const [myAttendances, setMyAttendances] = React.useState([]);
   const [attendancesLoading, setAttendancesLoading] = React.useState(false);
   const [attGroupFilter, setAttGroupFilter] = React.useState('');
+  // /coach/my-attendances answers with ids only; these two fill in the names
+  const [students, setStudents] = React.useState([]);
+  const [allSessions, setAllSessions] = React.useState([]);
+  const attRefsLoaded = React.useRef(false);
   const [groupFilter, setGroupFilter] = React.useState('');
   const [openMenuSessionId, setOpenMenuSessionId] = React.useState(null);
   const [menuPos, setMenuPos] = React.useState({ x: 0, y: 0 });
@@ -114,6 +118,14 @@ export function SessionsScreen({ onMark }) {
   }, []);
 
   React.useEffect(() => {
+    if (activeTab !== 'attendances' || attRefsLoaded.current) return;
+    attRefsLoaded.current = true;
+    apiGetStudents({ page_size: 500, include_archived: true }).then(r => setStudents(r?.data || [])).catch(() => {});
+    // unfiltered, so a row's session is found whatever the sessions tab is filtered by
+    apiGetSessions().then(r => setAllSessions(r?.data || [])).catch(() => {});
+  }, [activeTab]);
+
+  React.useEffect(() => {
     if (activeTab !== 'attendances') return;
     setAttendancesLoading(true);
     const params = {};
@@ -123,6 +135,18 @@ export function SessionsScreen({ onMark }) {
       .catch(() => setMyAttendances([]))
       .finally(() => setAttendancesLoading(false));
   }, [activeTab, attGroupFilter]);
+
+  const studentMap = React.useMemo(() => {
+    const m = {};
+    students.forEach(s => { m[s.id] = s; });
+    return m;
+  }, [students]);
+
+  const sessionMap = React.useMemo(() => {
+    const m = {};
+    [...allSessions, ...sessions].forEach(s => { m[s.id] = s; });
+    return m;
+  }, [allSessions, sessions]);
 
   const groupMap = React.useMemo(() => {
     const m = {};
@@ -284,21 +308,47 @@ export function SessionsScreen({ onMark }) {
             ) : (
               <table className="table">
                 <thead>
-                  <tr><th>{t('sess_id')}</th><th>{t('student_id')}</th><th>{t('sessions_col_status')}</th><th>{t('transactions_comment')}</th><th>{t('sessions_col_date')}</th></tr>
+                  <tr>
+                    <th>{t('att_col_student')}</th>
+                    <th>{t('sessions_col_group')}</th>
+                    <th>{t('sessions_col_topic')}</th>
+                    <th>{t('sessions_col_status')}</th>
+                    <th>{t('att_col_comment')}</th>
+                    <th>{t('sessions_col_date')}</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {myAttendances.length === 0 && (
-                    <tr><td colSpan={5} style={{ padding: 18, color: 'var(--muted)' }}>{t('sessions_no_sessions')}</td></tr>
+                    <tr><td colSpan={6} style={{ padding: 18, color: 'var(--muted)' }}>{t('sessions_no_sessions')}</td></tr>
                   )}
                   {myAttendances.map(a => (
                     <tr key={a.id}>
-                      <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>#{a.session_id}</td>
-                      <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--muted)' }}>#{a.student_id}</td>
+                      <td>{(() => {
+                        const st = studentMap[a.student_id];
+                        const name = st ? `${st.first_name || ''} ${st.last_name || ''}`.trim() : '';
+                        return (
+                          <div className="row-name">
+                            <div className="avatar" style={{ background: avatarColor(a.student_id) }}>
+                              {name ? name.split(' ').map(p => p[0]).slice(0, 2).join('') : '#'}
+                            </div>
+                            <div className="meta">
+                              <span className="name">{name || `#${a.student_id}`}</span>
+                            </div>
+                          </div>
+                        );
+                      })()}</td>
+                      <td>{(() => {
+                        const gid = studentMap[a.student_id]?.group_id ?? sessionMap[a.session_id]?.group_id;
+                        return gid ? <span className="chip">{groupMap[gid] || `#${gid}`}</span> : <span style={{ color: 'var(--muted)' }}>—</span>;
+                      })()}</td>
+                      <td style={{ fontSize: 12.5 }}>{sessionMap[a.session_id]?.topic || `#${a.session_id}`}</td>
                       <td>
                         {attendanceBadge(a.status, t)}
                       </td>
-                      <td style={{ color: 'var(--muted)', fontSize: 12.5 }}>{a.comment || '—'}</td>
-                      <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5, color: 'var(--muted)' }}>{fmtDate(a.created_at)}</td>
+                      <td className="cell-note" title={a.comment || ''}>{a.comment || '—'}</td>
+                      <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                        {fmtDate(sessionMap[a.session_id]?.session_date || a.created_at)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
