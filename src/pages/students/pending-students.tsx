@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React from 'react';
 import { Icon } from '@/shared/ui/icons';
-import { DateInput, DateTimeInput } from '@/shared/ui/date-picker';
+import { DateInput } from '@/shared/ui/date-picker';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal } from '@/shared/ui/modal';
 import { Badge } from '@/shared/ui/status';
@@ -11,7 +11,7 @@ import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
 import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
-import { fmt, fmtDate, monthLabel, monthShort, todayISO, toLocalISO } from '@/shared/lib/format';
+import { fmt, fmtDate, monthShort, todayISO, toLocalISO } from '@/shared/lib/format';
 import {
   apiGetPendingStudents, apiCreatePendingStudent, apiUpdatePendingStudent,
   apiDeletePendingStudent, apiCompletePendingStudent, apiGetGroupsForSelect,
@@ -35,18 +35,6 @@ function firstOfNextMonth(iso = todayISO()) {
 
 const emptyPending = {
   first_name: '', last_name: '', phone: '', date_of_birth: '', document_due_date: '', note: '',
-  group_id: '',
-  initial_payment_start_date: todayISO(),
-  initial_payment_end_date: firstOfNextMonth(),
-  initial_payment_source: 'cash',
-  initial_payment_paid_at: '',
-  initial_payment_comment: '',
-  full_payment_amount: '',
-  full_payment_source: 'cash',
-  full_payment_paid_at: '',
-  full_payment_comment: '',
-  full_payment_year: new Date().getFullYear(),
-  full_payment_months: [],
 };
 const emptyComplete = {
   first_name: '', last_name: '', date_of_birth: '', height: '', weight: '',
@@ -112,13 +100,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
   const [editing, setEditing] = React.useState(null);
   const [form, setForm] = React.useState(emptyPending);
   const [saving, setSaving] = React.useState(false);
-  // Short first payment: a child joining mid-month pays for the part-month at
-  // the door, long before the documents (and so the contract) exist.
-  const [prorated, setProrated] = React.useState(false);
-  const usingProrated = prorated;
-  // …and a whole month may be paid up front, before any contract exists
-  const [fullPay, setFullPay] = React.useState(false);
-
   // complete
   const [completing, setCompleting] = React.useState(null);
   const [cForm, setCForm] = React.useState(emptyComplete);
@@ -209,8 +190,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
   function openNew() {
     setEditing(null);
     setForm(emptyPending);
-    setProrated(false);
-    setFullPay(false);
     setShowForm(true);
   }
 
@@ -223,8 +202,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       group_id: String(r.group_id || ''),
     });
     // payments are taken once, when the record is opened
-    setProrated(false);
-    setFullPay(false);
     setShowForm(true);
     setOpenMenuId(null);
   }
@@ -233,16 +210,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
     if (!form.first_name.trim() || !form.last_name.trim() || !form.document_due_date) {
       notify.error(t('toast_required'));
       return;
-    }
-    if (usingProrated) {
-      if (!form.group_id) { notify.error(t('ps_err_group')); return; }
-      if (!form.initial_payment_end_date || form.initial_payment_end_date <= form.initial_payment_start_date) {
-        notify.error(t('prorated_err_dates')); return;
-      }
-    }
-    if (fullPay) {
-      if (!(Number(form.full_payment_amount) > 0)) { notify.error(t('prorated_err_amount')); return; }
-      if (!form.full_payment_months.length) { notify.error(t('ps_err_months')); return; }
     }
     setSaving(true);
     try {
@@ -254,22 +221,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
         document_due_date: form.document_due_date,
         note: form.note.trim() || undefined,
       };
-      if (usingProrated) {
-        payload.group_id = Number(form.group_id);
-        payload.initial_payment_start_date = form.initial_payment_start_date;
-        payload.initial_payment_end_date = form.initial_payment_end_date;
-        payload.initial_payment_source = form.initial_payment_source || 'cash';
-        if (form.initial_payment_paid_at) payload.initial_payment_paid_at = form.initial_payment_paid_at;
-        if (form.initial_payment_comment) payload.initial_payment_comment = form.initial_payment_comment;
-      }
-      if (fullPay) {
-        payload.full_payment_amount = Number(form.full_payment_amount);
-        payload.full_payment_source = form.full_payment_source || 'cash';
-        payload.full_payment_year = Number(form.full_payment_year) || new Date().getFullYear();
-        payload.full_payment_months = [...form.full_payment_months].sort((a, b) => a - b);
-        if (form.full_payment_paid_at) payload.full_payment_paid_at = form.full_payment_paid_at;
-        if (form.full_payment_comment) payload.full_payment_comment = form.full_payment_comment;
-      }
       if (editing) await apiUpdatePendingStudent(editing.id, payload);
       else await apiCreatePendingStudent(payload);
       onToast?.(t(editing ? 'ps_updated' : 'ps_created'));
@@ -551,134 +502,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
               <label>{t('ps_due_label')} <span className="req">*</span></label>
               <DateInput value={form.document_due_date} onChange={v => setF('document_due_date', v)}/>
             </div>
-            {!editing && (
-              <div className="col-span-2">
-                <div className={'opt-card' + (prorated ? ' on' : '')}>
-                  <label className="switch" title={t('prorated_toggle')}>
-                    <input type="checkbox" checked={prorated} onChange={e => setProrated(e.target.checked)}/>
-                    <i/>
-                  </label>
-                  <div className="opt-text">
-                    <div className="opt-title"><I.HandCoins size={16}/> {t('prorated_toggle')}</div>
-                    <div className="opt-desc">{t('prorated_hint_pending')}</div>
-                  </div>
-                </div>
-
-                {prorated && (
-                  <div className="grid-2" style={{ gap: 14, marginTop: 14 }}>
-                    <div className="field">
-                      <label>{t('field_group2')} <span className="req">*</span></label>
-                      <SearchableGroupSelect value={form.group_id} onChange={v => setF('group_id', v)} groups={groups} placeholder={t('not_selected')}/>
-                    </div>
-                    <div className="field">
-                      <label>{t('prorated_source')}</label>
-                      <SearchableSelect value={form.initial_payment_source} onChange={v => setF('initial_payment_source', v)}
-                        options={[
-                          { value: 'cash', label: t('tx_src_cash') },
-                          { value: 'payme', label: 'Payme' },
-                          { value: 'click', label: 'Click' },
-                          { value: 'bank', label: t('tx_src_bank') },
-                        ]}/>
-                    </div>
-                    <div className="field">
-                      <label>{t('prorated_start')}</label>
-                      <DateInput value={form.initial_payment_start_date} onChange={v => {
-                        setF('initial_payment_start_date', v);
-                        if (!form.initial_payment_end_date || form.initial_payment_end_date <= v) setF('initial_payment_end_date', firstOfNextMonth(v));
-                      }}/>
-                    </div>
-                    <div className="field">
-                      <label>{t('prorated_end')} <span className="req">*</span></label>
-                      <DateInput value={form.initial_payment_end_date} onChange={v => setF('initial_payment_end_date', v)}/>
-                    </div>
-                    <div className="field">
-                      <label>{t('prorated_paid_at')}</label>
-                      <DateTimeInput value={form.initial_payment_paid_at} onChange={v => setF('initial_payment_paid_at', v)}/>
-                    </div>
-                    <div className="field">
-                      <label>{t('ps_pay_comment')}</label>
-                      <input value={form.initial_payment_comment} onChange={e => setF('initial_payment_comment', e.target.value)}/>
-                    </div>
-                    <div className="alert info col-span-2" style={{ margin: 0 }}>
-                      <I.HandCoins size={16}/>
-                      <span>
-                        {t('ps_pay_auto')}
-                        {form.initial_payment_end_date
-                          ? ' · ' + t('prorated_contract_auto').replace('{date}', fmtDate(form.initial_payment_end_date))
-                          : ''}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {!editing && (
-              <div className="col-span-2">
-                <div className={'opt-card' + (fullPay ? ' on' : '')}>
-                  <label className="switch" title={t('ps_full_toggle')}>
-                    <input type="checkbox" checked={fullPay} onChange={e => setFullPay(e.target.checked)}/>
-                    <i/>
-                  </label>
-                  <div className="opt-text">
-                    <div className="opt-title"><I.Wallet size={16}/> {t('ps_full_toggle')}</div>
-                    <div className="opt-desc">{t('ps_full_hint')}</div>
-                  </div>
-                </div>
-
-                {fullPay && (
-                  <div className="grid-2" style={{ gap: 14, marginTop: 14 }}>
-                    <div className="field">
-                      <label>{t('ps_full_amount')} <span className="req">*</span></label>
-                      <input type="number" min="1" value={form.full_payment_amount}
-                        onChange={e => setF('full_payment_amount', e.target.value)} placeholder="500000"/>
-                    </div>
-                    <div className="field">
-                      <label>{t('prorated_source')}</label>
-                      <SearchableSelect value={form.full_payment_source} onChange={v => setF('full_payment_source', v)}
-                        options={[
-                          { value: 'cash', label: t('tx_src_cash') },
-                          { value: 'payme', label: 'Payme' },
-                          { value: 'click', label: 'Click' },
-                          { value: 'bank', label: t('tx_src_bank') },
-                        ]}/>
-                    </div>
-                    <div className="field">
-                      <label>{t('tx_py_label').replace(' *', '')}</label>
-                      <input type="number" value={form.full_payment_year}
-                        onChange={e => setF('full_payment_year', e.target.value)}/>
-                    </div>
-                    <div className="field">
-                      <label>{t('prorated_paid_at')}</label>
-                      <DateTimeInput value={form.full_payment_paid_at} onChange={v => setF('full_payment_paid_at', v)}/>
-                    </div>
-                    <div className="field col-span-2">
-                      <label>{t('tx_months_select_label')}</label>
-                      <div className="choice-grid months">
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => {
-                          const on = form.full_payment_months.includes(m);
-                          return (
-                            <label key={m} className={'choice' + (on ? ' on' : '')} style={{ position: 'relative' }}>
-                              <input type="checkbox" checked={on}
-                                onChange={e => setF('full_payment_months', e.target.checked
-                                  ? [...form.full_payment_months, m]
-                                  : form.full_payment_months.filter(x => x !== m))}/>
-                              {on && <I.Check size={13} strokeWidth={2.6}/>}
-                              {monthLabel(m - 1)}
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <div className="field col-span-2">
-                      <label>{t('ps_pay_comment')}</label>
-                      <input value={form.full_payment_comment} onChange={e => setF('full_payment_comment', e.target.value)}/>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
             <div className="field col-span-2">
               <label>{t('field_comment')}</label>
               <textarea rows={2} value={form.note} onChange={e => setF('note', e.target.value)} placeholder={t('ps_note_ph')}/>

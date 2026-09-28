@@ -335,7 +335,14 @@ export function TransactionsScreen({ onToast } = {}) {
     return '—';
   }
 
-  const isInitial = (tx) => String(tx.payment_type || '').toUpperCase() === 'INITIAL';
+  const isInitial = (tx) => String(tx.payment_type || '').toLowerCase() === 'initial';
+  const isPreContract = (tx) => String(tx.payment_type || '').toLowerCase() === 'pre_contract_training';
+
+  function paymentTypeLabel(tx) {
+    if (isPreContract(tx)) return t('tx_type_pre_contract');
+    if (isInitial(tx)) return t('tx_type_initial');
+    return t('tx_type_monthly');
+  }
 
   function statusLabel(v) {
     const s = String(v || '').trim().toLowerCase();
@@ -491,6 +498,7 @@ export function TransactionsScreen({ onToast } = {}) {
                   <td>
                     <span className="chip">{sourceLabel(tx.source)}</span>
                     {isInitial(tx) && <span className="chip warning" style={{ marginLeft: 6 }}>{t('tx_type_initial')}</span>}
+                    {isPreContract(tx) && <span className="chip warning" style={{ marginLeft: 6 }}>{t('tx_type_pre_contract')}</span>}
                   </td>
                   <td className="muted" style={{ fontSize: 12.5 }}>{(tx.payment_months || []).map(m => monthName(m)).join(', ') || '—'}</td>
                   <td className="money" style={{ textAlign: 'right' }}>{fmt.format(tx.amount || 0)} {t('currency')}</td>
@@ -540,7 +548,13 @@ export function TransactionsScreen({ onToast } = {}) {
                 ) },
                 { label: t('transactions_col_date'), value: fmtDateTime(detail.paid_at || detail.created_at) },
                 { label: t('tx_months_col'), value: (detail.payment_months || []).map(m => monthName(m)).join(', ') || '—' },
-                ...(detail.payment_type ? [{ label: t('tx_type_col'), value: isInitial(detail) ? t('tx_type_initial') : t('tx_type_monthly') }] : []),
+                ...(detail.payment_type ? [{ label: t('tx_type_col'), value: paymentTypeLabel(detail) }] : []),
+                ...(Number(detail.training_session_count) > 0 ? [{
+                  label: t('tx_sessions_label'),
+                  value: detail.training_price_per_session
+                    ? `${detail.training_session_count} × ${fmt.format(detail.training_price_per_session)} ${t('currency')}`
+                    : String(detail.training_session_count),
+                }] : []),
                 ...(detail.period_start_date || detail.period_end_date ? [{
                   label: t('prorated_period'),
                   value: fmtDate(detail.period_start_date) + ' → ' + fmtDate(detail.period_end_date),
