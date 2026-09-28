@@ -91,6 +91,19 @@ function todayDateTimeLocal() {
   return d.toISOString().slice(0, 16);
 }
 
+/** The child a contract is for, and the parent who signs it. */
+function contractPeople(contract) {
+  const customer = contract.custom_fields?.customer?.full_name || contract.customer_full_name || '';
+  const student = contract.custom_fields?.student?.full_name
+    || (contract.student
+      ? `${contract.student.first_name || ''} ${contract.student.last_name || ''}`.trim()
+      : (contract.student_name || contract.full_name || ''));
+  return { student, customer };
+}
+
+// Uzbek names come with any of several apostrophes: G'ulom, Gʻulom, G’ulom
+const foldName = (s) => String(s || '').toLowerCase().replace(/[ʻʼ’‘`´]/g, "'").replace(/\s+/g, ' ').trim();
+
 export function TransactionsScreen({ onToast } = {}) {
   const I = Icon;
   const { t, tp } = useT();
@@ -197,9 +210,26 @@ export function TransactionsScreen({ onToast } = {}) {
     setManualContractError('');
     const timer = setTimeout(async () => {
       try {
-        const res = await apiGetContracts({ search: query, page_size: 8 });
+        // The server matches one field at a time — contract number, first name
+        // or last name — so a full name as typed ("Ali Karimov") finds nothing.
+        // With several words it is asked for the longest one; here every typed
+        // word must then begin a word of the student, the parent or the number
+        // ("Ali Kar" finds Ali Karimov, "Ali" does not find Vali).
+        const words = foldName(query).split(' ');
+        const multi = words.length > 1;
+        const res = await apiGetContracts({
+          search: multi ? query.split(/\s+/).reduce((a, b) => (b.length > a.length ? b : a)) : query,
+          page_size: multi ? 100 : 8,
+        });
         if (!active) return;
-        const contracts = res?.data || [];
+        let contracts = res?.data || [];
+        if (multi) {
+          contracts = contracts.filter((c) => {
+            const { student, customer } = contractPeople(c);
+            const parts = foldName(`${student} ${customer} ${c.contract_number || ''}`).split(' ');
+            return words.every((w) => parts.some((part) => part.startsWith(w)));
+          }).slice(0, 8);
+        }
         setManualContractMatches(contracts);
         const exactContract = contracts.find((contract) => String(contract.contract_number || '').toLowerCase() === query.toLowerCase());
         if (exactContract?.monthly_fee) {
@@ -653,7 +683,7 @@ export function TransactionsScreen({ onToast } = {}) {
           <div className="form-row">
               <div className="field col-span-2">
                 <label>{t('tx_ct_no_label')}</label>
-                <input value={manualForm.contract_number} onChange={e => setManualForm(p => ({ ...p, contract_number: e.target.value }))} placeholder="1-2026" />
+                <input value={manualForm.contract_number} onChange={e => setManualForm(p => ({ ...p, contract_number: e.target.value }))} placeholder={t('tx_ct_no_ph')} />
                 {(manualContractLoading || manualContractError || manualContractMatches.length > 0 || manualForm.contract_number.trim().length >= 2) && (
                   <div className="suggest">
                     {manualContractLoading && (
@@ -666,11 +696,7 @@ export function TransactionsScreen({ onToast } = {}) {
                       <div className="suggest-msg">{t('tx_contract_not_found')}</div>
                     )}
                     {!manualContractLoading && manualContractMatches.map((contract) => {
-                      const customerName = contract.custom_fields?.customer?.full_name || contract.customer_full_name || '';
-                      const studentName = contract.custom_fields?.student?.full_name
-                        || (contract.student
-                          ? `${contract.student.first_name || ''} ${contract.student.last_name || ''}`.trim()
-                          : (contract.student_name || contract.full_name || ''));
+                      const { student: studentName, customer: customerName } = contractPeople(contract);
                       const displayName = studentName || customerName || `${t('student_num_prefix')}${contract.student_id || '-'}`;
                       return (
                         <button
