@@ -2876,6 +2876,34 @@ textarea.input { height: auto; padding: 11px 13px; resize: vertical; min-height:
 .agenda-day.is-past .agenda-head { background: var(--surface-2); }
 .agenda-day.is-past .day-num,
 .agenda-day.is-past .day-text b { color: var(--text-2); }
+
+/* New-session dialog: one plan per picked date, dressed as an agenda day */
+.plan-list { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+.plan-list-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.plan-list-head .title { font-size: 13.5px; font-weight: 800; color: var(--text); }
+.plan-list-head .btn { margin-left: auto; }
+.plan-day .agenda-head { padding: 9px 8px 9px 16px; }
+.plan-head-end { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.plan-head-end .day-count { display: inline-flex; align-items: center; gap: 4px; margin-left: 0; }
+.plan-day-body { padding: 14px 16px 16px; }
+/* as specific as the base .field input rule and its :hover, so it shows */
+.plan-day .field input[aria-invalid="true"]:not([type="checkbox"]):not([type="radio"]) { border-color: var(--danger); }
+.plan-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 24px 18px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--muted);
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.plan-empty b { color: var(--text); font-size: 13.5px; font-weight: 800; }
+.plan-empty.invalid { border-color: var(--danger); }
 .agenda-date {
   position: sticky;
   top: 4px;

@@ -303,6 +303,16 @@ const UZ = {
   sessions_location: 'Joy',
   sessions_cancel: 'Bekor',
   sessions_create: 'Yaratish',
+  sessions_new_sub: "Har bir sana uchun mavzu va joy alohida kiritiladi",
+  sessions_plan_title: "Kunlar bo'yicha reja",
+  sessions_plan_empty_title: 'Sana tanlanmagan',
+  sessions_plan_empty: "Yuqorida sanalarni tanlang — nechta sana tanlansa, shuncha mavzu va joy kiritiladi.",
+  sessions_copy_first: "Birinchisini hammasiga nusxalash",
+  sessions_copy_confirm: "Boshqa kunlarga yozilgan mavzu, joy va izoh birinchi kunnikiga almashtiriladi. Davom etilsinmi?",
+  sessions_err_topic: 'Mavzuni kiriting',
+  sessions_err_time: "Tugash vaqti boshlanishdan keyin bo'lsin",
+  sessions_err_plans: 'Tekshiring: {dates}',
+  sessions_created: '{n} ta sessiya yaratildi',
   // Performance
   performance_title: 'Natijaviy jadval',
   // Contracts
@@ -1479,6 +1489,16 @@ const RU: typeof UZ = {
   sessions_location: 'Место',
   sessions_cancel: 'Отмена',
   sessions_create: 'Создать',
+  sessions_new_sub: 'Для каждой даты — своя тема и место',
+  sessions_plan_title: 'План по дням',
+  sessions_plan_empty_title: 'Даты не выбраны',
+  sessions_plan_empty: 'Выберите даты выше — сколько дат, столько тем и мест нужно указать.',
+  sessions_copy_first: 'Скопировать первую во все',
+  sessions_copy_confirm: 'Тема, место и комментарий в остальных днях будут заменены данными первого дня. Продолжить?',
+  sessions_err_topic: 'Укажите тему',
+  sessions_err_time: 'Окончание должно быть позже начала',
+  sessions_err_plans: 'Проверьте: {dates}',
+  sessions_created: 'Создана {n} сессия|Созданы {n} сессии|Создано {n} сессий',
   // Performance
   performance_title: 'Таблица результатов',
   // Contracts

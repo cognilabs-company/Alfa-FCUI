@@ -4,7 +4,7 @@ import { Icon } from '@/shared/ui/icons';
 import { DateInput, DateTimeInput, MultiDateInput } from '@/shared/ui/date-picker';
 import {
   apiGetGroups, apiGetGroupsForSelect, apiGetHeadCoachGroups, apiGetGroup, apiGetGroupStudents, apiCreateGroup, apiUpdateGroup, apiDeleteGroup, apiDeleteGroupsBulk,
-  apiGetSessions, apiGetSessionDetails, apiGetCoachSessionDetails, apiCreateSession, apiGetStudents,
+  apiGetSessions, apiGetSessionDetails, apiGetCoachSessionDetails, apiCreateHeadCoachSessionsBulk, apiGetStudents, unwrapDataArray,
   apiUpdateSession, apiDeleteSession,
   apiGetCoaches, apiDownloadGroupStudentsExport, apiDownloadCoachGroupPerformanceTableExport,
   apiMarkAttendance, apiMarkBulkAttendance, apiAddPerformanceTableMatch,
@@ -53,6 +53,10 @@ function sessionStatus(session_date) {
   return 'completed';
 }
 
+// What one picked date of a new session needs (BULK_SESSIONS_FRONTEND_GUIDE.md)
+const blankPlan = () => ({ topic: '', station: '', start_time: '10:00', end_time: '11:00', description: '' });
+const PLAN_FIELDS = ['topic', 'station', 'start_time', 'end_time', 'description'];
+
 
 export function SessionsScreen({ onMark }) {
   const I = Icon;
@@ -83,12 +87,11 @@ export function SessionsScreen({ onMark }) {
     // No date is preselected: a preselected today quietly rides along when the
     // coach is scheduling a later week, adding a session nobody asked for.
     session_dates: [],
-    topic: '',
-    start_time: '10:00',
-    end_time: '11:00',
-    station: '',
-    description: '',
+    // One plan per date — its own topic, place, time and note. Kept by date even
+    // when the date is unticked, so ticking it again brings the typing back.
+    plans: {},
   });
+  const [createTried, setCreateTried] = React.useState(false);
 
   const today = todayIso;
   const loadedOnce = React.useRef(false);
@@ -232,29 +235,99 @@ export function SessionsScreen({ onMark }) {
     }
   }
 
+  const pickedDates = [...newSession.session_dates].sort();
+
+  function setSessionDates(next) {
+    setNewSession(p => {
+      const plans = { ...p.plans };
+      // a new date starts at the hours of the one picked before it — a group
+      // usually trains at the same time of day
+      const prev = plans[p.session_dates[p.session_dates.length - 1]];
+      for (const d of next) {
+        if (!plans[d]) plans[d] = { ...blankPlan(), ...(prev && { start_time: prev.start_time, end_time: prev.end_time }) };
+      }
+      return { ...p, session_dates: next, plans };
+    });
+  }
+
+  function setPlan(date, key, value) {
+    setNewSession(p => ({ ...p, plans: { ...p.plans, [date]: { ...p.plans[date], [key]: value } } }));
+  }
+
+  function removeDate(date) {
+    setNewSession(p => ({ ...p, session_dates: p.session_dates.filter(x => x !== date) }));
+  }
+
+  /** Copies the first date's plan onto every other picked date. */
+  async function copyFirstPlan() {
+    const [first, ...rest] = pickedDates;
+    const src = newSession.plans[first];
+    const loses = rest.some(d => ['topic', 'station', 'description'].some(k => {
+      const v = String(newSession.plans[d]?.[k] || '').trim();
+      return v && v !== String(src[k] || '').trim();
+    }));
+    if (loses && !await confirmDialog(t('sessions_copy_confirm'))) return;
+    setNewSession(p => {
+      const plans = { ...p.plans };
+      for (const d of rest) plans[d] = { ...plans[d], ...Object.fromEntries(PLAN_FIELDS.map(k => [k, src[k]])) };
+      return { ...p, plans };
+    });
+  }
+
+  const planErrors = (plan) => ({
+    topic: !plan.topic.trim(),
+    time: minutesOf(plan.start_time) != null && minutesOf(plan.end_time) != null
+      && minutesOf(plan.end_time) <= minutesOf(plan.start_time),
+  });
+
   async function handleCreateSession() {
-    if (!newSession.group_id || !newSession.topic.trim() || newSession.session_dates.length === 0) {
+    setCreateTried(true);
+    if (!newSession.group_id || pickedDates.length === 0) {
       notify.error(t('toast_required'));
+      return;
+    }
+    const broken = pickedDates.filter(d => {
+      const e = planErrors(newSession.plans[d]);
+      return e.topic || e.time;
+    });
+    if (broken.length) {
+      notify.error(t('sessions_err_plans').replace('{dates}', broken.map(fmtDate).join(', ')));
       return;
     }
     setSaving(true);
     try {
-      const base = {
-        group_id: Number(newSession.group_id),
-        topic: newSession.topic.trim(),
-        start_time: newSession.start_time,
-        end_time: newSession.end_time,
-        station: newSession.station.trim() || undefined,
-        description: newSession.description.trim() || undefined,
-      };
-      // One session per picked date. Sequential so a mid-list failure surfaces which date broke.
-      const dates = [...newSession.session_dates].sort();
-      for (const d of dates) {
-        await apiCreateSession({ ...base, session_date: d });
+      const group_id = Number(newSession.group_id);
+      const session_details = pickedDates.map(d => {
+        const p = newSession.plans[d];
+        return {
+          session_date: d,
+          topic: p.topic.trim(),
+          station: p.station.trim() || undefined,
+          start_time: p.start_time || undefined,
+          end_time: p.end_time || undefined,
+          description: p.description.trim() || undefined,
+        };
+      });
+      // One request for every date, each with its own plan
+      let created = [];
+      try {
+        created = unwrapDataArray(await apiCreateHeadCoachSessionsBulk({ group_id, session_details }));
+      } catch (e) {
+        if (e.status !== 422) throw e;
+      }
+      // A server from before per-date plans knows only `sessions[]`: it ignores
+      // session_details and creates nothing, or refuses the shape. The same rows
+      // then go again in the old shape, which both versions accept.
+      if (!created.length) {
+        await apiCreateHeadCoachSessionsBulk({ sessions: session_details.map(s => ({ group_id, ...s })) });
       }
       setShowCreate(false);
-      setNewSession((p) => ({ ...p, topic: '', station: '', description: '', session_dates: [] }));
-      const [sRes] = await Promise.all([apiGetSessions()]);
+      setCreateTried(false);
+      setNewSession(p => ({ ...p, session_dates: [], plans: {} }));
+      notify.success(tp('sessions_created', session_details.length));
+      const params = {};
+      if (groupFilter) params.group_id = groupFilter;
+      const sRes = await apiGetSessions(params);
       setSessions(sRes?.data || []);
     } catch (e) {
       notify.error(e.message);
@@ -277,7 +350,7 @@ export function SessionsScreen({ onMark }) {
               <button className={'btn' + (filter === 'week' ? ' dark' : '')} onClick={() => setFilter('week')}>
                 <I.Calendar size={15}/> {t('filter_week')}
               </button>
-              <button className="btn primary" onClick={() => setShowCreate(true)}><I.Plus size={15}/> {t('sessions_new')}</button>
+              <button className="btn primary" onClick={() => { setCreateTried(false); setShowCreate(true); }}><I.Plus size={15}/> {t('sessions_new')}</button>
             </>
           )}
         </div>
@@ -536,9 +609,10 @@ export function SessionsScreen({ onMark }) {
       })()}
 
       {showCreate && (
-        <Modal icon={I.CalendarPlus}
+        <Modal icon={I.CalendarPlus} size="lg"
           onClose={() => setShowCreate(false)}
           title={t('sessions_new_title')}
+          subtitle={t('sessions_new_sub')}
           footer={<>
             <button className="btn ghost" onClick={() => setShowCreate(false)}>{t('cancel')}</button>
             <button className="btn primary" onClick={handleCreateSession} disabled={saving}><I.Check size={14}/> {saving ? t('saving') : t('sessions_create')}</button>
@@ -548,43 +622,83 @@ export function SessionsScreen({ onMark }) {
             <div className="field">
               <label>{t('sessions_group')} <span className="req">*</span></label>
               <SearchableGroupSelect value={newSession.group_id} onChange={v => setNewSession(p => ({ ...p, group_id: v }))} groups={groups} placeholder={t('groups_coach_none')} />
+              {createTried && !newSession.group_id && <div className="error">{t('ps_err_group')}</div>}
             </div>
-            <div className="field col-span-2">
+            <div className="field">
               <label>{t('sessions_dates')} <span className="req">*</span></label>
-              <MultiDateInput values={newSession.session_dates} placeholder={t('sessions_add_date')}
-                onChange={next => setNewSession(p => ({ ...p, session_dates: next }))} />
-              {newSession.session_dates.length > 0 && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-                  {[...newSession.session_dates].sort().map(d => (
-                    <button key={d} type="button"
-                      onClick={() => setNewSession(p => ({ ...p, session_dates: p.session_dates.filter(x => x !== d) }))}
-                      className="date-tag">
-                      {fmtDate(d)} <I.X size={12}/>
+              <MultiDateInput values={newSession.session_dates} placeholder={t('sessions_add_date')} onChange={setSessionDates} />
+            </div>
+          </div>
+
+          <div className="plan-list">
+            {pickedDates.length === 0 ? (
+              <div className={'plan-empty' + (createTried ? ' invalid' : '')}>
+                <I.CalendarPlus size={22}/>
+                <b>{t('sessions_plan_empty_title')}</b>
+                <span>{t('sessions_plan_empty')}</span>
+              </div>
+            ) : (
+              <>
+                <div className="plan-list-head">
+                  <span className="title">{t('sessions_plan_title')}</span>
+                  <span className="chip">{pickedDates.length} {tp('session_sfx', pickedDates.length)}</span>
+                  {pickedDates.length > 1 && (
+                    <button type="button" className="btn ghost sm" onClick={copyFirstPlan}>
+                      <I.Copy size={14}/> {t('sessions_copy_first')}
                     </button>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
-            <div className="field">
-              <label>{t('sessions_topic')} <span className="req">*</span></label>
-              <input value={newSession.topic} onChange={e => setNewSession(p => ({ ...p, topic: e.target.value }))} placeholder={t('ph_session_topic')} />
-            </div>
-            <div className="field">
-              <label>{t('sessions_location')}</label>
-              <input value={newSession.station} onChange={e => setNewSession(p => ({ ...p, station: e.target.value }))} placeholder={t('ph_station')} />
-            </div>
-            <div className="field">
-              <label>{t('sessions_start')}</label>
-              <input type="time" value={newSession.start_time} onChange={e => setNewSession(p => ({ ...p, start_time: e.target.value }))} />
-            </div>
-            <div className="field">
-              <label>{t('sessions_end')}</label>
-              <input type="time" value={newSession.end_time} onChange={e => setNewSession(p => ({ ...p, end_time: e.target.value }))} />
-            </div>
-            <div className="field col-span-2">
-              <label>{t('field_comment')}</label>
-              <textarea value={newSession.description} onChange={e => setNewSession(p => ({ ...p, description: e.target.value }))} placeholder="" />
-            </div>
+                {pickedDates.map(d => {
+                  const plan = newSession.plans[d] || blankPlan();
+                  const err = createTried ? planErrors(plan) : {};
+                  const [y, m, dd] = d.split('-').map(Number);
+                  const dur = durationLabel(plan.start_time, plan.end_time, t);
+                  return (
+                    <section key={d} className={'agenda-day plan-day' + (d === today ? ' is-today' : d < today ? ' is-past' : '')}>
+                      <header className="agenda-head">
+                        <span className="day-num">{dd}</span>
+                        <span className="day-text">
+                          <b>{weekdayLong(new Date(y, m - 1, dd), lang)}</b>
+                          <span>{fmtDate(d)}</span>
+                        </span>
+                        <span className="plan-head-end">
+                          {dur && <span className="day-count"><I.Timer size={12}/> {dur}</span>}
+                          <button type="button" className="icon-btn plain" aria-label={t('delete')} title={t('delete')} onClick={() => removeDate(d)}>
+                            <I.X size={15}/>
+                          </button>
+                        </span>
+                      </header>
+                      <div className="plan-day-body grid-2">
+                        <div className="field">
+                          <label>{t('sessions_topic')} <span className="req">*</span></label>
+                          <input value={plan.topic} onChange={e => setPlan(d, 'topic', e.target.value)}
+                            placeholder={t('ph_session_topic')} aria-invalid={err.topic || undefined}/>
+                          {err.topic && <div className="error">{t('sessions_err_topic')}</div>}
+                        </div>
+                        <div className="field">
+                          <label>{t('sessions_location')}</label>
+                          <input value={plan.station} onChange={e => setPlan(d, 'station', e.target.value)} placeholder={t('ph_station')}/>
+                        </div>
+                        <div className="field">
+                          <label>{t('sessions_start')}</label>
+                          <input type="time" value={plan.start_time} onChange={e => setPlan(d, 'start_time', e.target.value)}/>
+                        </div>
+                        <div className="field">
+                          <label>{t('sessions_end')}</label>
+                          <input type="time" value={plan.end_time} onChange={e => setPlan(d, 'end_time', e.target.value)}
+                            aria-invalid={err.time || undefined}/>
+                          {err.time && <div className="error">{t('sessions_err_time')}</div>}
+                        </div>
+                        <div className="field col-span-2">
+                          <label>{t('field_comment')}</label>
+                          <input value={plan.description} onChange={e => setPlan(d, 'description', e.target.value)}/>
+                        </div>
+                      </div>
+                    </section>
+                  );
+                })}
+              </>
+            )}
           </div>
         </Modal>
       )}
