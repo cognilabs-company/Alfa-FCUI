@@ -8,7 +8,7 @@ import {
   apiDeleteStudent, apiDeleteStudentsBulk, apiHardDeleteStudent,
   apiUploadStudentPhoto, apiUploadStudentPassport, apiUploadStudentExtraFile,
   apiContractPdfUrl, apiGetContractPdf, apiDownloadStudentFile,
-  apiChangeStudentGroup,
+  apiChangeStudentGroup, apiCreatePreContractTrainingPayment,
 } from '@/shared/api';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal, DetailGrid } from '@/shared/ui/modal';
@@ -20,6 +20,7 @@ import { fmt, fmtDate, fmtDateTime, monthLabel } from '@/shared/lib/format';
 import { DateInput } from '@/shared/ui/date-picker';
 import { statusChip } from '@/pages/contracts/status-chip';
 import { calcAge, fullName, normalizeStatus } from './lib';
+import { PreContractTrainingFields, emptyPreContract, preContractError, preContractPayload } from './pre-contract-training';
 
 export function StudentProfile({ studentId, onBack }) {
   const I = Icon;
@@ -39,6 +40,10 @@ export function StudentProfile({ studentId, onBack }) {
   const [editError, setEditError] = React.useState('');
   const [uploadingFile, setUploadingFile] = React.useState(null);
   const [showHardDeleteModal, setShowHardDeleteModal] = React.useState(false);
+  // Sessions trained before this contract existed, entered after the fact
+  const [showPctModal, setShowPctModal] = React.useState(false);
+  const [pct, setPct] = React.useState(emptyPreContract);
+  const [pctSaving, setPctSaving] = React.useState(false);
   const [hardDeleting, setHardDeleting] = React.useState(false);
 
   React.useEffect(() => {
@@ -290,6 +295,11 @@ export function StudentProfile({ studentId, onBack }) {
 
         {tab === 'transactions' && (
           <div style={{ padding: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+              <button className="btn soft sm" onClick={() => { setPct(emptyPreContract()); setShowPctModal(true); }}>
+                <I.Plus size={14}/> {t('pct_add_btn')}
+              </button>
+            </div>
             {transactions.length === 0 && <div className="empty">{t('profile_no_payments')}</div>}
             {transactions.length > 0 && (
               <div className="table-wrap">
@@ -425,6 +435,37 @@ export function StudentProfile({ studentId, onBack }) {
           </div>
         )}
       </div>
+
+      {showPctModal && (
+        <Modal icon={I.HandCoins}
+          onClose={() => { if (!pctSaving) setShowPctModal(false); }}
+          title={t('pct_toggle')}
+          subtitle={t('pct_hint')}
+          footer={<>
+            <button className="btn ghost" onClick={() => setShowPctModal(false)} disabled={pctSaving}>{t('cancel')}</button>
+            <button className="btn primary" disabled={pctSaving} onClick={async () => {
+              const bad = preContractError(pct);
+              if (bad) { notify.error(t(bad)); return; }
+              setPctSaving(true);
+              try {
+                await apiCreatePreContractTrainingPayment(studentId, preContractPayload(pct));
+                notify.success(t('pct_added'));
+                setShowPctModal(false);
+                const res = await apiGetStudentTransactions(studentId);
+                setTransactions(res?.data || []);
+              } catch (e) {
+                notify.error(e.message);
+              } finally { setPctSaving(false); }
+            }}>
+              <I.Check size={14}/> {pctSaving ? t('saving') : t('save')}
+            </button>
+          </>}
+        >
+          <div className="grid-2" style={{ gap: 14 }}>
+            <PreContractTrainingFields hideToggle value={pct} onChange={setPct}/>
+          </div>
+        </Modal>
+      )}
 
       {showHardDeleteModal && info && (
         <Modal icon={I.Trash} tone="danger" size="sm"

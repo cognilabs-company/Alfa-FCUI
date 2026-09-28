@@ -74,6 +74,11 @@ export async function apiGetStudentAttendance(id, params = {}) {
   return apiFetch(`/students/${id}/attendance${q ? '?' + q : ''}`);
 }
 
+/** Guide §3: a pre-contract training payment added after the student exists. */
+export async function apiCreatePreContractTrainingPayment(id, data) {
+  return apiFetch(`/students/${id}/pre-contract-training-payments`, { method: 'POST', body: JSON.stringify(data) });
+}
+
 export async function apiGetStudentTransactions(id) {
   return apiFetch(`/students/${id}/transactions`);
 }

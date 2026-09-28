@@ -98,6 +98,10 @@ export function TransactionsScreen({ onToast } = {}) {
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState('');
   const [source, setSource] = React.useState('');
+  const [paymentType, setPaymentType] = React.useState('');
+  // Only pre-contract training distinguishes these: is the payer a student on a
+  // contract, or a child still waiting for their documents?
+  const [pctStudentType, setPctStudentType] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('');
   const [scope, setScope] = React.useState('all');
   // Other pages can open this one pre-filtered (e.g. Reports → "today's revenue")
@@ -149,6 +153,8 @@ export function TransactionsScreen({ onToast } = {}) {
       } else {
         const params = { page, page_size: 50 };
         if (source) params.source = source;
+        if (paymentType) params.payment_type = paymentType;
+        if (paymentType === 'pre_contract_training' && pctStudentType) params.pre_contract_training_student_type = pctStudentType;
         if (statusFilter) params.status = statusFilter;
         if (fromDate) params.from_date = fromDate + 'T00:00:00';
         if (toDate) params.to_date = toDate + 'T23:59:59';
@@ -168,7 +174,7 @@ export function TransactionsScreen({ onToast } = {}) {
     apiGetTransactionStats().then(r => setStats(r?.data || null)).catch(() => {});
   }
 
-  React.useEffect(() => { loadData(); }, [scope, source, statusFilter, fromDate, toDate, paymentYear, page]);
+  React.useEffect(() => { loadData(); }, [scope, source, paymentType, pctStudentType, statusFilter, fromDate, toDate, paymentYear, page]);
 
   React.useEffect(() => {
     apiGetPendingStudents({ page: 1, page_size: 200, include_converted: true })
@@ -444,6 +450,27 @@ export function TransactionsScreen({ onToast } = {}) {
           ]}
         />
         <SearchableSelect
+          value={paymentType}
+          onChange={v => { setPaymentType(v); if (v !== 'pre_contract_training') setPctStudentType(''); setPage(1); }}
+          options={[
+            { value: '', label: t('tx_type_all') },
+            { value: 'monthly', label: t('tx_type_monthly') },
+            { value: 'initial', label: t('tx_type_initial') },
+            { value: 'pre_contract_training', label: t('tx_type_pre_contract') },
+          ]}
+        />
+        {paymentType === 'pre_contract_training' && (
+          <SearchableSelect
+            value={pctStudentType}
+            onChange={v => { setPctStudentType(v); setPage(1); }}
+            options={[
+              { value: '', label: t('pct_who_all') },
+              { value: 'student', label: t('pct_who_student') },
+              { value: 'pending_student', label: t('pct_who_pending') },
+            ]}
+          />
+        )}
+        <SearchableSelect
           value={statusFilter}
           onChange={v => { setStatusFilter(v); setPage(1); }}
           options={[
@@ -456,8 +483,8 @@ export function TransactionsScreen({ onToast } = {}) {
         <input className="input" type="number" placeholder={t('year_label')} value={paymentYear} onChange={e => { setPaymentYear(e.target.value); setPage(1); }} style={{ width: 96 }} />
         <DateInput value={fromDate} onChange={v => { setFromDate(v); setPage(1); }} placeholder={t('cal_from')} />
         <DateInput value={toDate} onChange={v => { setToDate(v); setPage(1); }} placeholder={t('cal_to')} />
-        {(source || statusFilter || fromDate || toDate || paymentYear) && (
-          <button className="btn ghost" onClick={() => { setSource(''); setStatusFilter(''); setFromDate(''); setToDate(''); setPaymentYear(''); setPage(1); }}>
+        {(source || paymentType || pctStudentType || statusFilter || fromDate || toDate || paymentYear) && (
+          <button className="btn ghost" onClick={() => { setSource(''); setPaymentType(''); setPctStudentType(''); setStatusFilter(''); setFromDate(''); setToDate(''); setPaymentYear(''); setPage(1); }}>
             <I.X size={14} /> {t('clear_filters')}
           </button>
         )}

@@ -34,8 +34,26 @@ export function preContractError(v) {
   return '';
 }
 
-/** Switch plus fields. `value` is shaped like emptyPreContract(). */
-export function PreContractTrainingFields({ enabled, onToggle, value, onChange }) {
+/** The body the JSON endpoints take (guide §2 and §3). */
+export function preContractPayload(v) {
+  return {
+    period_start_date: v.start_date,
+    period_end_date: v.end_date,
+    session_count: Number(v.session_count),
+    // left empty on purpose: the backend then bills count × price
+    amount: String(v.amount).trim() ? Number(v.amount) : undefined,
+    source: v.source || 'cash',
+    paid_at: v.paid_at || undefined,
+    comment: v.comment.trim() || undefined,
+  };
+}
+
+/**
+ * Switch plus fields. `value` is shaped like emptyPreContract().
+ * `hideToggle` drops the switch for a dialog that is only ever about this
+ * payment — the student profile's — where there is nothing to switch off.
+ */
+export function PreContractTrainingFields({ enabled, onToggle, value, onChange, hideToggle = false }) {
   const I = Icon;
   const { t } = useT();
   const set = (k, v) => onChange({ ...value, [k]: v });
@@ -44,8 +62,11 @@ export function PreContractTrainingFields({ enabled, onToggle, value, onChange }
   const suggested = count > 0 ? count * PRE_CONTRACT_PRICE_PER_SESSION : 0;
   const typed = String(value.amount).trim() === '' ? null : Number(value.amount);
 
+  const open = hideToggle || enabled;
+
   return (
     <div className="col-span-2">
+      {!hideToggle && (
       <div className={'opt-card' + (enabled ? ' on' : '')}>
         <label className="switch" title={t('pct_toggle')}>
           <input type="checkbox" checked={enabled} onChange={e => onToggle(e.target.checked)}/>
@@ -56,8 +77,9 @@ export function PreContractTrainingFields({ enabled, onToggle, value, onChange }
           <div className="opt-desc">{t('pct_hint')}</div>
         </div>
       </div>
+      )}
 
-      {enabled && (
+      {open && (
         <div className="grid-2" style={{ gap: 14, marginTop: 14 }}>
           <div className="field">
             <label>{t('pct_start')} <span className="req">*</span></label>
