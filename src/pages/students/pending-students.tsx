@@ -35,7 +35,7 @@ function firstOfNextMonth(iso = todayISO()) {
 }
 
 const emptyPending = {
-  first_name: '', last_name: '', phone: '', date_of_birth: '', document_due_date: '',
+  first_name: '', last_name: '', phone: '', date_of_birth: '',
 };
 const emptyComplete = {
   first_name: '', last_name: '', date_of_birth: '', height: '', weight: '',
@@ -48,7 +48,8 @@ const emptyComplete = {
 /**
  * How close the deadline is. The backend sends days_until_due / is_overdue;
  * both are recomputed from the date when they are missing so the badge never
- * goes blank on an older response.
+ * goes blank on an older response. The due date itself is optional: without
+ * one there is no deadline, so no badge at all.
  */
 function dueState(row) {
   if (row.converted_at || row.converted_student_id) return { key: 'done', tone: 'success' };
@@ -58,7 +59,7 @@ function dueState(row) {
     const now = new Date();
     days = Math.round((due - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
   }
-  if (days == null) return { key: 'ontime', tone: 'neutral', days: null };
+  if (days == null) return { key: 'none' };
   if (days < 0 || row.is_overdue) return { key: 'overdue', tone: 'danger', days };
   if (days === 0) return { key: 'today', tone: 'warning', days };
   if (days <= 2) return { key: 'soon', tone: days === 1 ? 'warning' : 'info', days };
@@ -69,6 +70,7 @@ function StateBadge({ row, t, tp }) {
   const I = Icon;
   const s = dueState(row);
   if (s.key === 'done') return <Badge tone="success" icon={I.CheckCircle}>{t('ps_state_done')}</Badge>;
+  if (s.key === 'none') return <span style={{ color: 'var(--muted)' }}>—</span>;
   if (s.key === 'overdue') return <Badge tone="danger" icon={I.AlertCircle}>{t('ps_state_overdue')}</Badge>;
   if (s.key === 'today') return <Badge tone="warning" icon={I.Clock}>{t('ps_state_today')}</Badge>;
   if (s.key === 'soon') return <Badge tone={s.tone} icon={I.Clock}>{tp('ps_state_days_left', s.days)}</Badge>;
@@ -233,7 +235,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
     setForm({
       ...emptyPending,
       first_name: r.first_name || '', last_name: r.last_name || '', phone: r.phone || '',
-      date_of_birth: r.date_of_birth || '', document_due_date: r.document_due_date || '',
+      date_of_birth: r.date_of_birth || '',
       group_id: String(r.group_id || ''),
     });
     // payments are taken once, when the record is opened
@@ -243,7 +245,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
   }
 
   async function savePending() {
-    if (!form.first_name.trim() || !form.last_name.trim() || !form.document_due_date) {
+    if (!form.first_name.trim() || !form.last_name.trim()) {
       notify.error(t('toast_required'));
       return;
     }
@@ -257,7 +259,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
         last_name: form.last_name.trim(),
         phone: form.phone.trim() || undefined,
         date_of_birth: form.date_of_birth || undefined,
-        document_due_date: form.document_due_date,
       };
       if (withPayment) {
         payload.pre_contract_training = {
@@ -557,10 +558,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
             <div className="field">
               <label>{t('field_birth_date')}</label>
               <DateInput value={form.date_of_birth} onChange={v => setF('date_of_birth', v)}/>
-            </div>
-            <div className="field col-span-2">
-              <label>{t('ps_due_label')} <span className="req">*</span></label>
-              <DateInput value={form.document_due_date} onChange={v => setF('document_due_date', v)}/>
             </div>
             {!editing && (
               <PreContractTrainingFields enabled={preTraining} onToggle={setPreTraining} value={pct} onChange={setPct}/>
