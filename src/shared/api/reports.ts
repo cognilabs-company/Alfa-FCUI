@@ -25,6 +25,11 @@ export async function apiGetFinanceReport(params = {}) {
   return apiFetch(`/reports/finance${q ? '?' + q : ''}`);
 }
 
+export async function apiGetProfitReport(params = {}) {
+  const q = new URLSearchParams(params).toString();
+  return apiFetch(`/reports/profit${q ? '?' + q : ''}`);
+}
+
 export async function apiGetReportsSummary() {
   return unwrapData(await apiGetDashboard()) || {};
 }

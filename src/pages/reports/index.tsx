@@ -72,6 +72,7 @@ import {
   apiCreateManualTransactionWithProof,
   apiGetWaitingListNext,
   apiGetAuditLogs,
+  apiGetProfitReport,
 } from '@/shared/api';
 
 import { fmt, fmtMln, fmtMoneyRoll, monthLabel, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
@@ -97,6 +98,12 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
   const [payersMonth, setPayersMonth] = React.useState('');
   const [payersGroup, setPayersGroup] = React.useState('');
   const [debtorsGroup, setDebtorsGroup] = React.useState('');
+  const [profit, setProfit] = React.useState(null);
+  const [profitLoading, setProfitLoading] = React.useState(false);
+  const [profitError, setProfitError] = React.useState('');
+  const [profitFrom, setProfitFrom] = React.useState(() => toLocalISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
+  const [profitTo, setProfitTo] = React.useState(() => toLocalISO(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)));
+
   const [attFrom, setAttFrom] = React.useState('');
   const [attTo, setAttTo] = React.useState('');
   const [groups, setGroups] = React.useState([]);
@@ -108,6 +115,18 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
   });
   const [financeTo, setFinanceTo] = React.useState(todayISO());
   const loadedOnce = React.useRef(false);
+
+  React.useEffect(() => {
+    if (tab !== 'profit') return;
+    let cancelled = false;
+    setProfitLoading(true);
+    setProfitError('');
+    apiGetProfitReport({ from_date: profitFrom, to_date: profitTo })
+      .then(res => { if (!cancelled) setProfit(res?.data || null); })
+      .catch(e => { if (!cancelled) { setProfit(null); setProfitError(e.message); } })
+      .finally(() => { if (!cancelled) setProfitLoading(false); });
+    return () => { cancelled = true; };
+  }, [tab, profitFrom, profitTo]);
 
   React.useEffect(() => {
     let mounted = true;
@@ -260,6 +279,7 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
             { id: 'dashboard', label: t('rpt_dashboard') },
             { id: 'analytics', label: t('rpt_analytics') },
             { id: 'finance', label: t('rpt_finance') },
+            { id: 'profit', label: t('rpt_profit') },
             { id: 'attendance', label: t('rpt_attendance') },
             { id: 'debtors', label: t('rpt_debtors') },
             { id: 'payers', label: t('rpt_payers') },
@@ -421,6 +441,69 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
           )}
         </div>
       )}
+
+      {tab === 'profit' && (() => {
+        const sf = profit?.student_finance || {};
+        const ex = profit?.expenses || {};
+        const pr = profit?.payroll || {};
+        const pf = profit?.profit || {};
+        const money = (v) => (v == null ? '—' : `${fmt.format(Math.round(Number(v)))} ${t('currency')}`);
+        const num = (v) => (v == null ? null : Number(v));
+        return (
+          <div>
+            <div className="toolbar" style={{ marginBottom: 14 }}>
+              <DateInput value={profitFrom} onChange={v => setProfitFrom(v || profitFrom)} placeholder={t('cal_from')} />
+              <DateInput value={profitTo} onChange={v => setProfitTo(v || profitTo)} placeholder={t('cal_to')} />
+              <span className="chip">{t('pf_sub')}</span>
+            </div>
+
+            {profitError && <div className="alert danger" style={{ marginBottom: 14 }}><I.AlertTriangle size={16} /> <span>{profitError}</span></div>}
+            {profitLoading && <div className="empty loading" style={{ padding: 48 }}>{t('loading')}</div>}
+
+            {!profitLoading && !profit && !profitError && <div className="card empty" style={{ padding: 48 }}>{t('pf_empty')}</div>}
+
+            {!profitLoading && profit && (
+              <>
+                <div className="grid-2" style={{ marginBottom: 16 }}>
+                  <Stat feature label={t('pf_net_expected')} icon={I.TrendingUp}
+                    tone={num(pf.net_profit_expected) < 0 ? 'danger' : 'success'}
+                    value={num(pf.net_profit_expected)} format={fmtMoneyRoll}
+                    sub={`${money(pf.net_profit_expected)} · ${t('pf_net_expected_hint')}`} />
+                  <Stat feature label={t('pf_net_cash')} icon={I.HandCoins}
+                    tone={num(pf.net_profit_cash) < 0 ? 'danger' : 'success'}
+                    value={num(pf.net_profit_cash)} format={fmtMoneyRoll}
+                    sub={`${money(pf.net_profit_cash)} · ${t('pf_net_cash_hint')}`} />
+                </div>
+
+                <div className="section-label">{t('pf_student_finance')}</div>
+                <div className="grid-4" style={{ marginBottom: 16 }}>
+                  <Stat label={t('pf_expected_revenue')} icon={I.Receipt} value={num(sf.expected_revenue)} format={fmtMoneyRoll} sub={money(sf.expected_revenue)} />
+                  <Stat label={t('pf_cash_collected')} tone="success" icon={I.Wallet} value={num(sf.cash_collected)} format={fmtMoneyRoll} sub={money(sf.cash_collected)} />
+                  <Stat label={t('pf_paid_allocated')} icon={I.Check} value={num(sf.paid_revenue_allocated)} format={fmtMoneyRoll} sub={money(sf.paid_revenue_allocated)} />
+                  <Stat label={t('pf_student_debt')} tone="danger" icon={I.AlertCircle} value={num(sf.student_debt)} format={fmtMoneyRoll} sub={money(sf.student_debt)} />
+                </div>
+
+                <div className="section-label">{t('pf_expenses')}</div>
+                <div className="grid-4" style={{ marginBottom: 16 }}>
+                  <Stat label={t('pf_exp_expected')} tone="warning" icon={I.Coins} value={num(ex.expected_total)} format={fmtMoneyRoll} sub={money(ex.expected_total)} />
+                  <Stat label={t('pf_exp_actual')} tone="warning" icon={I.Coins} value={num(ex.actual_total)} format={fmtMoneyRoll} sub={money(ex.actual_total)} />
+                  <Stat label={t('pf_exp_one_time')} icon={I.Receipt} value={num(ex.one_time_total)} format={fmtMoneyRoll} sub={money(ex.one_time_total)} />
+                  <Stat label={t('pf_exp_rec_paid')} icon={I.Repeat} value={num(ex.recurring_paid_total)} format={fmtMoneyRoll}
+                    sub={`${t('pf_exp_rec_expected')}: ${money(ex.recurring_expected_total)}`} />
+                </div>
+
+                <div className="section-label">{t('pf_payroll')}</div>
+                <div className="grid-4" style={{ marginBottom: 16 }}>
+                  <Stat label={t('pf_pay_earned')} icon={I.Users} value={num(pr.earned_total)} format={fmtMoneyRoll} sub={money(pr.earned_total)} />
+                  <Stat label={t('pf_pay_paid')} tone="success" icon={I.HandCoins} value={num(pr.paid_total)} format={fmtMoneyRoll} sub={money(pr.paid_total)} />
+                  <Stat label={t('pf_pay_remaining')} tone={num(pr.remaining_total) > 0 ? 'warning' : 'default'} icon={I.Clock}
+                    value={num(pr.remaining_total)} format={fmtMoneyRoll} sub={money(pr.remaining_total)} />
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {tab === 'debtors' && (
         <div>

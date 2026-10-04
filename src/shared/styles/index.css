@@ -1042,6 +1042,8 @@ table .icon-btn { width: 32px; height: 32px; }
 .stat.feature .stat-value { color: var(--accent); }
 .stat.feature .stat-icon { background: var(--accent); color: var(--accent-contrast); }
 .stat.feature .stat-arrow { color: rgba(238, 242, 236, 0.6); }
+.stat.feature.tone-danger .stat-value { color: #FF8A80; }
+.stat.feature.tone-danger .stat-icon { background: #FF8A80; color: #2A0A06; }
 [data-theme="dark"] .stat.feature { background-color: var(--surface-2); }
 
 /* ---------- Alerts ---------- */

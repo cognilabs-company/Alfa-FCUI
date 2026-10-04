@@ -33,3 +33,27 @@ export async function apiDeleteExpense(id) {
 export async function apiGetExpensesSummary(params = {}) {
   return apiFetch(`/expenses/summary${query(params)}`);
 }
+
+export async function apiGetRecurringExpenses(params = {}) {
+  return apiFetch(`/expenses/recurring${query(params)}`);
+}
+
+export async function apiCreateRecurringExpense(data) {
+  return apiFetch('/expenses/recurring', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function apiUpdateRecurringExpense(id, data) {
+  return apiFetch(`/expenses/recurring/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+}
+
+export async function apiDeleteRecurringExpense(id) {
+  return apiFetch(`/expenses/recurring/${id}`, { method: 'DELETE' });
+}
+
+export async function apiGetRecurringOccurrences(params = {}) {
+  return apiFetch(`/expenses/recurring/occurrences${query(params)}`);
+}
+
+export async function apiCreateExpenseFromRecurring(id, data) {
+  return apiFetch(`/expenses/recurring/${id}/create-expense`, { method: 'POST', body: JSON.stringify(data) });
+}
