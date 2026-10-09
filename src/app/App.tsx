@@ -295,7 +295,7 @@ function AppShell() {
           {route === 'waiting-list' && <WaitingListScreen onToast={showToast}/>}
           {route === 'payroll' && (
             <PayrollScreen onToast={showToast}
-              canManage={hasPerm(T.role, 'payroll:manage') || permissions.some(p => (typeof p === 'string' ? p : p?.code || p?.name) === 'payroll:manage')}/>
+              canManage={hasPerm(T.role, 'finance:expenses:edit') || permissions.some(p => (typeof p === 'string' ? p : p?.code || p?.name) === 'finance:expenses:edit')}/>
           )}
           {route === 'expenses' && (
             <ExpensesScreen onToast={showToast}

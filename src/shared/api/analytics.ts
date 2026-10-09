@@ -6,7 +6,7 @@ import { apiGetStudents } from './students';
 import { apiGetGroupsForSelect } from './groups';
 import { apiGetSessions } from './sessions';
 import { apiGetContractStats } from './contracts';
-import { apiGetExpensesSummary } from './expenses';
+import { apiGetExpensesMonthly } from './expenses';
 
 /**
  * Analytics data loader.
@@ -114,7 +114,7 @@ export async function loadAnalytics({ fromDate, toDate, months = 6 } = {}) {
       apiGetExpectedVsCollected(range),
       apiGetStudentsDynamics({ ...range, group_by: 'month' }),
       apiGetAttendanceDynamics({ ...range, group_by: 'week' }),
-      apiGetExpensesSummary(range),
+      apiGetExpensesMonthly(range),
     ]);
 
   const revenueSeries = listOf(revenue);
