@@ -4,7 +4,6 @@ import { Icon } from '@/shared/ui/icons';
 import { useT } from '@/shared/i18n/lang';
 import { CountUp } from '@/shared/ui/count-up';
 import { Badge } from '@/shared/ui/status';
-import { apiGetCoaches, apiGetUsers } from '@/shared/api';
 import { fmt, fmtMoneyRoll, monthLabel, monthShort } from '@/shared/lib/format';
 import { EXPENSE_METHODS, STATUS_TONE, digitsOnly } from '@/shared/lib/expenses';
 
@@ -13,7 +12,7 @@ export function useMoney() {
   return React.useCallback((v) => `${fmt.format(Math.round(Number(v) || 0))} ${t('currency')}`, [t]);
 }
 
-export function ExpenseTotals({ payable = 0, paid = 0, unpaid = 0, total = 0, unpaidCount = 0, loading, caption }) {
+export function ExpenseTotals({ payable = 0, paid = 0, unpaid = 0, total = 0, unpaidCount = 0, loading, caption, countKey = 'exp_count_sfx' }) {
   const { t, tp } = useT();
   const ratio = payable > 0 ? Math.min(1, Math.max(0, paid / payable)) : 0;
   const figures = [
@@ -35,7 +34,7 @@ export function ExpenseTotals({ payable = 0, paid = 0, unpaid = 0, total = 0, un
       <div className="et-meter">
         <div className="et-track"><i style={{ width: `${ratio * 100}%` }}/></div>
         <div className="et-foot">
-          <span>{total} {tp('exp_count_sfx', total)} · {unpaidCount} {tp('exp_unpaid_sfx', unpaidCount)}{caption ? ` · ${caption}` : ''}</span>
+          <span>{total} {tp(countKey, total)} · {unpaidCount} {tp('exp_unpaid_sfx', unpaidCount)}{caption ? ` · ${caption}` : ''}</span>
           <b>{Math.round(ratio * 100)}% {t('exp_totals_settled')}</b>
         </div>
       </div>
@@ -128,38 +127,4 @@ export function ActionTile({ icon: Ic, label, hint, primary, onClick, href, disa
   const cls = 'action-tile' + (primary ? ' primary' : '');
   if (href) return <a className={cls} href={href}>{body}</a>;
   return <button type="button" className={cls} onClick={onClick} disabled={disabled}>{body}</button>;
-}
-
-const roleNames = (u) => (u?.roles || []).map(r => String(r?.name || r || '').toLowerCase());
-
-async function fetchStaff() {
-  const out = [];
-  for (let page = 1; page <= 5; page++) {
-    const res = await apiGetUsers({ page, page_size: 100 });
-    const rows = res?.data || [];
-    out.push(...rows);
-    const pages = Number(res?.meta?.total_pages) || 1;
-    if (page >= pages || rows.length === 0) break;
-  }
-  return out.filter(u => !roleNames(u).includes('coach') && String(u.status || '').toLowerCase() !== 'deleted');
-}
-
-export function useEmployees(enabled = true) {
-  const [state, setState] = React.useState({ coaches: [], staff: [], staffError: false, loading: false });
-  React.useEffect(() => {
-    if (!enabled) return;
-    let alive = true;
-    setState(s => ({ ...s, loading: true }));
-    Promise.allSettled([apiGetCoaches(), fetchStaff()]).then(([c, s]) => {
-      if (!alive) return;
-      setState({
-        coaches: c.status === 'fulfilled' ? (c.value?.data || []) : [],
-        staff: s.status === 'fulfilled' ? s.value : [],
-        staffError: s.status === 'rejected',
-        loading: false,
-      });
-    });
-    return () => { alive = false; };
-  }, [enabled]);
-  return state;
 }
