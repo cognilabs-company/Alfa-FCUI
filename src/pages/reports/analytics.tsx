@@ -32,7 +32,7 @@ function Delta({ value, t }) {
   );
 }
 
-function ChartCard({ title, sub, value, delta: d, span, children, right, t }) {
+export function ChartCard({ title, sub, value, delta: d, span, children, right, t }) {
   return (
     <div className={'chart-card' + (span ? ' span-2' : '')}>
       <div className="chart-card-head">

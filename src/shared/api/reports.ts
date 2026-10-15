@@ -82,3 +82,16 @@ export async function apiDownloadDebtors(params = {}) {
 export async function apiDownloadPayers(params = {}) {
   return (await apiBlob(withQuery('/reports/payers/export', params))).blob;
 }
+
+// FRONTEND_FINANCE_API.md §1 — the month-by-month money screens
+export async function apiGetMonthlyLedger(params = {}) {
+  return apiFetch(withQuery('/reports/monthly-ledger', params));
+}
+
+export async function apiGetProfitTrend(params = {}) {
+  return apiFetch(withQuery('/reports/profit-trend', params));
+}
+
+export async function apiGetStudentPayments(params = {}) {
+  return apiFetch(withQuery('/reports/student-payments', params));
+}

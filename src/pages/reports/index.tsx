@@ -79,9 +79,12 @@ import { fmt, fmtMln, fmtMoneyRoll, monthLabel, monthShort, toLocalISO, todayISO
 import { paymentSourceLabel } from '@/shared/lib/labels';
 import { Stat } from '@/shared/ui/stat';
 import { AnalyticsTab } from './analytics';
+import { LedgerTab } from './ledger';
+import { StudentPaymentsTab } from './student-payments';
+import { ProfitTrendCard } from './profit-trend';
 import { avatarColor } from '@/shared/lib/avatar';
 
-export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
+export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
   const I = Icon;
   const { t, tp } = useT();
   const [tab, setTab] = React.useState(initialTab);
@@ -276,10 +279,12 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="tabs">
           {[
+            { id: 'ledger', label: t('lg_tab') },
             { id: 'dashboard', label: t('rpt_dashboard') },
             { id: 'analytics', label: t('rpt_analytics') },
             { id: 'finance', label: t('rpt_finance') },
             { id: 'profit', label: t('rpt_profit') },
+            { id: 'student-payments', label: t('sp_tab') },
             { id: 'attendance', label: t('rpt_attendance') },
             { id: 'debtors', label: t('rpt_debtors') },
             { id: 'payers', label: t('rpt_payers') },
@@ -318,7 +323,11 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
         </div>
       )}
 
+      {tab === 'ledger' && <LedgerTab onNav={onNav}/>}
+
       {tab === 'analytics' && <AnalyticsTab onNav={onNav}/>}
+
+      {tab === 'student-payments' && <StudentPaymentsTab groups={groups}/>}
 
       {tab === 'finance' && (
         <div>
@@ -501,6 +510,8 @@ export function ReportsScreen({ initialTab = 'dashboard', onNav } = {}) {
                 </div>
               </>
             )}
+
+            <ProfitTrendCard/>
           </div>
         );
       })()}
