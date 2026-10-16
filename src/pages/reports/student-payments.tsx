@@ -71,6 +71,8 @@ export function StudentPaymentsTab({ groups = [] }) {
   const items = data?.items || [];
   const sum = data?.summary || {};
   const pg = data?.pagination || {};
+  // the server names the span its totals cover ("Shartnoma boshidan bugungacha", "2026-yil")
+  const periodLabel = data?.period?.label || (year ? String(year) : t('sp_since_contract'));
   const statusTabs = [
     { key: 'all', label: t('all'), icon: I.Stack },
     { key: 'unpaid', label: t('sp_tab_debtors'), icon: I.AlertCircle },
@@ -92,6 +94,7 @@ export function StudentPaymentsTab({ groups = [] }) {
             <I.X size={14}/> {t('clear_filters')}
           </button>
         )}
+        {data && <span className="chip"><Icon.Calendar size={12}/> {periodLabel}</span>}
         {loading && data && <span className="toolbar-meta">{t('loading')}</span>}
       </div>
 
@@ -100,12 +103,12 @@ export function StudentPaymentsTab({ groups = [] }) {
       <div className="grid-4" style={{ marginBottom: 14 }}>
         <Stat feature label={t('sp_students')} icon={I.Users} value={data ? num(sum.students_total) : '—'}
           sub={data ? `${num(sum.fully_paid_count)} ${t('sp_tab_paid').toLowerCase()} · ${num(sum.partial_count)} ${t('exp_status_partial').toLowerCase()} · ${num(sum.unpaid_count)} ${t('exp_status_unpaid').toLowerCase()}` : null}/>
-        <Stat label={t('lg_income_expected')} icon={I.Receipt} value={data ? num(sum.expected_total) : '—'} format={fmtMoneyRoll} unit={data ? t('currency') : undefined}
-          sub={data ? money(sum.expected_total) : null}/>
+        <Stat label={t('sp_expected_total')} icon={I.Receipt} value={data ? num(sum.expected_total) : '—'} format={fmtMoneyRoll} unit={data ? t('currency') : undefined}
+          sub={data ? `${money(sum.expected_total)} · ${periodLabel}` : null}/>
         <Stat label={t('exp_totals_paid')} tone="success" icon={I.HandCoins} value={data ? num(sum.paid_total) : '—'} format={fmtMoneyRoll} unit={data ? t('currency') : undefined}
           sub={data ? `${money(sum.paid_total)}${num(sum.expected_total) > 0 ? ` · ${Math.round((num(sum.paid_total) / num(sum.expected_total)) * 100)}% ${t('lg_collected_share')}` : ''}` : null}/>
         <Stat label={t('rpt_total_debt')} tone="danger" icon={I.AlertCircle} value={data ? num(sum.debt_total) : '—'} format={fmtMoneyRoll} unit={data ? t('currency') : undefined}
-          sub={data ? money(sum.debt_total) : null}/>
+          sub={data ? `${money(sum.debt_total)} · ${periodLabel}` : null}/>
       </div>
 
       <div className="seg" style={{ marginBottom: 12 }}>

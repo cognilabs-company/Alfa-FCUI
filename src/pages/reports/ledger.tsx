@@ -93,6 +93,8 @@ export function LedgerTab({ onNav }) {
   const tot = data?.totals || {};
   const pf = data?.profit || {};
   const rate = Math.round(num(income.collection_rate) * 100);
+  // every figure here is for one month — the response names which
+  const dataMonth = data?.period?.month ? `${monthLabel(num(data.period.month) - 1, lang)} ${data.period.year}` : periodName;
 
   return (
     <div>
@@ -109,11 +111,11 @@ export function LedgerTab({ onNav }) {
         <>
           <div className="grid-4" style={{ marginBottom: 14 }}>
             <Stat feature label={t('lg_income_expected')} icon={I.Receipt} value={num(income.expected)} format={fmtMoneyRoll} unit={t('currency')}
-              sub={`${money(income.expected)} · ${t('lg_income_expected_sub')}`}/>
+              sub={`${money(income.expected)} · ${dataMonth}`}/>
             <Stat label={t('lg_income_collected')} tone="success" icon={I.HandCoins} value={num(income.collected)} format={fmtMoneyRoll} unit={t('currency')}
               sub={`${money(income.collected)} · ${rate}% ${t('lg_collected_share')}`}/>
             <Stat label={t('lg_income_debt')} tone="danger" icon={I.AlertCircle} value={num(income.debt)} format={fmtMoneyRoll} unit={t('currency')}
-              sub={money(income.debt)} onClick={onNav ? () => onNav('reports-debtors') : undefined}/>
+              sub={`${money(income.debt)} · ${dataMonth}`} onClick={onNav ? () => onNav('reports-debtors') : undefined}/>
             <Stat label={t('lg_net_cash')} tone={num(pf.net_cash) < 0 ? 'danger' : 'success'} icon={I.TrendingUp}
               value={num(pf.net_cash)} format={fmtMoneyRoll} unit={t('currency')} sub={`${money(pf.net_cash)} · ${t('lg_net_cash_sub')}`}/>
           </div>

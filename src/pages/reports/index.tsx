@@ -75,7 +75,7 @@ import {
   apiGetProfitReport,
 } from '@/shared/api';
 
-import { fmt, fmtMln, fmtMoneyRoll, monthLabel, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
+import { fmt, fmtDate, fmtMln, fmtMoneyRoll, monthLabel, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
 import { paymentSourceLabel } from '@/shared/lib/labels';
 import { Stat } from '@/shared/ui/stat';
 import { AnalyticsTab } from './analytics';
@@ -316,7 +316,7 @@ export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
             onClick={() => setTab('debtors')}
             value={safeSummary.total_debtors != null ? Number(safeSummary.total_debtors) : '—'}
             sub={(safeSummary.total_debt ?? safeSummary.total_outstanding ?? safeSummary.outstanding_debt) != null
-              ? `${fmt.format(safeSummary.total_debt ?? safeSummary.total_outstanding ?? safeSummary.outstanding_debt)} ${t('currency')} ${t('rpt_total_debt')}`
+              ? `${fmt.format(safeSummary.total_debt ?? safeSummary.total_outstanding ?? safeSummary.outstanding_debt)} ${t('currency')} ${t('rpt_total_debt').toLowerCase()} · ${t('period_all_time')}`
               : null} />
           <Stat label={t('rpt_today_sessions')} icon={I.CalendarCheck} value={safeSummary.today_sessions != null ? Number(safeSummary.today_sessions) : '—'}
             onClick={() => onNav?.('sessions')} />
@@ -353,6 +353,8 @@ export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
                 label: t('rpt_total_debt'),
                 value: financeReport?.total_debt != null ? Number(financeReport.total_debt) : null,
                 money: true, icon: I.AlertCircle, tone: 'danger',
+                // not limited to the dates above: everything owed until today
+                sub: t('period_all_time'),
               },
               {
                 label: t('rpt_success_tx'),
@@ -360,7 +362,7 @@ export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
                 icon: I.Receipt, tone: 'default',
               },
             ].map((item) => (
-              <Stat key={item.label} label={item.label} icon={item.icon} tone={item.tone}
+              <Stat key={item.label} label={item.label} icon={item.icon} tone={item.tone} sub={item.sub}
                 value={item.value == null ? '—' : item.value}
                 unit={item.money && item.value != null ? t('currency') : undefined}/>
             ))}
@@ -458,6 +460,14 @@ export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
         const pf = profit?.profit || {};
         const money = (v) => (v == null ? '—' : `${fmt.format(Math.round(Number(v)))} ${t('currency')}`);
         const num = (v) => (v == null ? null : Number(v));
+        // the dates the server actually answered for: a whole month reads as its name
+        const range = (() => {
+          const f = profit?.from_date || profitFrom, to = profit?.to_date || profitTo;
+          const a = new Date(f + 'T00:00:00'), b = new Date(to + 'T00:00:00');
+          const wholeMonth = a.getDate() === 1 && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()
+            && b.getDate() === new Date(b.getFullYear(), b.getMonth() + 1, 0).getDate();
+          return wholeMonth ? `${monthLabel(a.getMonth())} ${a.getFullYear()}` : `${fmtDate(f)} – ${fmtDate(to)}`;
+        })();
         return (
           <div>
             <div className="toolbar" style={{ marginBottom: 14 }}>
@@ -486,10 +496,10 @@ export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
 
                 <div className="section-label">{t('pf_student_finance')}</div>
                 <div className="grid-4" style={{ marginBottom: 16 }}>
-                  <Stat label={t('pf_expected_revenue')} icon={I.Receipt} value={num(sf.expected_revenue)} format={fmtMoneyRoll} sub={money(sf.expected_revenue)} />
-                  <Stat label={t('pf_cash_collected')} tone="success" icon={I.Wallet} value={num(sf.cash_collected)} format={fmtMoneyRoll} sub={money(sf.cash_collected)} />
-                  <Stat label={t('pf_paid_allocated')} icon={I.Check} value={num(sf.paid_revenue_allocated)} format={fmtMoneyRoll} sub={money(sf.paid_revenue_allocated)} />
-                  <Stat label={t('pf_student_debt')} tone="danger" icon={I.AlertCircle} value={num(sf.student_debt)} format={fmtMoneyRoll} sub={money(sf.student_debt)} />
+                  <Stat label={t('pf_expected_revenue')} icon={I.Receipt} value={num(sf.expected_revenue)} format={fmtMoneyRoll} sub={`${money(sf.expected_revenue)} · ${range}`} />
+                  <Stat label={t('pf_cash_collected')} tone="success" icon={I.Wallet} value={num(sf.cash_collected)} format={fmtMoneyRoll} sub={`${money(sf.cash_collected)} · ${range}`} />
+                  <Stat label={t('pf_paid_allocated')} icon={I.Check} value={num(sf.paid_revenue_allocated)} format={fmtMoneyRoll} sub={`${money(sf.paid_revenue_allocated)} · ${range}`} />
+                  <Stat label={t('pf_student_debt')} tone="danger" icon={I.AlertCircle} value={num(sf.student_debt)} format={fmtMoneyRoll} sub={`${money(sf.student_debt)} · ${range}`} />
                 </div>
 
                 <div className="section-label">{t('pf_expenses')}</div>

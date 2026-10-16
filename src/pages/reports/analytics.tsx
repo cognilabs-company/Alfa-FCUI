@@ -219,7 +219,7 @@ export function AnalyticsTab({ onNav }) {
           onClick={() => onNav?.('transactions')}/>
         <Stat label={t('an_arpu')} value={arpu} format={fmtMoneyRoll} unit={t('currency')} icon={I.TrendUp} sub={t('an_arpu_sub')}/>
         <Stat label={t('rpt_total_debt')} value={totalDebt} format={fmtMoneyRoll} unit={t('currency')} tone="danger" icon={I.AlertCircle}
-          sub={`${debtorsCount} ${tp('rpt_debtors_count_sfx', debtorsCount)}`}
+          sub={`${debtorsCount} ${tp('rpt_debtors_count_sfx', debtorsCount)} · ${t('period_all_time')}`}
           onClick={() => onNav?.('reports-debtors')}/>
       </div>
 
