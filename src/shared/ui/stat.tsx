@@ -10,13 +10,14 @@ import { CountUp } from './count-up';
  * Numeric `value` rolls up from 0; pass `format(current, target)` for money etc.
  * `unit` renders a small suffix (e.g. so'm) next to an animated value.
  */
-export function Stat({ label, value, sub, tone = 'default', icon: Ic, feature = false, onClick, format, unit, children, delay = 0 }) {
+export function Stat({ label, value, sub, tone = 'default', icon: Ic, feature = false, onClick, format, unit, children, delay = 0, title }) {
   const toneClass = tone && tone !== 'default' && tone !== 'navy' ? ' tone-' + tone : '';
   const interactive = typeof onClick === 'function';
   const animated = typeof value === 'number' && Number.isFinite(value);
   return (
     <div
       className={'stat' + toneClass + (feature ? ' feature' : '') + (interactive ? ' clickable' : '')}
+      title={title}
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
       onClick={onClick}

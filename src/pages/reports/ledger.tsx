@@ -111,7 +111,10 @@ export function LedgerTab({ onNav }) {
         <>
           <div className="grid-4" style={{ marginBottom: 14 }}>
             <Stat feature label={t('lg_income_expected')} icon={I.Receipt} value={num(income.expected)} format={fmtMoneyRoll} unit={t('currency')}
-              sub={`${money(income.expected)} · ${dataMonth}`}/>
+              sub={`${money(income.expected)} · ${dataMonth}`} title={t('lg_expected_tip')}>
+              {/* the full monthly plan, before part-month joiners are prorated */}
+              {income.mrr != null && <div className="stat-sub">{t('lg_mrr_line').replace('{amount}', money(income.mrr))}</div>}
+            </Stat>
             <Stat label={t('lg_income_collected')} tone="success" icon={I.HandCoins} value={num(income.collected)} format={fmtMoneyRoll} unit={t('currency')}
               sub={`${money(income.collected)} · ${rate}% ${t('lg_collected_share')}`}/>
             <Stat label={t('lg_income_debt')} tone="danger" icon={I.AlertCircle} value={num(income.debt)} format={fmtMoneyRoll} unit={t('currency')}

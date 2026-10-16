@@ -409,7 +409,7 @@ export function AnalyticsTab({ onNav }) {
             <Meter label={t('an_collected_month')} value={thisMonth} max={mrr || thisMonth} format={money}
               tone={mrr && thisMonth / mrr >= 0.8 ? 'success' : mrr && thisMonth / mrr >= 0.5 ? 'accent' : 'warning'}/>
             <Meter label={t('an_paying_students')} value={payers} max={activeStudents || 1}
-              format={count} tone="accent" hint={`${activeStudents}`}/>
+              format={count} tone="accent" hint={t('an_active_of').replace('{n}', count(activeStudents))}/>
             <div className="chart-legend">
               <div><i style={{ background: 'var(--viz-accent)' }}/><span>{t('an_avg_check')}</span><b>{money(avgCheck)}</b></div>
               <div><i style={{ background: 'var(--viz-other)' }}/><span>{t('dashboard_transactions')}</span><b>{fmt.format(paidCount)}</b></div>

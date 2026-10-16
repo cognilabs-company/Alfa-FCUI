@@ -166,7 +166,7 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
         <PageIcon icon={I.FileText}/>
         <div>
           <h1 className="page-title">{t('contracts_title')}</h1>
-          <div className="page-sub">{totalCount} {tp('contracts_count_sfx', totalCount)}</div>
+          <div className="page-sub">{totalCount} {tp(tab === 'archived' ? 'contracts_archived_sfx' : 'contracts_active_sfx', totalCount)}</div>
         </div>
       </div>
 

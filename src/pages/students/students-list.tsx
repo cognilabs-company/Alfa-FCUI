@@ -221,7 +221,11 @@ export function StudentsList({ onOpen, onNew, onToast, onTab }) {
         <PageIcon icon={I.Student}/>
         <div>
           <h1 className="page-title">{t('students_title')}</h1>
-          <div className="page-sub">{t('students_sub')} {totalCount} {t('students_count')}</div>
+          <div className="page-sub">
+            {t('students_sub')} · {(q || status !== 'all' || groupId)
+              ? tp('students_filtered_count', totalCount)
+              : t('students_total_count').replace('{n}', String(totalCount))}
+          </div>
         </div>
         <div className="page-actions">
           {selected.length > 0 && !isDeletedStatusFilter && (
