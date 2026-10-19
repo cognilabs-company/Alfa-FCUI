@@ -9,10 +9,10 @@ import { Columns, Donut, ChartLegend } from '@/shared/ui/charts';
 import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { apiDeleteExpense, apiGetExpensesByCategories, apiGetExpensesReport } from '@/shared/api';
 import { fmt, fmtMln, monthLabel, monthShort } from '@/shared/lib/format';
-import { CATEGORY_COLOR, LEDGER_CATEGORIES, categoryLabel, expenseStatus } from '@/shared/lib/expenses';
+import { CATEGORY_COLOR, categoryLabel, expenseStatus } from '@/shared/lib/expenses';
 import {
-  BulkPayBar, ExpenseForm, ExpensePayDialog, ExpensePlansModal, ExpenseReceiptModal, ExpenseTable,
-  ExpenseTotals, PeriodNav, StatusSeg, runGenerate, usePeriod,
+  BulkPayBar, ExpenseCategoriesModal, ExpenseForm, ExpensePayDialog, ExpensePlansModal, ExpenseReceiptModal, ExpenseTable,
+  ExpenseTotals, PeriodNav, StatusSeg, runGenerate, useExpenseCategories, usePeriod,
 } from '@/widgets/expenses';
 
 const PAGE_SIZE = 20;
@@ -157,14 +157,21 @@ export function ExpensesScreen({ onToast, canEdit = true }) {
   const [payRow, setPayRow] = React.useState(null);
   const [form, setForm] = React.useState(null);
   const [plansOpen, setPlansOpen] = React.useState(false);
+  const [categoriesOpen, setCategoriesOpen] = React.useState(false);
   const [generating, setGenerating] = React.useState(false);
 
+  // Salaries are in payroll; every other category, switched-off ones too, since old rows keep theirs
+  const cats = useExpenseCategories();
+  const ledger = React.useMemo(() => (cats.items || []).filter(c => !c.is_salary), [cats.items]);
+  const ledgerKeys = ledger.map(c => c.key);
+  const activeOptions = ledger.filter(c => c.is_active).map(c => ({ value: c.key, label: c.label }));
+
   React.useEffect(() => {
-    if (tab !== 'list') return;
+    if (tab !== 'list' || !cats.items) return;
     let alive = true;
     setLoading(true);
     setLoadError('');
-    apiGetExpensesByCategories(category ? [category] : LEDGER_CATEGORIES, {
+    apiGetExpensesByCategories(category ? [category] : ledgerKeys, {
       ...period.params,
       status: status === 'all' ? undefined : status,
     })
@@ -176,7 +183,7 @@ export function ExpensesScreen({ onToast, canEdit = true }) {
       .catch(e => { if (alive) { setAllRows([]); setMeta(null); setLoadError(e.message); } })
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [tab, category, period.year, period.month, period.wholeYear, status, reloadKey]);
+  }, [tab, category, period.year, period.month, period.wholeYear, status, reloadKey, ledgerKeys.join(',')]);
 
   const totalPages = Math.max(1, Math.ceil(allRows.length / PAGE_SIZE));
   const rows = React.useMemo(() => allRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [allRows, page]);
@@ -211,7 +218,8 @@ export function ExpensesScreen({ onToast, canEdit = true }) {
     if (ok) refresh();
   }
 
-  const categoryOptions = [{ value: '', label: t('exp_all_categories') }, ...LEDGER_CATEGORIES.map(c => ({ value: c, label: categoryLabel(t, c) }))];
+  const categoryOptions = [{ value: '', label: t('exp_all_categories') },
+    ...ledger.map(c => ({ value: c.key, label: c.is_active ? c.label : `${c.label} (${t('status_inactive').toLowerCase()})` }))];
   const activeFilters = [!!category, status !== 'all'].filter(Boolean).length;
 
   return (
@@ -225,6 +233,7 @@ export function ExpensesScreen({ onToast, canEdit = true }) {
         {canEdit && tab === 'list' && (
           <div className="page-actions">
             <button className="btn" onClick={generate} disabled={generating}><I.CalendarCheck size={15}/> {t('exp_gen_action')}</button>
+            <button className="btn" onClick={() => setCategoriesOpen(true)}><I.Stack size={15}/> {t('exp_catm_btn')}</button>
             <button className="btn" onClick={() => setPlansOpen(true)}><I.Repeat size={15}/> {t('exp_plans_title')}</button>
             <button className="btn primary" onClick={() => setForm({ expense: null })}><I.Plus size={15}/> {t('exp_new')}</button>
           </div>
@@ -302,13 +311,18 @@ export function ExpensesScreen({ onToast, canEdit = true }) {
       {form && (
         <ExpenseForm expense={form.expense} mode="expenses"
           defaultYear={period.year} defaultMonth={period.wholeYear ? new Date().getMonth() + 1 : period.month}
-          employees={NO_EMPLOYEES}
+          employees={NO_EMPLOYEES} categoryOptions={activeOptions}
           onClose={() => setForm(null)}
           onSaved={(msg) => { setForm(null); done(msg); }}/>
       )}
 
+      {categoriesOpen && (
+        <ExpenseCategoriesModal canManage={canEdit} onClose={() => setCategoriesOpen(false)}
+          onChanged={() => { cats.reload(); refresh(); }}/>
+      )}
+
       {plansOpen && (
-        <ExpensePlansModal categories={LEDGER_CATEGORIES} canManage={canEdit} employees={NO_EMPLOYEES}
+        <ExpensePlansModal categories={ledgerKeys} categoryOptions={activeOptions} canManage={canEdit} employees={NO_EMPLOYEES}
           onClose={() => setPlansOpen(false)} onToast={onToast} onChanged={refresh}/>
       )}
     </div>

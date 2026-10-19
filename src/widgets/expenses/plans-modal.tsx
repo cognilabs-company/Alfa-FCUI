@@ -29,13 +29,15 @@ async function materialiseCurrentMonth(category, from) {
   return res?.data || null;
 }
 
-function PlanForm({ plan, categories, employees, takenIds, onClose, onSaved }) {
+function PlanForm({ plan, categories, categoryOptions, employees, takenIds, onClose, onSaved }) {
   const I = Icon;
   const { t } = useT();
   const money = useMoney();
   const editing = !!plan;
   const payroll = categories.every(isSalaryCategory);
-  const [category, setCategory] = React.useState(plan?.category || defaultCategory(categories));
+  // new plans pick from the active categories; `categories` also holds switched-off ones for the list
+  const options = categoryOptions?.length ? categoryOptions : categories.map(c => ({ value: c, label: categoryLabel(t, c) }));
+  const [category, setCategory] = React.useState(plan?.category || defaultCategory(options.map(o => o.value)));
   const [coachId, setCoachId] = React.useState(plan?.coach_id != null ? String(plan.coach_id) : '');
   const [title, setTitle] = React.useState(plan?.title || '');
   const [amount, setAmount] = React.useState(plan ? String(Math.round(plan.monthly_amount)) : '');
@@ -120,10 +122,10 @@ function PlanForm({ plan, categories, employees, takenIds, onClose, onSaved }) {
         <button className="btn primary" onClick={submit} disabled={saving}><I.Check size={14}/> {saving ? t('saving') : t('save')}</button>
       </>}>
       <div className="form-row">
-        {!editing && !payroll && categories.length > 1 && (
+        {!editing && !payroll && options.length > 1 && (
           <div className="field col-span-2"><label>{t('exp_category')} <span className="req">*</span></label>
             <SearchableSelect value={category} onChange={v => { setCategory(v); setTitle(''); }}
-              options={categories.map(c => ({ value: c, label: categoryLabel(t, c) }))}/>
+              options={options}/>
           </div>
         )}
         {salary ? (
@@ -165,7 +167,7 @@ function PlanForm({ plan, categories, employees, takenIds, onClose, onSaved }) {
   );
 }
 
-export function ExpensePlansModal({ categories, canManage, employees, onClose, onToast, onChanged }) {
+export function ExpensePlansModal({ categories, categoryOptions, canManage, employees, onClose, onToast, onChanged }) {
   const I = Icon;
   const { t } = useT();
   const money = useMoney();
@@ -221,7 +223,7 @@ export function ExpensePlansModal({ categories, canManage, employees, onClose, o
 
   if (form) {
     return (
-      <PlanForm plan={form.plan} categories={categories} employees={employees} takenIds={takenIds}
+      <PlanForm plan={form.plan} categories={categories} categoryOptions={categoryOptions} employees={employees} takenIds={takenIds}
         onClose={() => setForm(null)}
         onSaved={(msg) => { setForm(null); onToast?.(msg); load(); onChanged?.(); }}/>
     );

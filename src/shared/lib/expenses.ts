@@ -24,8 +24,10 @@ export const isSalaryCategory = (c) => SALARY_CATEGORIES.includes(c);
 
 export function categoryLabel(t, category, fallback) {
   if (!category) return t('exp_cat_other');
+  // categories are an admin-managed list now: the name the server sends wins
+  if (fallback) return fallback;
   if (EXPENSE_CATEGORIES.includes(category)) return t(`exp_cat_${category}`);
-  return fallback || category;
+  return category;
 }
 
 export function methodLabel(t, method) {

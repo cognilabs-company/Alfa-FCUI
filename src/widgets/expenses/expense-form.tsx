@@ -15,14 +15,17 @@ const yearOptions = () => {
   return Array.from({ length: 6 }, (_, i) => y + 1 - i).map(v => ({ value: String(v), label: String(v) }));
 };
 
-export function ExpenseForm({ expense, mode, wage = 'coach_salary', defaultYear, defaultMonth, employees, onClose, onSaved }) {
+export function ExpenseForm({ expense, mode, wage = 'coach_salary', defaultYear, defaultMonth, employees, categoryOptions, onClose, onSaved }) {
   const I = Icon;
   const { t } = useT();
   const editing = !!expense;
   const payroll = mode === 'payroll';
   const booksPayment = !editing && !payroll;
 
-  const [category, setCategory] = React.useState(expense?.category || (payroll ? wage : 'other'));
+  // the admin-managed list (active categories) when the page has it
+  const options = categoryOptions?.length ? categoryOptions : LEDGER_CATEGORIES.map(c => ({ value: c, label: categoryLabel(t, c) }));
+  const [category, setCategory] = React.useState(expense?.category
+    || (payroll ? wage : (options.find(o => o.value === 'other') || options[0])?.value || 'other'));
   const [coachId, setCoachId] = React.useState(expense?.coach_id != null ? String(expense.coach_id) : '');
   const [title, setTitle] = React.useState(expense?.title || '');
   const [year, setYear] = React.useState(expense?.period_year || defaultYear);
@@ -110,8 +113,7 @@ export function ExpenseForm({ expense, mode, wage = 'coach_salary', defaultYear,
       <div className="form-row">
         {!payroll && !editing && (
           <div className="field"><label>{t('exp_category')}</label>
-            <SearchableSelect value={category} onChange={setCategory}
-              options={LEDGER_CATEGORIES.map(c => ({ value: c, label: categoryLabel(t, c) }))}/>
+            <SearchableSelect value={category} onChange={setCategory} options={options}/>
           </div>
         )}
         {salary ? (

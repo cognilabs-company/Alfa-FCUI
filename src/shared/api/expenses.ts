@@ -10,6 +10,24 @@ const query = (params) => {
 
 const json = (method, data) => ({ method, body: JSON.stringify(data ?? {}) });
 
+// Expense categories are an admin-managed list (FRONTEND_EXPENSE_CATEGORIES.md):
+// expenses and plans keep the category's stable `key`, the list gives its label.
+export async function apiGetExpenseCategories(params = {}) {
+  return apiFetch(`/expense-categories${query(params)}`);
+}
+
+export async function apiCreateExpenseCategory(data) {
+  return apiFetch('/expense-categories', json('POST', data));
+}
+
+export async function apiUpdateExpenseCategory(id, data) {
+  return apiFetch(`/expense-categories/${id}`, json('PATCH', data));
+}
+
+export async function apiDeleteExpenseCategory(id) {
+  return apiFetch(`/expense-categories/${id}`, { method: 'DELETE' });
+}
+
 export async function apiGetExpensePlans(params = {}) {
   return apiFetch(`/expense-plans${query(params)}`);
 }

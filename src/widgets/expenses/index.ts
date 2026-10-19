@@ -6,3 +6,4 @@ export * from './plans-modal';
 export * from './expense-form';
 export * from './bulk-bar';
 export * from './toolbar';
+export * from './categories';
