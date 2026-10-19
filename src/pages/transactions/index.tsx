@@ -702,6 +702,8 @@ export function TransactionsScreen({ onToast, onOpenStudent } = {}) {
                     {!manualContractLoading && manualContractMatches.map((contract) => {
                       const { student: studentName, customer: customerName } = contractPeople(contract);
                       const displayName = studentName || customerName || `${t('student_num_prefix')}${contract.student_id || '-'}`;
+                      // the student's group, so two children with one name are told apart
+                      const group = contract.group_name || contract.custom_fields?.student?.group_name || null;
                       return (
                         <button
                           key={contract.id}
@@ -715,7 +717,10 @@ export function TransactionsScreen({ onToast, onOpenStudent } = {}) {
                           className="suggest-item"
                         >
                           <div className="row1">
-                            <strong>{displayName}</strong>
+                            <span className="suggest-who">
+                              <strong>{displayName}</strong>
+                              {group && <span className="suggest-group">· {group}</span>}
+                            </span>
                             <span className="chip">{contract.contract_number || '-'}</span>
                           </div>
                           <div className="row2">
