@@ -104,7 +104,7 @@ function contractPeople(contract) {
 // Uzbek names come with any of several apostrophes: G'ulom, Gʻulom, G’ulom
 const foldName = (s) => String(s || '').toLowerCase().replace(/[ʻʼ’‘`´]/g, "'").replace(/\s+/g, ' ').trim();
 
-export function TransactionsScreen({ onToast } = {}) {
+export function TransactionsScreen({ onToast, onOpenStudent } = {}) {
   const I = Icon;
   const { t, tp } = useT();
   const [rows, setRows] = React.useState([]);
@@ -506,7 +506,6 @@ export function TransactionsScreen({ onToast } = {}) {
           options={[
             { value: '', label: t('tx_st_all') },
             { value: 'success', label: t('tx_st_success') },
-            { value: 'pending', label: t('tx_st_pending') },
             { value: 'cancelled', label: t('tx_st_cancelled') },
           ]}
         />
@@ -547,7 +546,12 @@ export function TransactionsScreen({ onToast } = {}) {
                   </td>
                   <td className="num" style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>{fmtDateTime(tx.paid_at || tx.created_at)}</td>
                   <td style={{ fontWeight: 700 }}>
-                    {payerName(tx)}
+                    {/* the name leads to the student; the rest of the row still opens the payment */}
+                    {tx.student_id && onOpenStudent ? (
+                      <button type="button" className="name-link" onClick={(e) => { e.stopPropagation(); onOpenStudent(tx.student_id); }}>
+                        {payerName(tx)}
+                      </button>
+                    ) : payerName(tx)}
                     {!tx.student_id && tx.pending_student_id && (
                       <div className="muted" style={{ fontSize: 11.5, fontWeight: 600 }}>{t('ps_tab')}</div>
                     )}

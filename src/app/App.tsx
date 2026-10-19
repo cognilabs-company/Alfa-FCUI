@@ -281,7 +281,7 @@ function AppShell() {
           {route === 'performance' && <PerformanceTable/>}
           {route === 'contracts' && <ContractsScreen onOpenContract={(id) => { setContractId(id); setRoute('contracts-view'); }} onNavigateToStudent={(id) => { setStudentId(id); setRoute('students-profile'); }} onToast={showToast}/>}
           {route === 'contracts-view' && <ContractView contractId={contractId} onBack={() => navigate('contracts')} onToast={showToast} onNavigateToStudent={(id) => { setStudentId(id); setRoute('students-profile'); }}/>}
-          {route === 'transactions' && <TransactionsScreen onToast={showToast}/>}
+          {route === 'transactions' && <TransactionsScreen onToast={showToast} onOpenStudent={(id) => { setStudentId(id); setRoute('students-profile'); }}/>}
           {route === 'gate' && <GateScreen/>}
           {(route === 'users' || route === 'roles') && (
             <UsersScreen

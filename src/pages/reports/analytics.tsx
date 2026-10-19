@@ -128,7 +128,6 @@ export function AnalyticsTab({ onNav }) {
   const thisMonth = revenue[revenue.length - 1]?.value ?? (Number(k?.collected_this_month) || 0);
   const activeStudents = Number(k?.active_students ?? data?.summary?.active_students)
     || (data?.students || []).filter(s => String(s.status).toLowerCase() === 'active').length;
-  const arpu = Number(k?.arpu) || (activeStudents ? revenueTotal / months / activeStudents : 0);
   const avgCheck = Number(k?.avg_payment) || (paidCount ? revenueTotal / paidCount : 0);
   const payers = Number(k?.paying_students) || payingStudents(tx.filter(x => isPaid(x)));
 
@@ -212,14 +211,13 @@ export function AnalyticsTab({ onNav }) {
         </div>
       )}
 
-      <div className="grid-4" style={{ marginBottom: 14 }}>
+      <div className="grid-3" style={{ marginBottom: 14 }}>
         <Stat feature label={t('an_mrr')} value={mrr} format={fmtMoneyRoll} unit={t('currency')} icon={I.Money} sub={t('an_mrr_sub')}/>
         <Stat label={t('an_collected_month')} value={thisMonth} format={fmtMoneyRoll} unit={t('currency')} tone="success" icon={I.HandCoins}
           sub={mrr ? `${Math.round((thisMonth / mrr) * 100)}% ${t('an_of_mrr')}` : null}
           onClick={() => onNav?.('transactions')}/>
-        <Stat label={t('an_arpu')} value={arpu} format={fmtMoneyRoll} unit={t('currency')} icon={I.TrendUp} sub={t('an_arpu_sub')}/>
         <Stat label={t('rpt_total_debt')} value={totalDebt} format={fmtMoneyRoll} unit={t('currency')} tone="danger" icon={I.AlertCircle}
-          sub={`${debtorsCount} ${tp('rpt_debtors_count_sfx', debtorsCount)} · ${t('period_all_time')}`}
+          sub={`${debtorsCount} ${tp('rpt_debtors_count_sfx', debtorsCount)} · ${t('period_current_month')}`}
           onClick={() => onNav?.('reports-debtors')}/>
       </div>
 

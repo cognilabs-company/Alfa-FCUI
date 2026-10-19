@@ -23,14 +23,14 @@ function monthTag(label, lang) {
  * Reports → O'quvchilar to'lovi (GET /reports/student-payments): every student
  * with what they owed, paid and still owe, by month, with the totals above.
  */
-export function StudentPaymentsTab({ groups = [] }) {
+export function StudentPaymentsTab({ groups = [], initialStatus = 'all' }) {
   const I = Icon;
   const { t, tp, lang } = useT();
   const money = useMoney();
   const thisYear = new Date().getFullYear();
   const [year, setYear] = React.useState('');
   const [groupId, setGroupId] = React.useState('');
-  const [status, setStatus] = React.useState('all');
+  const [status, setStatus] = React.useState(initialStatus);
   const [page, setPage] = React.useState(1);
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);

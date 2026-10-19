@@ -3,8 +3,9 @@ import React from 'react';
 import { Icon } from '@/shared/ui/icons';
 import { useT } from '@/shared/i18n/lang';
 import { Stat } from '@/shared/ui/stat';
-import { apiGetMonthlyLedger } from '@/shared/api';
-import { fmt, fmtMoneyRoll, monthLabel } from '@/shared/lib/format';
+import { apiGetFinanceReport, apiGetMonthlyLedger } from '@/shared/api';
+import { fmt, fmtMoneyRoll, monthLabel, toLocalISO } from '@/shared/lib/format';
+import { paymentSourceLabel } from '@/shared/lib/labels';
 import { CATEGORY_COLOR, categoryLabel } from '@/shared/lib/expenses';
 import { ExpenseStatusBadge, useMoney } from '@/widgets/expenses';
 import { ChartCard } from './analytics';
@@ -57,6 +58,19 @@ export function LedgerTab({ onNav }) {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
   const [unsupported, setUnsupported] = React.useState(false);
+  // The former "Moliya hisoboti" for the same month: cash actually received
+  // by source, and the one debt figure every report agrees on.
+  const [finance, setFinance] = React.useState(null);
+
+  React.useEffect(() => {
+    let alive = true;
+    setFinance(null);
+    apiGetFinanceReport({
+      from_date: toLocalISO(new Date(period.year, period.month - 1, 1)),
+      to_date: toLocalISO(new Date(period.year, period.month, 0)),
+    }).then(res => alive && setFinance(res?.data || null)).catch(() => {});
+    return () => { alive = false; };
+  }, [period.year, period.month]);
 
   React.useEffect(() => {
     let alive = true;
@@ -92,7 +106,9 @@ export function LedgerTab({ onNav }) {
   const sal = data?.salaries || {};
   const tot = data?.totals || {};
   const pf = data?.profit || {};
-  const rate = Math.round(num(income.collection_rate) * 100);
+  const received = finance ? num(finance.total_revenue) : null;
+  // debt is the current month's only — earlier months are not carried — so it is shown for this month alone
+  const showDebt = period.isCurrent && finance?.total_debt != null;
   // every figure here is for one month — the response names which
   const dataMonth = data?.period?.month ? `${monthLabel(num(data.period.month) - 1, lang)} ${data.period.year}` : periodName;
 
@@ -109,21 +125,42 @@ export function LedgerTab({ onNav }) {
 
       {data && (
         <>
-          <div className="grid-4" style={{ marginBottom: 14 }}>
+          <div className={showDebt ? 'grid-4' : 'grid-3'} style={{ marginBottom: 14 }}>
             <Stat feature label={t('lg_income_expected')} icon={I.Receipt} value={num(income.expected)} format={fmtMoneyRoll} unit={t('currency')}
               sub={`${money(income.expected)} · ${dataMonth}`} title={t('lg_expected_tip')}>
               {/* the full monthly plan, before part-month joiners are prorated */}
               {income.mrr != null && <div className="stat-sub">{t('lg_mrr_line').replace('{amount}', money(income.mrr))}</div>}
             </Stat>
-            <Stat label={t('lg_income_collected')} tone="success" icon={I.HandCoins} value={num(income.collected)} format={fmtMoneyRoll} unit={t('currency')}
-              sub={`${money(income.collected)} · ${rate}% ${t('lg_collected_share')}`}/>
-            <Stat label={t('lg_income_debt')} tone="danger" icon={I.AlertCircle} value={num(income.debt)} format={fmtMoneyRoll} unit={t('currency')}
-              sub={`${money(income.debt)} · ${dataMonth}`} onClick={onNav ? () => onNav('reports-debtors') : undefined}/>
+            <Stat label={t('pf_cash_collected')} tone="success" icon={I.HandCoins} value={received ?? '—'} format={fmtMoneyRoll} unit={received != null ? t('currency') : undefined}
+              sub={received != null ? `${money(received)}${num(income.expected) > 0 ? ` · ${Math.round((received / num(income.expected)) * 100)}% ${t('lg_collected_share')}` : ''}` : null}/>
+            {showDebt && (
+              <Stat label={t('rpt_total_debt')} tone="danger" icon={I.AlertCircle} value={num(finance.total_debt)} format={fmtMoneyRoll} unit={t('currency')}
+                sub={`${money(finance.total_debt)} · ${t('period_current_month')}`} onClick={onNav ? () => onNav('reports-debtors') : undefined}/>
+            )}
             <Stat label={t('lg_net_cash')} tone={num(pf.net_cash) < 0 ? 'danger' : 'success'} icon={I.TrendingUp}
               value={num(pf.net_cash)} format={fmtMoneyRoll} unit={t('currency')} sub={`${money(pf.net_cash)} · ${t('lg_net_cash_sub')}`}/>
           </div>
 
           <div className="chart-grid-2" style={{ marginBottom: 14 }}>
+            {(finance?.breakdown || []).length > 0 && (
+              <ChartCard t={t} span title={t('lg_sources_title')} sub={dataMonth} value={money(received)}>
+                <div className="table-scroll">
+                  <table className="table compact-report-table">
+                    <thead><tr><th>{t('rpt_source_col')}</th><th style={{ textAlign: 'right' }}>{t('rpt_sum_col')}</th><th style={{ textAlign: 'right' }}>{t('rpt_count_col')}</th></tr></thead>
+                    <tbody>
+                      {finance.breakdown.map((b, i) => (
+                        <tr key={b.source || i} className="static">
+                          <td><span className="chip">{paymentSourceLabel(b.source, t)}</span></td>
+                          <td className="money" style={{ textAlign: 'right' }}>{fmt.format(Math.round(num(b.total_amount)))}</td>
+                          <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{num(b.transaction_count)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </ChartCard>
+            )}
+
             <ChartCard t={t} span title={t('lg_expenses_title')} sub={`${periodName} · ${t('lg_expenses_sub')}`}
               right={(
                 <div style={{ display: 'grid', gap: 6, justifyItems: 'end' }}>

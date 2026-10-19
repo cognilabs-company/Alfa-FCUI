@@ -3949,6 +3949,11 @@ button.choice { font-family: inherit; min-height: 38px; padding: 0 6px; }
 .carry-line .rl-left > span { font-weight: 750; }
 .carry-reason { color: var(--warning) !important; }
 .sp-months { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+
+/* A name inside a clickable row that leads somewhere else of its own */
+.name-link { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: 4px; text-decoration: underline transparent 1.5px; text-underline-offset: 3px; transition: color 120ms var(--ease), text-decoration-color 120ms var(--ease); }
+.name-link:hover { color: var(--accent-ink); text-decoration-color: currentColor; }
+.name-link:focus-visible { outline: none; box-shadow: var(--ring); }
 .sp-months .chip { font-size: 11px; }
 
 .action-list { display: grid; gap: 8px; margin-top: 14px; }

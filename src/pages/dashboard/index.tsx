@@ -225,12 +225,11 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
     };
   }, [analytics, t]);
 
-  const otherLabel = t('dash_other');
   const financeCells = [
     { label: t('dashboard_total_income'), value: Number(m30?.total_inflow) || 0, money: true, color: 'var(--success)', icon: I.TrendUp },
     { label: t('dashboard_transactions'), value: Number(m30?.successful_transactions) || 0, icon: I.Receipt },
     ...(m30?.source_breakdown?.map(s => ({
-      label: s.source === 'payme' ? 'Payme' : s.source === 'click' ? 'Click' : otherLabel,
+      label: paymentSourceLabel(s.source, t),
       value: Number(s.amount) || 0,
       money: true,
       dot: SOURCE_COLORS[s.source] || 'var(--muted)',
