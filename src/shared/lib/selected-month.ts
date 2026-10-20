@@ -8,10 +8,22 @@ import { toLocalISO } from './format';
  * October. Kept in memory only, so opening the app starts on the current month.
  */
 const nowMonth = () => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() + 1 }; };
-let selected = nowMonth();
+let selected = { ...nowMonth(), version: 0 };
 const listeners = new Set();
 const subscribe = (cb) => { listeners.add(cb); return () => listeners.delete(cb); };
-const select = (next) => { selected = next; listeners.forEach(l => l()); };
+const select = (next) => { selected = { version: selected.version, ...next }; listeners.forEach(l => l()); };
+
+// Coming back to the app after a while bumps `version`, so the money figures
+// are fetched again instead of showing what the server said before a fix.
+const STALE_MS = 30_000;
+let hiddenAt = 0;
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    if (hiddenAt && Date.now() - hiddenAt >= STALE_MS) select({ ...selected, version: selected.version + 1 });
+    hiddenAt = 0;
+  });
+}
 
 export function useSelectedMonth() {
   const sel = React.useSyncExternalStore(subscribe, () => selected);

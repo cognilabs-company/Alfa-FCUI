@@ -72,51 +72,27 @@ import {
   apiCreateManualTransactionWithProof,
   apiGetWaitingListNext,
   apiGetAuditLogs,
-  apiGetProfitReport,
 } from '@/shared/api';
 
-import { fmt, fmtDate, fmtMln, fmtMoneyRoll, monthLabel, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
 import { paymentSourceLabel } from '@/shared/lib/labels';
-import { Stat } from '@/shared/ui/stat';
 import { AnalyticsTab } from './analytics';
 import { LedgerTab } from './ledger';
 import { StudentPaymentsTab } from './student-payments';
-import { ProfitTrendCard } from './profit-trend';
-import { MonthNav } from '@/shared/ui/month-nav';
-import { useSelectedMonth } from '@/shared/lib/selected-month';
 import { avatarColor } from '@/shared/lib/avatar';
 
 export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
   const I = Icon;
   const { t } = useT();
   // Debtors and payers live in "To'lovlar" now, the dashboard and finance
-  // figures in "Moliya" — links to the old tabs land on their new home.
-  const legacy = { debtors: ['student-payments', 'unpaid'], payers: ['student-payments', 'paid'], dashboard: ['ledger'], finance: ['ledger'] };
+  // figures in "Moliya", the profit trend in "Analitika" — links to the old
+  // tabs land on their new home.
+  const legacy = { debtors: ['student-payments', 'unpaid'], payers: ['student-payments', 'paid'], dashboard: ['ledger'], finance: ['ledger'], profit: ['analytics'] };
   const [tab, setTab] = React.useState(() => legacy[initialTab]?.[0] || initialTab);
   const spInitialStatus = legacy[initialTab]?.[1] || 'all';
   const [attendanceGroups, setAttendanceGroups] = React.useState([]);
-  const [profit, setProfit] = React.useState(null);
-  const [profitLoading, setProfitLoading] = React.useState(false);
-  const [profitError, setProfitError] = React.useState('');
-  // Foyda covers the month chosen for every report (FRONTEND_OY_TANLAGICH.md)
-  const period = useSelectedMonth();
-  const profitFrom = period.monthStart;
-  const profitTo = period.monthEnd;
   const [attFrom, setAttFrom] = React.useState('');
   const [attTo, setAttTo] = React.useState('');
   const [groups, setGroups] = React.useState([]);
-
-  React.useEffect(() => {
-    if (tab !== 'profit') return;
-    let cancelled = false;
-    setProfitLoading(true);
-    setProfitError('');
-    apiGetProfitReport({ from_date: profitFrom, to_date: profitTo })
-      .then(res => { if (!cancelled) setProfit(res?.data || null); })
-      .catch(e => { if (!cancelled) { setProfit(null); setProfitError(e.message); } })
-      .finally(() => { if (!cancelled) setProfitLoading(false); });
-    return () => { cancelled = true; };
-  }, [tab, profitFrom, profitTo]);
 
   React.useEffect(() => {
     apiGetGroupsForSelect().then(r => setGroups(r?.data || [])).catch(() => {});
@@ -183,7 +159,6 @@ export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
           {[
             { id: 'ledger', label: t('lg_tab') },
             { id: 'analytics', label: t('rpt_analytics') },
-            { id: 'profit', label: t('rpt_profit') },
             { id: 'student-payments', label: t('sp_tab') },
             { id: 'attendance', label: t('rpt_attendance') },
           ].map(tb => (
@@ -236,73 +211,6 @@ export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
         </div>
       )}
 
-      {tab === 'profit' && (() => {
-        const sf = profit?.student_finance || {};
-        const ex = profit?.expenses || {};
-        const pr = profit?.payroll || {};
-        const pf = profit?.profit || {};
-        const money = (v) => (v == null ? '—' : `${fmt.format(Math.round(Number(v)))} ${t('currency')}`);
-        const num = (v) => (v == null ? null : Number(v));
-        // the dates the server actually answered for: a whole month reads as its name
-        const range = (() => {
-          const f = profit?.from_date || profitFrom, to = profit?.to_date || profitTo;
-          const a = new Date(f + 'T00:00:00'), b = new Date(to + 'T00:00:00');
-          const wholeMonth = a.getDate() === 1 && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()
-            && b.getDate() === new Date(b.getFullYear(), b.getMonth() + 1, 0).getDate();
-          return wholeMonth ? `${monthLabel(a.getMonth())} ${a.getFullYear()}` : `${fmtDate(f)} – ${fmtDate(to)}`;
-        })();
-        return (
-          <div>
-            <div className="toolbar" style={{ marginBottom: 14 }}>
-              <MonthNav period={period}/>
-              <span className="chip">{t('pf_sub')}</span>
-            </div>
-
-            {profitError && <div className="alert danger" style={{ marginBottom: 14 }}><I.AlertTriangle size={16} /> <span>{profitError}</span></div>}
-            {profitLoading && <div className="empty loading" style={{ padding: 48 }}>{t('loading')}</div>}
-
-            {!profitLoading && !profit && !profitError && <div className="card empty" style={{ padding: 48 }}>{t('pf_empty')}</div>}
-
-            {!profitLoading && profit && (
-              <>
-                <div className="grid-2" style={{ marginBottom: 16 }}>
-                  <Stat feature label={t('pf_net_expected')} icon={I.TrendingUp}
-                    tone={num(pf.net_profit_expected) < 0 ? 'danger' : 'success'}
-                    value={num(pf.net_profit_expected)} format={fmtMoneyRoll}
-                    sub={`${money(pf.net_profit_expected)} · ${t('pf_net_expected_hint')}`} />
-                  <Stat feature label={t('pf_net_cash')} icon={I.HandCoins}
-                    tone={num(pf.net_profit_cash) < 0 ? 'danger' : 'success'}
-                    value={num(pf.net_profit_cash)} format={fmtMoneyRoll}
-                    sub={`${money(pf.net_profit_cash)} · ${t('pf_net_cash_hint')}`} />
-                </div>
-
-                <div className="section-label">{t('pf_student_finance')}</div>
-                <div className="grid-2" style={{ marginBottom: 16 }}>
-                  <Stat label={t('pf_expected_revenue')} icon={I.Receipt} value={num(sf.expected_revenue)} format={fmtMoneyRoll} sub={`${money(sf.expected_revenue)} · ${range}`} />
-                  <Stat label={t('pf_cash_collected')} tone="success" icon={I.Wallet} value={num(sf.cash_collected)} format={fmtMoneyRoll} sub={`${money(sf.cash_collected)} · ${range}`} />
-                </div>
-
-                <div className="section-label">{t('pf_expenses')}</div>
-                <div className="grid-2" style={{ marginBottom: 16 }}>
-                  <Stat label={t('pf_exp_actual')} tone="warning" icon={I.Coins} value={num(ex.actual_total)} format={fmtMoneyRoll} sub={money(ex.actual_total)} />
-                  <Stat label={t('pf_exp_rec_paid')} icon={I.Repeat} value={num(ex.recurring_paid_total)} format={fmtMoneyRoll}
-                    sub={`${t('pf_exp_rec_expected')}: ${money(ex.recurring_expected_total)}`} />
-                </div>
-
-                <div className="section-label">{t('pf_payroll')}</div>
-                <div className="grid-4" style={{ marginBottom: 16 }}>
-                  <Stat label={t('pf_pay_earned')} icon={I.Users} value={num(pr.earned_total)} format={fmtMoneyRoll} sub={money(pr.earned_total)} />
-                  <Stat label={t('pf_pay_paid')} tone="success" icon={I.HandCoins} value={num(pr.paid_total)} format={fmtMoneyRoll} sub={money(pr.paid_total)} />
-                  <Stat label={t('pf_pay_remaining')} tone={num(pr.remaining_total) > 0 ? 'warning' : 'default'} icon={I.Clock}
-                    value={num(pr.remaining_total)} format={fmtMoneyRoll} sub={money(pr.remaining_total)} />
-                </div>
-              </>
-            )}
-
-            <ProfitTrendCard/>
-          </div>
-        );
-      })()}
 
     </div>
   );

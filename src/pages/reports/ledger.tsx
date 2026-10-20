@@ -46,7 +46,7 @@ export function LedgerTab({ onNav }) {
       to_date: toLocalISO(new Date(period.year, period.month, 0)),
     }).then(res => alive && setFinance(res?.data || null)).catch(() => {});
     return () => { alive = false; };
-  }, [period.year, period.month]);
+  }, [period.year, period.month, period.version]);
 
   React.useEffect(() => {
     let alive = true;
@@ -62,7 +62,7 @@ export function LedgerTab({ onNav }) {
       })
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [period.year, period.month]);
+  }, [period.year, period.month, period.version]);
 
   const periodName = `${monthLabel(period.month - 1, lang)} ${period.year}`;
   const signed = (v) => ({ color: num(v) < 0 ? 'var(--danger)' : num(v) > 0 ? 'var(--success)' : 'var(--muted)' });

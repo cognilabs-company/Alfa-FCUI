@@ -2,17 +2,17 @@
 import React from 'react';
 import { Icon } from '@/shared/ui/icons';
 import { useT } from '@/shared/i18n/lang';
-import { Stat } from '@/shared/ui/stat';
-import { Columns, Trend, BarList, Donut, Meter, ChartLegend } from '@/shared/ui/charts';
+import { Columns, Trend, BarList, Donut, ChartLegend } from '@/shared/ui/charts';
 import { apiGetAnalyticsKpis, apiGetDashboard, loadAnalytics } from '@/shared/api';
-import { fmt, fmtMln, fmtMoneyRoll, monthLabel, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
+import { fmt, fmtMln, monthLabel, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
 import { paymentSourceLabel } from '@/shared/lib/labels';
 import { MonthNav } from '@/shared/ui/month-nav';
 import { useSelectedMonth } from '@/shared/lib/selected-month';
+import { ProfitTrendCard } from './profit-trend';
 import {
   monthsBack, daysBack, dayKey, revenueSeries, sourceTotals, sourceTotalsFromSeries, paidTotal,
-  payingStudents, debtAging, debtTotal, debtByGroup, ageBuckets, studentGrowth, sessionsPerPeriod,
-  seriesFromDynamics, agingFromApi, rateToPercent, periodDate, delta, isPaid,
+  debtAging, debtTotal, debtByGroup, ageBuckets, studentGrowth, sessionsPerPeriod,
+  seriesFromDynamics, agingFromApi, rateToPercent, periodDate, delta,
 } from '@/shared/lib/analytics';
 
 const SOURCE_COLOR = {
@@ -62,8 +62,9 @@ export function AnalyticsTab({ onNav }) {
   const [months, setMonths] = React.useState(6);
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
-  // The headline figures and the source/daily charts follow one chosen month,
-  // the same month as Moliya; the month-by-month charts keep the 3/6/12 range.
+  // Only charts here — the single figures live on the home page and in Moliya
+  // (FRONTEND_SODDALASHTIRISH.md). The source/daily charts follow the month
+  // chosen for every report; the month-by-month charts keep the 3/6/12 range.
   const period = useSelectedMonth();
   const [monthData, setMonthData] = React.useState(null);
   React.useEffect(() => {
@@ -77,7 +78,7 @@ export function AnalyticsTab({ onNav }) {
       month: d.status === 'fulfilled' ? (d.value?.data?.selected_month || null) : null,
     }));
     return () => { alive = false; };
-  }, [period.year, period.month]);
+  }, [period.year, period.month, period.version]);
 
   const periods = React.useMemo(() => monthsBack(months), [months]);
   const fromDate = React.useMemo(() => toLocalISO(periods[0].date), [periods]);
@@ -93,7 +94,7 @@ export function AnalyticsTab({ onNav }) {
       .catch(() => { if (alive) setData(null); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [loadFrom, months]);
+  }, [loadFrom, months, period.version]);
 
   const money = (v, axis) => (axis ? fmtMln(v, lang) : `${fmt.format(Math.round(v))} ${t('currency')}`);
   const count = (v) => fmt.format(Math.round(v));
@@ -111,7 +112,6 @@ export function AnalyticsTab({ onNav }) {
   const previous = React.useMemo(() => allRevenue.filter(p => !inRangeKey(p)), [allRevenue, fromDate]);
   const revenueTotal = revenue.reduce((s, p) => s + p.value, 0);
   const revenueDelta = delta(revenueTotal, previous.reduce((s, p) => s + p.value, 0));
-  const paidCount = revenue.reduce((s, p) => s + p.count, 0);
 
   const sources = React.useMemo(() => (
     data?.revenueSeries ? sourceTotalsFromSeries(revenue) : sourceTotals(tx.filter(x => {
@@ -146,18 +146,9 @@ export function AnalyticsTab({ onNav }) {
   // with a single calendar month the server answers kpis for that month; otherwise the old sources
   const totalDebt = mk?.total_debt != null ? Number(mk.total_debt)
     : (Number(data?.debtAging?.total_debt ?? k?.total_debt) || debtTotal(debtors));
-  const debtorsCount = mk?.debtors_count != null ? Number(mk.debtors_count)
-    : (Number(k?.debtors_count) || (data?.debtAging?.top_debtors ? null : debtors.length) || debtors.length);
-  const mrr = Number(mk?.mrr ?? k?.mrr ?? data?.contractStats?.total_monthly_fee) || 0;
-  // 'This month' comes from the month series itself — the KPI field has proven to be the range total.
-  const thisMonth = mk ? (Number(mk.collected_this_month) || 0) : (revenue[revenue.length - 1]?.value ?? (Number(k?.collected_this_month) || 0));
   const monthSources = (sm?.source_breakdown || []).filter(b => Number(b.amount) > 0)
     .map(b => ({ id: b.source, label: paymentSourceLabel(b.source, t), value: Number(b.amount), color: SOURCE_COLOR[b.source] || 'var(--viz-other)' }));
   const monthDaily = (sm?.trend || []).map(p => ({ date: new Date(String(p.date).slice(0, 10) + 'T00:00:00'), value: Number(p.inflow) || 0 }));
-  const activeStudents = Number(k?.active_students ?? data?.summary?.active_students)
-    || (data?.students || []).filter(s => String(s.status).toLowerCase() === 'active').length;
-  const avgCheck = Number(k?.avg_payment) || (paidCount ? revenueTotal / paidCount : 0);
-  const payers = Number(k?.paying_students) || payingStudents(tx.filter(x => isPaid(x)));
 
   const topDebtors = data?.debtAging?.top_debtors
     || [...debtors].sort((a, b) => (Number(b.debt_amount) || 0) - (Number(a.debt_amount) || 0)).slice(0, 8);
@@ -186,31 +177,6 @@ export function AnalyticsTab({ onNav }) {
     sessions: Number(r.sessions) || 0,
   })), [data]);
   const sessionSeries = React.useMemo(() => sessionsPerPeriod(data?.sessions || [], periods), [data, periods]);
-  const plan = React.useMemo(() => (data?.expectedVsCollected || []).map(r => ({
-    key: r.period,
-    date: periodDate(r.period),
-    parts: { expected: Number(r.expected) || 0, collected: Number(r.collected) || 0 },
-    rate: rateToPercent(r.collection_rate),
-  })).filter(inRangeKey), [data, fromDate]);
-  const planSeries = [
-    { id: 'expected', label: t('an_expected'), color: 'var(--viz-dim)' },
-    { id: 'collected', label: t('an_collected'), color: 'var(--viz-accent)' },
-  ];
-
-  // Profit: revenue against the expenses summary (EXPENSES_BACKEND.md), per month.
-  const expenses = data?.expenses || null;
-  const expenseByMonth = React.useMemo(() => new Map((expenses?.monthly || []).map(m => [m.period, Number(m.total) || 0])), [expenses]);
-  const profitRows = React.useMemo(() => (expenses ? revenue.map(p => ({
-    date: p.date,
-    parts: { revenue: p.value, expense: expenseByMonth.get(p.key) || 0 },
-  })) : []), [expenses, revenue, expenseByMonth]);
-  const expenseTotal = profitRows.reduce((s, r) => s + r.parts.expense, 0);
-  const netProfit = revenueTotal - expenseTotal;
-  const profitSeries = [
-    { id: 'revenue', label: t('an_revenue'), color: 'var(--viz-accent)' },
-    { id: 'expense', label: t('an_expense'), color: 'var(--danger)' },
-  ];
-
   if (loading) return <div className="empty loading" style={{ padding: 64 }}>{t('loading')}</div>;
 
   const notes = [];
@@ -243,16 +209,6 @@ export function AnalyticsTab({ onNav }) {
           <I.AlertTriangle size={16}/> <span>{notes.join(' · ')}</span>
         </div>
       )}
-
-      <div className="grid-3" style={{ marginBottom: 14 }}>
-        <Stat feature label={t('an_mrr')} value={mrr} format={fmtMoneyRoll} unit={t('currency')} icon={I.Money} sub={t('an_mrr_sub')}/>
-        <Stat label={period.isCurrent ? t('an_collected_month') : t('an_collected_plain')} value={thisMonth} format={fmtMoneyRoll} unit={t('currency')} tone="success" icon={I.HandCoins}
-          sub={`${monthName}${mrr ? ` · ${Math.round((thisMonth / mrr) * 100)}% ${t('an_of_mrr')}` : ''}`}
-          onClick={() => onNav?.('transactions')}/>
-        <Stat label={t('rpt_total_debt')} value={totalDebt} format={fmtMoneyRoll} unit={t('currency')} tone="danger" icon={I.AlertCircle}
-          sub={`${debtorsCount} ${tp('rpt_debtors_count_sfx', debtorsCount)} · ${mk ? monthName : t('period_current_month')}`}
-          onClick={() => onNav?.('reports-debtors')}/>
-      </div>
 
       <div className="chart-grid-2">
         <ChartCard t={t} span title={t('an_revenue_by_month')} sub={t('an_revenue_by_month_sub')}
@@ -290,35 +246,7 @@ export function AnalyticsTab({ onNav }) {
             : <div className="chart-empty">{t('an_no_data')}</div>}
         </ChartCard>
 
-        {expenses && profitRows.length > 0 && (
-          <ChartCard t={t} span title={t('an_revenue_vs_expense')} sub={t('an_revenue_vs_expense_sub')}
-            value={<span style={{ color: netProfit < 0 ? 'var(--danger)' : undefined }}>{money(netProfit)}</span>}
-            right={(
-              <div style={{ display: 'grid', gap: 6, justifyItems: 'end' }}>
-                <span className="ch-sub">{t('an_profit')}{revenueTotal > 0 ? ` · ${Math.round((netProfit / revenueTotal) * 100)}% ${t('an_margin')}` : ''}</span>
-                <ChartLegend items={profitSeries} inline/>
-              </div>
-            )}>
-            <Columns
-              data={profitRows.map(r => ({
-                label: monthLabelOf(r.date), full: monthFull(r.date), parts: r.parts,
-                sub: `${t('an_profit')}: ${money(r.parts.revenue - r.parts.expense)}`,
-              }))}
-              series={profitSeries} grouped format={money} height={200}/>
-          </ChartCard>
-        )}
-
-        {plan.length > 0 && (
-          <ChartCard t={t} span title={t('an_plan_fact')} sub={t('an_plan_fact_sub')}
-            right={<ChartLegend items={planSeries} inline/>}>
-            <Columns
-              data={plan.map(p => ({
-                label: monthLabelOf(p.date), full: monthFull(p.date), parts: p.parts,
-                sub: `${t('an_collection')}: ${Math.round(p.rate)}%`,
-              }))}
-              series={planSeries} grouped format={money} height={200}/>
-          </ChartCard>
-        )}
+        <ProfitTrendCard months={months} refresh={period.version}/>
 
         <ChartCard t={t} title={t('an_debt_aging')} sub={t('an_debt_aging_sub')} value={money(totalDebt)}>
           <BarList
@@ -437,19 +365,6 @@ export function AnalyticsTab({ onNav }) {
             ? <Columns data={sessionSeries.map(p => ({ label: monthLabelOf(p.date), full: monthFull(p.date), value: p.value }))}
                 format={count} height={190} color="var(--viz-payme)"/>
             : <div className="chart-empty">{t('an_no_data')}</div>}
-        </ChartCard>
-
-        <ChartCard t={t} title={t('an_collection')} sub={t('an_collection_sub')}>
-          <div style={{ display: 'grid', gap: 16 }}>
-            <Meter label={period.isCurrent ? t('an_collected_month') : t('an_collected_plain')} value={thisMonth} max={mrr || thisMonth} format={money}
-              tone={mrr && thisMonth / mrr >= 0.8 ? 'success' : mrr && thisMonth / mrr >= 0.5 ? 'accent' : 'warning'}/>
-            <Meter label={t('an_paying_students')} value={payers} max={activeStudents || 1}
-              format={count} tone="accent" hint={t('an_active_of').replace('{n}', count(activeStudents))}/>
-            <div className="chart-legend">
-              <div><i style={{ background: 'var(--viz-accent)' }}/><span>{t('an_avg_check')}</span><b>{money(avgCheck)}</b></div>
-              <div><i style={{ background: 'var(--viz-other)' }}/><span>{t('dashboard_transactions')}</span><b>{fmt.format(paidCount)}</b></div>
-            </div>
-          </div>
         </ChartCard>
       </div>
     </div>

@@ -191,7 +191,7 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
       setKpis(k.status === 'fulfilled' ? (k.value?.data || null) : null);
     }).finally(() => alive && setMonthLoading(false));
     return () => { alive = false; };
-  }, [period.year, period.month]);
+  }, [period.year, period.month, period.version]);
 
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -223,24 +223,12 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
       total,
       paidCount,
       avgCheck: paidCount ? total / paidCount : 0,
-      thisMonth: Number(kpis?.collected_this_month) || 0,
       monthDelta: prevTotal != null && monthly ? delta(total, prevTotal) : null,
       mrr: Number(kpis?.mrr) || 0,
       sourceItems: (m30?.source_breakdown || []).filter(b => Number(b.amount) > 0)
         .map(b => ({ id: b.source, label: label(b.source), value: Number(b.amount), color: SOURCE_COLORS[b.source] || 'var(--viz-other)' })),
     };
   }, [m30, prevSummary, kpis, monthly, t]);
-
-  const financeCells = [
-    { label: t('dashboard_total_income'), value: Number(m30?.total_inflow) || 0, money: true, color: 'var(--success)', icon: I.TrendUp },
-    { label: t('dashboard_transactions'), value: Number(m30?.successful_transactions) || 0, icon: I.Receipt },
-    ...(m30?.source_breakdown?.map(s => ({
-      label: paymentSourceLabel(s.source, t),
-      value: Number(s.amount) || 0,
-      money: true,
-      dot: SOURCE_COLORS[s.source] || 'var(--muted)',
-    })) || []),
-  ];
 
   return (
     <div>
@@ -309,11 +297,6 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
                 <b>{an.mrr ? fmtMoneyRoll(an.mrr, an.mrr, lang) : '—'}</b>
               </div>
               <div className="an-metric">
-                <span>{period.isCurrent ? t('an_collected_month') : t('an_collected_plain')}</span>
-                <b>{!monthLoading && kpis ? fmtMoneyRoll(an.thisMonth, an.thisMonth, lang) : '—'}</b>
-                {an.mrr > 0 && <small>{Math.round((an.thisMonth / an.mrr) * 100)}% {t('an_of_mrr')}</small>}
-              </div>
-              <div className="an-metric">
                 <span>{t('an_avg_check')}</span>
                 <b>{!monthLoading ? fmtMoneyRoll(an.avgCheck, an.avgCheck, lang) : '—'}</b>
                 <small>{an.paidCount} {tp('tx_count_sfx', an.paidCount)}</small>
@@ -352,27 +335,6 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
               })}
             </div>
           )}
-        </div>
-      </div>
-
-      <div className="card" style={{ marginTop: 16, overflow: 'hidden' }}>
-        <div className="card-header" style={{ borderBottom: 0 }}>
-          <div className="card-title">{monthly ? `${t('dash_finance')} — ${monthName}` : t('dashboard_finance')}</div>
-          <button className="btn ghost sm" style={{ marginLeft: 'auto' }} onClick={() => onNav('transactions')}>{t('dashboard_transactions')} <I.ArrowRight size={14}/></button>
-        </div>
-        <div className="finance-strip">
-          {financeCells.map((item, i) => (
-            <button key={i} type="button" className="finance-cell" onClick={() => onNav('transactions')}>
-              <div className="label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {item.icon && <item.icon size={14}/>}
-                {item.dot && <i style={{ width: 8, height: 8, borderRadius: 3, background: item.dot, display: 'inline-block' }}/>}
-                {item.label}
-              </div>
-              <div className="value" style={item.color ? { color: item.color } : undefined}>
-                {monthLoading ? '…' : <CountUp value={item.value} format={item.money ? fmtMoneyRoll : undefined} duration={1600} delay={i * 90}/>}
-              </div>
-            </button>
-          ))}
         </div>
       </div>
     </div>
