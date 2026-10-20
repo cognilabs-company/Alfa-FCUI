@@ -82,6 +82,8 @@ import { AnalyticsTab } from './analytics';
 import { LedgerTab } from './ledger';
 import { StudentPaymentsTab } from './student-payments';
 import { ProfitTrendCard } from './profit-trend';
+import { MonthNav } from '@/shared/ui/month-nav';
+import { useSelectedMonth } from '@/shared/lib/selected-month';
 import { avatarColor } from '@/shared/lib/avatar';
 
 export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
@@ -96,8 +98,10 @@ export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
   const [profit, setProfit] = React.useState(null);
   const [profitLoading, setProfitLoading] = React.useState(false);
   const [profitError, setProfitError] = React.useState('');
-  const [profitFrom, setProfitFrom] = React.useState(() => toLocalISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
-  const [profitTo, setProfitTo] = React.useState(() => toLocalISO(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)));
+  // Foyda covers the month chosen for every report (FRONTEND_OY_TANLAGICH.md)
+  const period = useSelectedMonth();
+  const profitFrom = period.monthStart;
+  const profitTo = period.monthEnd;
   const [attFrom, setAttFrom] = React.useState('');
   const [attTo, setAttTo] = React.useState('');
   const [groups, setGroups] = React.useState([]);
@@ -250,8 +254,7 @@ export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
         return (
           <div>
             <div className="toolbar" style={{ marginBottom: 14 }}>
-              <DateInput value={profitFrom} onChange={v => setProfitFrom(v || profitFrom)} placeholder={t('cal_from')} />
-              <DateInput value={profitTo} onChange={v => setProfitTo(v || profitTo)} placeholder={t('cal_to')} />
+              <MonthNav period={period}/>
               <span className="chip">{t('pf_sub')}</span>
             </div>
 

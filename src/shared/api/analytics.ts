@@ -169,34 +169,3 @@ export async function loadAnalytics({ fromDate, toDate, months = 6 } = {}) {
     missing,
   };
 }
-
-/** Lighter variant for the dashboard: the 30-day trend plus headline numbers. */
-export async function loadDashboardAnalytics({ fromDate, toDate } = {}) {
-  const range = { from_date: fromDate, to_date: toDate };
-  const skipAggregates = aggregatesKnown() === false;
-  const none = Promise.resolve(null);
-  const [dailyAgg, kpis] = await Promise.allSettled(skipAggregates ? [none, none] : [
-    apiGetRevenueDynamics({ ...range, group_by: 'day' }),
-    apiGetAnalyticsKpis(range),
-  ]);
-
-  const dailySeries = listOf(dailyAgg);
-  const kpiData = objectOf(kpis);
-  if (!skipAggregates) rememberAggregates(!!(dailySeries || kpiData));
-  if (dailySeries && kpiData) {
-    return { dailySeries, kpis: kpiData, transactions: [], contractStats: {}, computed: false, failed: false };
-  }
-
-  const [tx, contractStats] = await Promise.allSettled([
-    dailySeries ? Promise.resolve(null) : fetchAllPages(apiGetTransactions, { maxPages: 4, ...range }),
-    kpiData ? Promise.resolve(null) : apiGetContractStats(),
-  ]);
-  return {
-    dailySeries,
-    kpis: kpiData,
-    transactions: tx.status === 'fulfilled' ? (tx.value?.rows || []) : [],
-    contractStats: kpiData ? {} : (contractStats.status === 'fulfilled' ? (unwrapData(contractStats.value) || {}) : {}),
-    computed: !dailySeries,
-    failed: !dailySeries && tx.status !== 'fulfilled',
-  };
-}

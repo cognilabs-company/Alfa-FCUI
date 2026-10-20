@@ -9,6 +9,8 @@ import { paymentSourceLabel } from '@/shared/lib/labels';
 import { CATEGORY_COLOR, categoryLabel } from '@/shared/lib/expenses';
 import { ExpenseStatusBadge, useMoney } from '@/widgets/expenses';
 import { ChartCard } from './analytics';
+import { MonthNav } from '@/shared/ui/month-nav';
+import { useSelectedMonth } from '@/shared/lib/selected-month';
 
 const num = (v) => Number(v) || 0;
 
@@ -16,32 +18,6 @@ const num = (v) => Number(v) || 0;
 function settleStatus(paid, unpaid) {
   if (num(unpaid) <= 0) return 'paid';
   return num(paid) > 0 ? 'partial' : 'unpaid';
-}
-
-/** Month picker without the whole-year switch: the ledger is one month by definition. */
-export function useMonth() {
-  const now = new Date();
-  const [ym, setYm] = React.useState({ year: now.getFullYear(), month: now.getMonth() + 1 });
-  const shift = (delta) => setYm(({ year, month }) => {
-    const d = new Date(year, month - 1 + delta, 1);
-    return { year: d.getFullYear(), month: d.getMonth() + 1 };
-  });
-  const isCurrent = ym.year === now.getFullYear() && ym.month === now.getMonth() + 1;
-  const reset = () => setYm({ year: now.getFullYear(), month: now.getMonth() + 1 });
-  return { ...ym, shift, isCurrent, reset };
-}
-
-export function MonthNav({ period }) {
-  const I = Icon;
-  const { t, lang } = useT();
-  return (
-    <div className="period-nav">
-      <button type="button" className="icon-btn" aria-label={t('prev')} onClick={() => period.shift(-1)}><I.ChevronLeft size={16}/></button>
-      <span className="period-label">{monthLabel(period.month - 1, lang)} {period.year}</span>
-      <button type="button" className="icon-btn" aria-label={t('next')} onClick={() => period.shift(1)}><I.ChevronRight size={16}/></button>
-      {!period.isCurrent && <button type="button" className="btn sm ghost" onClick={period.reset}>{t('lg_this_month')}</button>}
-    </div>
-  );
 }
 
 /**
@@ -53,7 +29,7 @@ export function LedgerTab({ onNav }) {
   const I = Icon;
   const { t, lang } = useT();
   const money = useMoney();
-  const period = useMonth();
+  const period = useSelectedMonth();
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');

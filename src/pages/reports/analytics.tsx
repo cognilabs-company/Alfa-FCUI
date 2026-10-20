@@ -4,8 +4,11 @@ import { Icon } from '@/shared/ui/icons';
 import { useT } from '@/shared/i18n/lang';
 import { Stat } from '@/shared/ui/stat';
 import { Columns, Trend, BarList, Donut, Meter, ChartLegend } from '@/shared/ui/charts';
-import { loadAnalytics } from '@/shared/api';
-import { fmt, fmtMln, fmtMoneyRoll, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
+import { apiGetAnalyticsKpis, apiGetDashboard, loadAnalytics } from '@/shared/api';
+import { fmt, fmtMln, fmtMoneyRoll, monthLabel, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
+import { paymentSourceLabel } from '@/shared/lib/labels';
+import { MonthNav } from '@/shared/ui/month-nav';
+import { useSelectedMonth } from '@/shared/lib/selected-month';
 import {
   monthsBack, daysBack, dayKey, revenueSeries, sourceTotals, sourceTotalsFromSeries, paidTotal,
   payingStudents, debtAging, debtTotal, debtByGroup, ageBuckets, studentGrowth, sessionsPerPeriod,
@@ -59,6 +62,22 @@ export function AnalyticsTab({ onNav }) {
   const [months, setMonths] = React.useState(6);
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
+  // The headline figures and the source/daily charts follow one chosen month,
+  // the same month as Moliya; the month-by-month charts keep the 3/6/12 range.
+  const period = useSelectedMonth();
+  const [monthData, setMonthData] = React.useState(null);
+  React.useEffect(() => {
+    let alive = true;
+    setMonthData(null);
+    Promise.allSettled([
+      apiGetAnalyticsKpis({ from_date: period.monthStart, to_date: period.monthEnd }),
+      apiGetDashboard({ year: period.year, month: period.month }),
+    ]).then(([k, d]) => alive && setMonthData({
+      kpis: k.status === 'fulfilled' ? (k.value?.data || null) : null,
+      month: d.status === 'fulfilled' ? (d.value?.data?.selected_month || null) : null,
+    }));
+    return () => { alive = false; };
+  }, [period.year, period.month]);
 
   const periods = React.useMemo(() => monthsBack(months), [months]);
   const fromDate = React.useMemo(() => toLocalISO(periods[0].date), [periods]);
@@ -121,11 +140,20 @@ export function AnalyticsTab({ onNav }) {
   const k = data?.kpis || null;
   const debtors = data?.debtors || [];
   const aging = k || data?.debtAging ? agingFromApi(data?.debtAging?.buckets) : debtAging(debtors);
-  const totalDebt = Number(data?.debtAging?.total_debt ?? k?.total_debt) || debtTotal(debtors);
-  const debtorsCount = Number(k?.debtors_count) || (data?.debtAging?.top_debtors ? null : debtors.length) || debtors.length;
-  const mrr = Number(k?.mrr ?? data?.contractStats?.total_monthly_fee) || 0;
+  const mk = monthData?.kpis || null;
+  const sm = monthData?.month || null;
+  const monthName = `${monthLabel(period.month - 1, lang)} ${period.year}`;
+  // with a single calendar month the server answers kpis for that month; otherwise the old sources
+  const totalDebt = mk?.total_debt != null ? Number(mk.total_debt)
+    : (Number(data?.debtAging?.total_debt ?? k?.total_debt) || debtTotal(debtors));
+  const debtorsCount = mk?.debtors_count != null ? Number(mk.debtors_count)
+    : (Number(k?.debtors_count) || (data?.debtAging?.top_debtors ? null : debtors.length) || debtors.length);
+  const mrr = Number(mk?.mrr ?? k?.mrr ?? data?.contractStats?.total_monthly_fee) || 0;
   // 'This month' comes from the month series itself — the KPI field has proven to be the range total.
-  const thisMonth = revenue[revenue.length - 1]?.value ?? (Number(k?.collected_this_month) || 0);
+  const thisMonth = mk ? (Number(mk.collected_this_month) || 0) : (revenue[revenue.length - 1]?.value ?? (Number(k?.collected_this_month) || 0));
+  const monthSources = (sm?.source_breakdown || []).filter(b => Number(b.amount) > 0)
+    .map(b => ({ id: b.source, label: paymentSourceLabel(b.source, t), value: Number(b.amount), color: SOURCE_COLOR[b.source] || 'var(--viz-other)' }));
+  const monthDaily = (sm?.trend || []).map(p => ({ date: new Date(String(p.date).slice(0, 10) + 'T00:00:00'), value: Number(p.inflow) || 0 }));
   const activeStudents = Number(k?.active_students ?? data?.summary?.active_students)
     || (data?.students || []).filter(s => String(s.status).toLowerCase() === 'active').length;
   const avgCheck = Number(k?.avg_payment) || (paidCount ? revenueTotal / paidCount : 0);
@@ -205,6 +233,11 @@ export function AnalyticsTab({ onNav }) {
         <span className="toolbar-meta" style={{ fontWeight: 600 }}>{t('an_source_hint')}</span>
       </div>
 
+      <div className="toolbar" style={{ marginBottom: 14 }}>
+        <MonthNav period={period}/>
+        <span className="toolbar-meta" style={{ fontWeight: 600 }}>{t('an_month_kpis')}</span>
+      </div>
+
       {notes.length > 0 && (
         <div className="alert warning" style={{ marginBottom: 14 }}>
           <I.AlertTriangle size={16}/> <span>{notes.join(' · ')}</span>
@@ -213,11 +246,11 @@ export function AnalyticsTab({ onNav }) {
 
       <div className="grid-3" style={{ marginBottom: 14 }}>
         <Stat feature label={t('an_mrr')} value={mrr} format={fmtMoneyRoll} unit={t('currency')} icon={I.Money} sub={t('an_mrr_sub')}/>
-        <Stat label={t('an_collected_month')} value={thisMonth} format={fmtMoneyRoll} unit={t('currency')} tone="success" icon={I.HandCoins}
-          sub={mrr ? `${Math.round((thisMonth / mrr) * 100)}% ${t('an_of_mrr')}` : null}
+        <Stat label={period.isCurrent ? t('an_collected_month') : t('an_collected_plain')} value={thisMonth} format={fmtMoneyRoll} unit={t('currency')} tone="success" icon={I.HandCoins}
+          sub={`${monthName}${mrr ? ` · ${Math.round((thisMonth / mrr) * 100)}% ${t('an_of_mrr')}` : ''}`}
           onClick={() => onNav?.('transactions')}/>
         <Stat label={t('rpt_total_debt')} value={totalDebt} format={fmtMoneyRoll} unit={t('currency')} tone="danger" icon={I.AlertCircle}
-          sub={`${debtorsCount} ${tp('rpt_debtors_count_sfx', debtorsCount)} · ${t('period_current_month')}`}
+          sub={`${debtorsCount} ${tp('rpt_debtors_count_sfx', debtorsCount)} · ${mk ? monthName : t('period_current_month')}`}
           onClick={() => onNav?.('reports-debtors')}/>
       </div>
 
@@ -230,10 +263,14 @@ export function AnalyticsTab({ onNav }) {
             : <div className="chart-empty">{t('an_no_data')}</div>}
         </ChartCard>
 
-        <ChartCard t={t} title={t('an_revenue_by_source')} sub={t('an_revenue_by_source_sub')}>
-          {sourceItems.length > 0
-            ? <Donut items={sourceItems} format={money} centerValue={fmtMln(revenueTotal, lang)} centerLabel={t('total')}/>
-            : <div className="chart-empty">{t('an_no_data')}</div>}
+        <ChartCard t={t} title={t('an_revenue_by_source')} sub={sm ? monthName : t('an_revenue_by_source_sub')}>
+          {sm
+            ? (monthSources.length > 0
+              ? <Donut items={monthSources} format={money} centerValue={fmtMln(Number(sm.total_inflow) || 0, lang)} centerLabel={t('total')}/>
+              : <div className="chart-empty">{t('an_no_data')}</div>)
+            : (sourceItems.length > 0
+              ? <Donut items={sourceItems} format={money} centerValue={fmtMln(revenueTotal, lang)} centerLabel={t('total')}/>
+              : <div className="chart-empty">{t('an_no_data')}</div>)}
         </ChartCard>
 
         <ChartCard t={t} title={t('an_source_by_month')} sub={t('an_source_by_month_sub')}>
@@ -246,9 +283,9 @@ export function AnalyticsTab({ onNav }) {
             : <div className="chart-empty">{t('an_no_data')}</div>}
         </ChartCard>
 
-        <ChartCard t={t} span title={t('an_revenue_by_day')} sub={t('an_last_30')} value={money(daily30)}>
-          {daily30 > 0
-            ? <Trend data={daily.map(d => ({ label: String(d.date.getDate()), full: `${d.date.getDate()} ${monthShort(d.date.getMonth(), lang)}`, value: d.value }))}
+        <ChartCard t={t} span title={t('an_revenue_by_day')} sub={sm ? monthName : t('an_last_30')} value={money(sm ? Number(sm.total_inflow) || 0 : daily30)}>
+          {(sm ? Number(sm.total_inflow) > 0 && monthDaily.length > 0 : daily30 > 0)
+            ? <Trend data={(sm ? monthDaily : daily).map(d => ({ label: String(d.date.getDate()), full: `${d.date.getDate()} ${monthShort(d.date.getMonth(), lang)}`, value: d.value }))}
                 format={money} height={190} labelEvery={5}/>
             : <div className="chart-empty">{t('an_no_data')}</div>}
         </ChartCard>
@@ -404,7 +441,7 @@ export function AnalyticsTab({ onNav }) {
 
         <ChartCard t={t} title={t('an_collection')} sub={t('an_collection_sub')}>
           <div style={{ display: 'grid', gap: 16 }}>
-            <Meter label={t('an_collected_month')} value={thisMonth} max={mrr || thisMonth} format={money}
+            <Meter label={period.isCurrent ? t('an_collected_month') : t('an_collected_plain')} value={thisMonth} max={mrr || thisMonth} format={money}
               tone={mrr && thisMonth / mrr >= 0.8 ? 'success' : mrr && thisMonth / mrr >= 0.5 ? 'accent' : 'warning'}/>
             <Meter label={t('an_paying_students')} value={payers} max={activeStudents || 1}
               format={count} tone="accent" hint={t('an_active_of').replace('{n}', count(activeStudents))}/>

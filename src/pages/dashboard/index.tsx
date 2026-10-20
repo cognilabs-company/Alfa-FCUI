@@ -4,13 +4,14 @@ import { Icon } from '@/shared/ui/icons';
 import { Stat } from '@/shared/ui/stat';
 import { CountUp } from '@/shared/ui/count-up';
 import { Badge } from '@/shared/ui/status';
-import { apiGetDashboard, apiGetGroupsForSelect, apiGetSessions } from '@/shared/api';
+import { apiGetAnalyticsKpis, apiGetDashboard, apiGetGroupsForSelect, apiGetSessions } from '@/shared/api';
 import { useT } from '@/shared/i18n/lang';
-import { fmt, fmtMln, fmtMoneyRoll, fmtDate, monthShort, toLocalISO, weekdayLong, todayISO } from '@/shared/lib/format';
+import { fmt, fmtMln, fmtMoneyRoll, fmtDate, monthLabel, monthShort, weekdayLong, todayISO } from '@/shared/lib/format';
 import { paymentSourceLabel } from '@/shared/lib/labels';
 import { Trend, ChartLegend } from '@/shared/ui/charts';
-import { loadDashboardAnalytics } from '@/shared/api';
-import { daysBack, dayKey, monthsBack, monthKey, revenueSeries, seriesFromDynamics, delta } from '@/shared/lib/analytics';
+import { MonthNav } from '@/shared/ui/month-nav';
+import { useSelectedMonth } from '@/shared/lib/selected-month';
+import { delta } from '@/shared/lib/analytics';
 
 const DEFAULT_CAPACITY = 25;
 const SOURCE_COLORS = {
@@ -72,7 +73,7 @@ function SessionsKpi({ loading, total, sessions, nowMin, onClick, t }) {
 }
 
 /** 30-day revenue: rolling money value + stacked bar split by payment source */
-function RevenueKpi({ loading, total, breakdown, lang, onClick, t }) {
+function RevenueKpi({ loading, total, breakdown, title, lang, onClick, t }) {
   const I = Icon;
   const parts = (breakdown || []).filter((b) => Number(b.amount) > 0);
   const sum = parts.reduce((s, b) => s + Number(b.amount), 0) || 1;
@@ -81,7 +82,7 @@ function RevenueKpi({ loading, total, breakdown, lang, onClick, t }) {
   return (
     <div className="kpi revenue" role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => onKeyActivate(e, onClick)}>
       <div className="kpi-top">
-        <span className="kpi-label">{t('dashboard_stat_monthly')}</span>
+        <span className="kpi-label">{title}</span>
         <span className="kpi-icon"><I.HandCoins size={22} weight="duotone"/></span>
       </div>
       <div className="kpi-value">
@@ -112,7 +113,7 @@ function RevenueKpi({ loading, total, breakdown, lang, onClick, t }) {
 }
 
 /** Debtors: count + ring showing their share of active students */
-function DebtKpi({ loading, debtors, active, totalDebt, onClick, t }) {
+function DebtKpi({ loading, debtors, active, totalDebt, debtLabel, title, onClick, t }) {
   const I = Icon;
   const share = active > 0 ? Math.min(100, (debtors / active) * 100) : 0;
   const R = 26;
@@ -127,7 +128,7 @@ function DebtKpi({ loading, debtors, active, totalDebt, onClick, t }) {
   return (
     <div className="kpi debt" role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => onKeyActivate(e, onClick)}>
       <div className="kpi-top">
-        <span className="kpi-label">{t('dashboard_stat_debtors')}</span>
+        <span className="kpi-label">{title || t('dashboard_stat_debtors')}</span>
         <span className="kpi-icon"><I.AlertCircle size={22} weight="duotone"/></span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -135,7 +136,7 @@ function DebtKpi({ loading, debtors, active, totalDebt, onClick, t }) {
           <div className="kpi-value">{loading ? '…' : <CountUp value={debtors} duration={1200}/>}</div>
           <div className="kpi-legend" style={{ marginTop: 10 }}>
             {totalDebt > 0
-              ? <span><b><CountUp value={totalDebt} format={fmtMoneyRoll} duration={1800}/></b>&nbsp;{t('currency')} {t('dash_total_debt')}</span>
+              ? <span><b><CountUp value={totalDebt} format={fmtMoneyRoll} duration={1800}/></b>&nbsp;{t('currency')} {debtLabel}</span>
               : <span>{active > 0 ? <><b>{debtors}/{active}</b>&nbsp;{t('dash_share_of_active')}</> : '—'}</span>}
           </div>
         </div>
@@ -158,27 +159,39 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
   const [todaySessions, setTodaySessions] = React.useState([]);
   const [groups, setGroups] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
-  const [analytics, setAnalytics] = React.useState(null);
+  const period = useSelectedMonth();
+  // the month before the chosen one, for the "against last month" delta
+  const [prevSummary, setPrevSummary] = React.useState(null);
+  const [kpis, setKpis] = React.useState(null);
+  const [monthLoading, setMonthLoading] = React.useState(true);
 
   React.useEffect(() => {
     Promise.all([
-      apiGetDashboard(),
       apiGetSessions({ date: todayISO() }),
       apiGetGroupsForSelect(),
-    ]).then(([dashRes, sessRes, grpRes]) => {
-      setSummary(dashRes?.data || null);
+    ]).then(([sessRes, grpRes]) => {
       setTodaySessions(sessRes?.data || []);
       setGroups(grpRes?.data || []);
     }).catch(console.error).finally(() => setLoading(false));
-
-    // Payments of the last ~3 months feed the trend and the month-over-month delta.
-    const start = new Date();
-    start.setMonth(start.getMonth() - 2);
-    start.setDate(1);
-    loadDashboardAnalytics({ fromDate: toLocalISO(start), toDate: todayISO() })
-      .then(setAnalytics)
-      .catch(() => setAnalytics(null));
   }, []);
+
+  // Everything money-related follows the month picked above (FRONTEND_OY_TANLAGICH.md)
+  React.useEffect(() => {
+    let alive = true;
+    setMonthLoading(true);
+    const prev = new Date(period.year, period.month - 2, 1);
+    Promise.allSettled([
+      apiGetDashboard({ year: period.year, month: period.month }),
+      apiGetDashboard({ year: prev.getFullYear(), month: prev.getMonth() + 1 }),
+      apiGetAnalyticsKpis({ from_date: period.monthStart, to_date: period.monthEnd }),
+    ]).then(([cur, before, k]) => {
+      if (!alive) return;
+      setSummary(cur.status === 'fulfilled' ? (cur.value?.data || null) : null);
+      setPrevSummary(before.status === 'fulfilled' ? (before.value?.data || null) : null);
+      setKpis(k.status === 'fulfilled' ? (k.value?.data || null) : null);
+    }).finally(() => alive && setMonthLoading(false));
+    return () => { alive = false; };
+  }, [period.year, period.month]);
 
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -186,44 +199,37 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
   const greeting = hour < 12 ? t('greet_morning') : hour < 18 ? t('greet_day') : t('greet_evening');
   const firstName = String(user?.full_name || '').trim().split(/\s+/)[0] || '';
 
-  const m30 = summary?.last_30_days;
+  // The chosen calendar month; a server that predates it still sends the rolling 30 days
+  const monthly = !!summary?.selected_month;
+  const m30 = summary?.selected_month || summary?.last_30_days;
+  const monthName = `${monthLabel(period.month - 1, lang)} ${period.year}`;
   const sessionsToday = summary?.today_sessions ?? todaySessions.length;
-  const dash = loading ? '…' : null;
+  const dash = loading && monthLoading ? '…' : null;
   const totalDebt = Number(summary?.total_debt ?? summary?.total_outstanding ?? 0) || 0;
 
   const sortedSessions = [...todaySessions].sort((a, b) => (minutesOf(a.start_time) ?? 0) - (minutesOf(b.start_time) ?? 0));
 
-  // Analytics panel: 30-day daily trend, this 30 days against the previous 30,
-  // source mix. Uses /reports/revenue-dynamics when the server has it.
+  // Analytics panel: the month's daily inflow, against the month before, and its source mix
   const an = React.useMemo(() => {
-    const txs = analytics?.transactions || [];
-    const agg = analytics?.dailySeries ? seriesFromDynamics(analytics.dailySeries) : null;
-    const window60 = agg ? agg.slice(-60) : revenueSeries(txs, daysBack(60), dayKey);
-    const daily = window60.slice(-30);
-    const byMonth = agg
-      ? [{ value: 0 }, { value: agg.filter(d => d.date.getMonth() === new Date().getMonth() && d.date.getFullYear() === new Date().getFullYear()).reduce((s, d) => s + d.value, 0) }]
-      : revenueSeries(txs, monthsBack(2), monthKey);
-    const total30 = daily.reduce((s, d) => s + d.value, 0);
-    const prev30 = window60.slice(0, Math.max(window60.length - 30, 0)).reduce((s, d) => s + d.value, 0);
-    const paidCount = daily.reduce((s, d) => s + d.count, 0);
-    const parts = daily.reduce((acc, d) => {
-      for (const [k, v] of Object.entries(d.parts)) acc[k] = (acc[k] || 0) + v;
-      return acc;
-    }, {});
+    const total = Number(m30?.total_inflow) || 0;
+    const prevTotal = prevSummary?.selected_month ? Number(prevSummary.selected_month.total_inflow) || 0 : null;
+    const paidCount = Number(m30?.successful_transactions) || 0;
     const label = (id) => paymentSourceLabel(id, t);
     return {
-      title: t('an_dash_title'),
-      daily,
-      total30,
+      daily: (m30?.trend || []).map(p => {
+        const d = new Date(String(p.date).slice(0, 10) + 'T00:00:00');
+        return { date: d, value: Number(p.inflow) || 0 };
+      }),
+      total,
       paidCount,
-      avgCheck: paidCount ? total30 / paidCount : 0,
-      thisMonth: byMonth[1]?.value || Number(analytics?.kpis?.collected_this_month) || 0,
-      monthDelta: delta(total30, prev30),
-      mrr: Number(analytics?.kpis?.mrr ?? analytics?.contractStats?.total_monthly_fee) || 0,
-      sourceItems: Object.entries(parts).filter(([, v]) => v > 0)
-        .map(([id, value]) => ({ id, label: label(id), value, color: SOURCE_COLORS[id] || 'var(--viz-other)' })),
+      avgCheck: paidCount ? total / paidCount : 0,
+      thisMonth: Number(kpis?.collected_this_month) || 0,
+      monthDelta: prevTotal != null && monthly ? delta(total, prevTotal) : null,
+      mrr: Number(kpis?.mrr) || 0,
+      sourceItems: (m30?.source_breakdown || []).filter(b => Number(b.amount) > 0)
+        .map(b => ({ id: b.source, label: label(b.source), value: Number(b.amount), color: SOURCE_COLORS[b.source] || 'var(--viz-other)' })),
     };
-  }, [analytics, t]);
+  }, [m30, prevSummary, kpis, monthly, t]);
 
   const financeCells = [
     { label: t('dashboard_total_income'), value: Number(m30?.total_inflow) || 0, money: true, color: 'var(--success)', icon: I.TrendUp },
@@ -250,59 +256,66 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
         </div>
       </section>
 
+      <div className="toolbar" style={{ marginBottom: 14 }}>
+        <MonthNav period={period}/>
+        <span className="toolbar-meta" style={{ fontWeight: 600 }}>{t('dash_month_hint')}</span>
+      </div>
+
       <div className="grid-4">
         <Stat feature label={t('dashboard_stat_active_students')} value={dash ?? (Number(summary?.active_students) || 0)}
           icon={I.Users} onClick={() => onNav('students')}/>
         <SessionsKpi loading={loading} total={Number(sessionsToday) || 0} sessions={sortedSessions} nowMin={nowMin} t={t}
           onClick={() => onNav('sessions')}/>
-        <RevenueKpi loading={loading} total={Number(m30?.total_inflow) || 0} breakdown={m30?.source_breakdown} lang={lang} t={t}
+        <RevenueKpi loading={monthLoading} total={Number(m30?.total_inflow) || 0} breakdown={m30?.source_breakdown} lang={lang} t={t}
+          title={monthly ? `${t('dash_revenue')} · ${monthName}` : t('dashboard_stat_monthly')}
           onClick={() => onNav('transactions')}/>
-        <DebtKpi loading={loading} debtors={Number(summary?.total_debtors) || 0} active={Number(summary?.active_students) || 0}
-          totalDebt={totalDebt} t={t} onClick={() => onNav('reports-debtors')}/>
+        <DebtKpi loading={monthLoading} debtors={Number(summary?.total_debtors) || 0} active={Number(summary?.active_students) || 0}
+          totalDebt={totalDebt} debtLabel={monthly ? t('dash_debt') : t('dash_total_debt')}
+          title={monthly ? `${t('dashboard_stat_debtors')} · ${monthName}` : undefined} t={t} onClick={() => onNav('reports-debtors')}/>
       </div>
 
       <div className="dash-panels">
         <div className="card">
           <div className="card-header">
-            <div className="card-title">{an.title}</div>
+            <div className="card-title">{t('an_dash_title')}</div>
             <button className="btn ghost sm" style={{ marginLeft: 'auto' }} onClick={() => onNav('reports')}>{t('an_open_reports')} <I.ArrowRight size={14}/></button>
           </div>
           <div style={{ padding: '16px 18px 18px' }}>
             <div className="an-head">
               <div>
-                <div className="an-value">{analytics ? fmtMoneyRoll(an.total30, an.total30, lang) : '…'}</div>
-                <div className="an-label">{t('an_dash_sub')}</div>
+                <div className="an-value">{!monthLoading ? fmtMoneyRoll(an.total, an.total, lang) : '…'}</div>
+                <div className="an-label">{monthly ? t('an_dash_month_sub').replace('{month}', monthName) : t('an_dash_sub')}</div>
               </div>
               {an.monthDelta != null && (
                 <div className={'chart-delta ' + (an.monthDelta > 0.5 ? 'up' : an.monthDelta < -0.5 ? 'down' : 'flat')}>
                   {an.monthDelta > 0.5 && <I.TrendUp size={14}/>}
                   {an.monthDelta < -0.5 && <I.TrendDown size={14}/>}
                   {`${an.monthDelta > 0 ? '+' : ''}${Math.round(an.monthDelta)}%`}
-                  <span style={{ color: 'var(--muted)', fontWeight: 650 }}>{t('an_vs_prev')}</span>
+                  <span style={{ color: 'var(--muted)', fontWeight: 650 }}>{t('an_vs_prev_month')}</span>
                 </div>
               )}
             </div>
-            {analytics && an.total30 > 0 && (
+            {!monthLoading && an.total > 0 && an.daily.length > 0 && (
               <Trend
                 data={an.daily.map(d => ({ label: String(d.date.getDate()), full: `${d.date.getDate()} ${monthShort(d.date.getMonth(), lang)}`, value: d.value }))}
                 format={(v, axis) => (axis ? fmtMln(v, lang) : `${fmt.format(Math.round(v))} ${t('currency')}`)}
                 height={168} labelEvery={6}/>
             )}
-            {analytics && an.total30 <= 0 && <div className="chart-empty">{t('an_no_data')}</div>}
-            {!analytics && <div className="empty loading" style={{ minHeight: 140 }}>{t('loading')}</div>}
+            {!monthLoading && !(an.total > 0 && an.daily.length > 0) && <div className="chart-empty">{t('an_no_data')}</div>}
+            {monthLoading && <div className="empty loading" style={{ minHeight: 140 }}>{t('loading')}</div>}
             <div className="an-foot">
               <div className="an-metric">
                 <span>{t('an_mrr')}</span>
                 <b>{an.mrr ? fmtMoneyRoll(an.mrr, an.mrr, lang) : '—'}</b>
               </div>
               <div className="an-metric">
-                <span>{t('an_collected_month')}</span>
-                <b>{analytics ? fmtMoneyRoll(an.thisMonth, an.thisMonth, lang) : '—'}</b>
+                <span>{period.isCurrent ? t('an_collected_month') : t('an_collected_plain')}</span>
+                <b>{!monthLoading && kpis ? fmtMoneyRoll(an.thisMonth, an.thisMonth, lang) : '—'}</b>
                 {an.mrr > 0 && <small>{Math.round((an.thisMonth / an.mrr) * 100)}% {t('an_of_mrr')}</small>}
               </div>
               <div className="an-metric">
                 <span>{t('an_avg_check')}</span>
-                <b>{analytics ? fmtMoneyRoll(an.avgCheck, an.avgCheck, lang) : '—'}</b>
+                <b>{!monthLoading ? fmtMoneyRoll(an.avgCheck, an.avgCheck, lang) : '—'}</b>
                 <small>{an.paidCount} {tp('tx_count_sfx', an.paidCount)}</small>
               </div>
             </div>
@@ -344,7 +357,7 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
 
       <div className="card" style={{ marginTop: 16, overflow: 'hidden' }}>
         <div className="card-header" style={{ borderBottom: 0 }}>
-          <div className="card-title">{t('dashboard_finance')}</div>
+          <div className="card-title">{monthly ? `${t('dash_finance')} — ${monthName}` : t('dashboard_finance')}</div>
           <button className="btn ghost sm" style={{ marginLeft: 'auto' }} onClick={() => onNav('transactions')}>{t('dashboard_transactions')} <I.ArrowRight size={14}/></button>
         </div>
         <div className="finance-strip">
@@ -356,7 +369,7 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
                 {item.label}
               </div>
               <div className="value" style={item.color ? { color: item.color } : undefined}>
-                {loading ? '…' : <CountUp value={item.value} format={item.money ? fmtMoneyRoll : undefined} duration={1600} delay={i * 90}/>}
+                {monthLoading ? '…' : <CountUp value={item.value} format={item.money ? fmtMoneyRoll : undefined} duration={1600} delay={i * 90}/>}
               </div>
             </button>
           ))}

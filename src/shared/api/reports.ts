@@ -7,8 +7,10 @@ import {
 import { apiBlob } from './client';
 
 // Reports
-export async function apiGetDashboard() {
-  return apiFetch('/reports/dashboard/summary');
+/** Without year/month: the rolling 7/30/90 days; with them, also `selected_month` for that calendar month. */
+export async function apiGetDashboard(params = {}) {
+  const q = new URLSearchParams(params).toString();
+  return apiFetch(`/reports/dashboard/summary${q ? '?' + q : ''}`);
 }
 
 export async function apiGetDebtors(params = {}) {
