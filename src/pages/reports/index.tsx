@@ -78,6 +78,7 @@ import { paymentSourceLabel } from '@/shared/lib/labels';
 import { AnalyticsTab } from './analytics';
 import { LedgerTab } from './ledger';
 import { StudentPaymentsTab } from './student-payments';
+import { AttendanceTab } from './attendance';
 import { avatarColor } from '@/shared/lib/avatar';
 
 export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
@@ -89,25 +90,11 @@ export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
   const legacy = { debtors: ['student-payments', 'unpaid'], payers: ['student-payments', 'paid'], dashboard: ['ledger'], finance: ['ledger'], profit: ['analytics'] };
   const [tab, setTab] = React.useState(() => legacy[initialTab]?.[0] || initialTab);
   const spInitialStatus = legacy[initialTab]?.[1] || 'all';
-  const [attendanceGroups, setAttendanceGroups] = React.useState([]);
-  const [attFrom, setAttFrom] = React.useState('');
-  const [attTo, setAttTo] = React.useState('');
   const [groups, setGroups] = React.useState([]);
 
   React.useEffect(() => {
     apiGetGroupsForSelect().then(r => setGroups(r?.data || [])).catch(() => {});
   }, []);
-
-  // Attendance report follows its own date range (all time by default).
-  React.useEffect(() => {
-    if (tab !== 'attendance') return;
-    const params = {};
-    if (attFrom) params.from_date = attFrom;
-    if (attTo) params.to_date = attTo;
-    apiGetAttendanceGroupsReport(params)
-      .then(res => setAttendanceGroups(res?.data || []))
-      .catch(() => setAttendanceGroups([]));
-  }, [tab, attFrom, attTo]);
 
   async function handleExcel() {
     try {
@@ -173,43 +160,7 @@ export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
 
       {tab === 'student-payments' && <StudentPaymentsTab groups={groups} initialStatus={spInitialStatus}/>}
 
-      {tab === 'attendance' && (
-        <div className="card" style={{ padding: 20 }}>
-          <div className="toolbar" style={{ marginBottom: 14 }}>
-            <div className="card-title">{t('rpt_att_groups')}</div>
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <DateInput value={attFrom} onChange={setAttFrom} placeholder={t('cal_from')} />
-              <DateInput value={attTo} onChange={setAttTo} placeholder={t('cal_to')} />
-              {(attFrom || attTo) && <button className="btn ghost" onClick={() => { setAttFrom(''); setAttTo(''); }}><I.X size={14} /> {t('clear_filters')}</button>}
-            </div>
-          </div>
-          {attendanceGroups.length === 0 ? (
-            <div className="empty" style={{ padding: 18 }}>{t('rpt_att_not_found')}</div>
-          ) : (
-            <div className="grid-cards" style={{ gap: 12 }}>
-              {attendanceGroups.map((g) => (
-                <div key={g.group_id || g.id} className="detail-item" style={{ padding: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
-                    <div style={{ fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.group_name}</div>
-                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>{g.attendance_percentage || g.attendance_rate || 0}%</div>
-                  </div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', margin: '4px 0 12px' }}>
-                    {g.total_sessions} {t('nav_sessions').toLowerCase()} · {g.total_students} {t('nav_students').toLowerCase()}
-                  </div>
-                  {(() => {
-                    const pct = Number(g.attendance_percentage || g.attendance_rate || 0);
-                    return (
-                      <div className={'progress' + (pct < 60 ? ' red' : pct < 80 ? ' gold' : ' green')}>
-                        <span style={{ width: `${pct}%` }} />
-                      </div>
-                    );
-                  })()}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {tab === 'attendance' && <AttendanceTab/>}
 
 
     </div>

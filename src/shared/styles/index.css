@@ -4018,3 +4018,46 @@ button.choice { font-family: inherit; min-height: 38px; padding: 0 6px; }
   .exp-totals .et-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .exp-totals .et-value { font-size: 22px; }
 }
+
+/* Reports → Davomat: group → sessions → students, opened in place */
+.att-hint { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 14px; }
+.att-tree { display: grid; gap: 8px; }
+.att-group { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); overflow: hidden; }
+.att-group.open { border-color: var(--border-strong, var(--border)); }
+.att-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 12px 16px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  transition: background 120ms var(--ease);
+}
+.att-row:hover { background: var(--hover); }
+.att-row:focus-visible { outline: none; box-shadow: inset var(--ring); }
+.att-caret { flex: none; color: var(--muted); transition: transform 160ms var(--ease); }
+.att-group.open > .att-row .att-caret, .att-session.open > .att-row .att-caret { transform: rotate(90deg); color: var(--text); }
+.att-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.att-main b { font-weight: 800; overflow-wrap: anywhere; }
+.att-main b .muted { color: var(--muted); font-weight: 650; }
+.att-main small { font-size: 12px; font-weight: 600; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att-meta { flex: none; font-size: 12.5px; font-weight: 700; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.att-pct { flex: none; display: flex; align-items: center; gap: 10px; width: 150px; }
+.att-pct .progress { flex: 1; }
+.att-pct b { width: 42px; text-align: right; font-family: var(--font-display); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.att-body { border-top: 1px solid var(--border); background: var(--surface-2); padding: 8px 10px 10px 30px; display: grid; gap: 6px; }
+.att-session { border-radius: 12px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
+.att-session > .att-row { padding: 10px 14px; }
+.att-session .att-pct { width: 130px; }
+.att-session .att-body { background: transparent; padding: 10px 14px 14px; gap: 10px; }
+.att-counts { display: flex; flex-wrap: wrap; gap: 6px; }
+.att-students { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 6px; }
+.att-student { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); min-width: 0; }
+.att-student .name { font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+.att-student.absent { background: color-mix(in srgb, var(--danger) 8%, var(--surface-2)); }
+.att-note { padding: 10px 6px; font-size: 13px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.att-note.danger { color: var(--danger); }
+@media (max-width: 640px) {
+  .att-row { flex-wrap: wrap; row-gap: 8px; }
+  .att-main { flex-basis: calc(100% - 30px); }
+  .att-pct, .att-session .att-pct { width: auto; flex: 1; margin-left: 27px; }
+  .att-session .att-meta { margin-left: 26px; }
+  .att-session .att-meta + .att-pct { margin-left: 0; }
+  .att-body { padding-left: 10px; }
+}

@@ -54,6 +54,17 @@ export async function apiGetAttendanceGroupsReport(params = {}) {
   return apiFetch(`/reports/attendance/groups${q ? '?' + q : ''}`);
 }
 
+/** One group's sessions in a range, newest first, each with its attendance %. */
+export async function apiGetGroupAttendanceSessions(groupId, params = {}) {
+  const q = new URLSearchParams(params).toString();
+  return apiFetch(`/reports/attendance/groups/${groupId}/sessions${q ? '?' + q : ''}`);
+}
+
+/** One session: who came, who was late, who did not come. */
+export async function apiGetSessionAttendance(sessionId) {
+  return apiFetch(`/reports/attendance/sessions/${sessionId}`);
+}
+
 export function apiPayersExportUrl(params = {}) {
   const q = new URLSearchParams(params).toString();
   return `${BASE_URL}/reports/payers/export${q ? '?' + q : ''}`;

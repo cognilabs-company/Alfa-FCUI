@@ -55,6 +55,7 @@ export function attendanceBadge(status, t) {
   if (status === 'present') return <Badge tone="success" icon={I.CheckCircle}>{t('att_present')}</Badge>;
   if (status === 'late') return <Badge tone="warning" icon={I.Clock}>{t('att_late')}</Badge>;
   if (status === 'absent') return <Badge tone="danger" icon={I.XCircle}>{t('att_absent')}</Badge>;
+  if (status === 'not_marked') return <Badge tone="neutral" icon={I.Dashed}>{t('att_unmarked')}</Badge>;
   return <Badge tone="neutral" icon={I.Dashed}>{status || '—'}</Badge>;
 }
 
