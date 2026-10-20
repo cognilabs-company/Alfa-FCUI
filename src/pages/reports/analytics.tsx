@@ -127,7 +127,6 @@ export function AnalyticsTab({ onNav }) {
       value: v.amount,
       color: SOURCE_COLOR[id],
     }));
-  const stackSeries = sourceItems.map(s => ({ id: s.id, label: s.label, color: s.color }));
 
   const daily = React.useMemo(() => (
     data?.dailySeries
@@ -229,17 +228,7 @@ export function AnalyticsTab({ onNav }) {
               : <div className="chart-empty">{t('an_no_data')}</div>)}
         </ChartCard>
 
-        <ChartCard t={t} title={t('an_source_by_month')} sub={t('an_source_by_month_sub')}>
-          {stackSeries.length > 0
-            ? <>
-              <Columns data={revenue.map(p => ({ label: monthLabelOf(p.date), full: monthFull(p.date), parts: p.parts }))}
-                series={stackSeries} format={money} height={190}/>
-              <ChartLegend items={stackSeries.map(s => ({ ...s, value: sources[s.id]?.amount }))} format={money}/>
-            </>
-            : <div className="chart-empty">{t('an_no_data')}</div>}
-        </ChartCard>
-
-        <ChartCard t={t} span title={t('an_revenue_by_day')} sub={sm ? monthName : t('an_last_30')} value={money(sm ? Number(sm.total_inflow) || 0 : daily30)}>
+        <ChartCard t={t} title={t('an_revenue_by_day')} sub={sm ? monthName : t('an_last_30')} value={money(sm ? Number(sm.total_inflow) || 0 : daily30)}>
           {(sm ? Number(sm.total_inflow) > 0 && monthDaily.length > 0 : daily30 > 0)
             ? <Trend data={(sm ? monthDaily : daily).map(d => ({ label: String(d.date.getDate()), full: `${d.date.getDate()} ${monthShort(d.date.getMonth(), lang)}`, value: d.value }))}
                 format={money} height={190} labelEvery={5}/>
@@ -262,7 +251,7 @@ export function AnalyticsTab({ onNav }) {
 
         <ChartCard t={t} title={t('an_debt_by_group')} sub={t('an_debt_by_group_sub')}>
           {byGroupDebt.length > 0
-            ? <BarList items={byGroupDebt.map(g => ({ ...g, color: 'var(--danger)' }))} format={money}/>
+            ? <BarList stacked items={byGroupDebt.map(g => ({ ...g, color: 'var(--danger)' }))} format={money}/>
             : <div className="chart-empty">{t('an_no_data')}</div>}
         </ChartCard>
 
@@ -359,7 +348,7 @@ export function AnalyticsTab({ onNav }) {
             : <div className="chart-empty">{t('an_no_data')}</div>}
         </ChartCard>
 
-        <ChartCard t={t} title={t('an_sessions_per_month')} sub={t('an_sessions_per_month_sub')}
+        <ChartCard t={t} span title={t('an_sessions_per_month')} sub={t('an_sessions_per_month_sub')}
           value={fmt.format(sessionSeries.reduce((s, p) => s + p.value, 0))}>
           {(data?.sessions || []).length > 0
             ? <Columns data={sessionSeries.map(p => ({ label: monthLabelOf(p.date), full: monthFull(p.date), value: p.value }))}

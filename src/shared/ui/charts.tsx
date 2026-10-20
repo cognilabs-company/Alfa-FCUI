@@ -219,10 +219,10 @@ export function Trend({ data, height = 180, format = (v) => v, color = 'var(--vi
 }
 
 /** Horizontal bars — ranked magnitude with long labels (groups, buckets, top lists). */
-export function BarList({ items, format = (v) => v, color = 'var(--viz-accent)', max: maxProp, onSelect }) {
+export function BarList({ items, format = (v) => v, color = 'var(--viz-accent)', max: maxProp, onSelect, stacked }) {
   const max = maxProp || Math.max(...items.map(i => Number(i.value) || 0), 1);
   return (
-    <div className="bar-list">
+    <div className={'bar-list' + (stacked ? ' stacked' : '')}>
       {items.map((it, i) => {
         const v = Number(it.value) || 0;
         const pct = Math.max((v / max) * 100, v > 0 ? 1.5 : 0);
