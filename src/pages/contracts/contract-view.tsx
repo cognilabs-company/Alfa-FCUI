@@ -72,6 +72,7 @@ import {
   apiCreateManualTransactionWithProof,
   apiGetWaitingListNext,
   apiGetAuditLogs,
+  apiGetStudentPayments,
 } from '@/shared/api';
 
 import { fmt, fmtDate, fmtDateTime, monthLabel } from '@/shared/lib/format';
@@ -79,14 +80,18 @@ import { Stat } from '@/shared/ui/stat';
 import { Modal, DetailGrid } from '@/shared/ui/modal';
 
 import { statusChip } from './status-chip';
+import { monthTag } from '@/pages/reports/student-payments';
 
 export function ContractView({ contractId, onBack, onToast, onNavigateToStudent }) {
   const I = Icon;
-  const { t, tp } = useT();
+  const { t, tp, lang } = useT();
   const [contract, setContract] = React.useState(null);
   const [student, setStudent] = React.useState(null);
   const [transactions, setTransactions] = React.useState([]);
   const [txLoading, setTxLoading] = React.useState(false);
+  // this student's row in Hisobotlar → To'lovlar: undefined while loading, null if absent
+  const [standing, setStanding] = React.useState(undefined);
+  const standingFor = React.useRef(null);
   const [loading, setLoading] = React.useState(true);
   const [regenerating, setRegenerating] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
@@ -113,6 +118,37 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
     return () => document.removeEventListener('mousedown', close);
   }, [moreOpen]);
 
+  // The debt comes from the server (GET /reports/student-payments), the same
+  // figure the reports show. Counting it here from the contract's length
+  // charged months not yet due and doubled it (FRONTEND_PROFIL_QARZ.md).
+  async function loadStanding(c, s) {
+    standingFor.current = c.id;
+    setStanding(undefined);
+    const mine = (items) => {
+      const rows = (items || []).filter(r => String(r.student_id) === String(c.student_id));
+      return rows.find(r => r.contract_number === c.contract_number) || rows[0] || null;
+    };
+    const done = (row, data) => { if (standingFor.current === c.id) setStanding(row ? { row, period: data?.period?.label } : null); };
+    try {
+      const groupId = s?.group_id ?? s?.group?.id;
+      if (groupId) {
+        const res = await apiGetStudentPayments({ group_id: groupId, page_size: 500 });
+        const row = mine(res?.data?.items);
+        if (row) return done(row, res?.data);
+      }
+      // no group, or moved since: look through everyone
+      for (let page = 1; page <= 20; page++) {
+        const res = await apiGetStudentPayments({ page, page_size: 500 });
+        const row = mine(res?.data?.items);
+        if (row) return done(row, res?.data);
+        if (page >= (Number(res?.data?.pagination?.total_pages) || 1)) break;
+      }
+      done(null);
+    } catch {
+      done(null);
+    }
+  }
+
   async function load() {
     if (!contractId) { setLoading(false); return; }
     setLoading(true);
@@ -121,7 +157,9 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
       const c = res?.data || null;
       setContract(c);
       if (c?.student_id) {
-        apiGetStudent(c.student_id).then(sr => setStudent(sr?.data || null)).catch(() => {});
+        apiGetStudent(c.student_id)
+          .then(sr => { setStudent(sr?.data || null); loadStanding(c, sr?.data); })
+          .catch(() => loadStanding(c, null));
         setTxLoading(true);
         apiGetStudentTransactions(c.student_id)
           .then(tr => { const list = tr?.data || (Array.isArray(tr) ? tr : []); setTransactions(list); })
@@ -365,11 +403,10 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
         const isPaid = st => ['success', 'completed', 'settled'].includes(String(st || '').toLowerCase());
         const successTx = transactions.filter(tx => isPaid(tx.status));
         const totalPaid = successTx.reduce((s, tx) => s + (tx.amount || 0), 0);
-        const months = contract.start_date && contract.end_date
-          ? Math.max(1, Math.round((new Date(contract.end_date) - new Date(contract.start_date)) / (1000 * 60 * 60 * 24 * 30.4)))
-          : 0;
-        const totalExpected = (contract.monthly_fee || 0) * months;
-        const debt = Math.max(0, totalExpected - totalPaid);
+        const row = standing?.row;
+        const debt = row ? Number(row.debt) || 0 : null;
+        const unpaid = row?.unpaid_month_labels || [];
+        const monthsTotal = Number(row?.months_total) || 0;
 
         const srcLabel = s => ({ cash: t('tx_src_cash'), bank: t('tx_src_bank'), click: 'Click', payme: 'Payme' }[s] || s || '—');
         const stChip = st => {
@@ -383,12 +420,17 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
               <Stat label={t('tx_st_success')} tone="success" icon={I.CheckCircle}
                 value={totalPaid} unit={t('currency')}
                 sub={`${successTx.length} ${tp('contract_payments_sfx', successTx.length)}`} />
-              <Stat label={`${t('contracts_monthly_fee')} × ${months} ${t('contract_months_sfx')}`} icon={I.Wallet}
-                value={totalExpected} unit={t('currency')}
-                sub={t('contract_total_by')} />
-              <Stat label={t('rpt_debtors_col_debt')} tone={debt > 0 ? 'danger' : 'success'} icon={debt > 0 ? I.AlertCircle : I.CheckCircle}
-                value={debt} unit={t('currency')}
-                sub={debt > 0 ? t('contract_debt_unpaid') : t('contract_debt_none')} />
+              <Stat label={t('sp_expected_total')} icon={I.Wallet}
+                value={row ? Number(row.expected_total) || 0 : (standing === undefined ? '…' : '—')} unit={row ? t('currency') : undefined}
+                sub={row ? `${Number(row.months_paid) || 0} / ${monthsTotal} ${tp('sp_months_sfx', monthsTotal)}${standing.period ? ` · ${standing.period}` : ''}` : null} />
+              <Stat label={t('rpt_debtors_col_debt')} tone={debt == null ? 'default' : debt > 0 ? 'danger' : 'success'}
+                icon={debt > 0 ? I.AlertCircle : I.CheckCircle}
+                value={debt ?? (standing === undefined ? '…' : '—')} unit={debt != null ? t('currency') : undefined}
+                sub={debt == null
+                  ? (standing === null ? t('contract_debt_no_data') : null)
+                  : debt > 0
+                    ? `${t('contract_debt_unpaid')}${unpaid.length ? `: ${unpaid.map(l => monthTag(l, lang)).join(', ')}` : ''}`
+                    : t('contract_debt_none')} />
             </div>
 
             <div className="table-wrap">

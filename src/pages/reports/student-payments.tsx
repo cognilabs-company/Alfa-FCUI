@@ -14,7 +14,7 @@ const PAGE_SIZE = 50;
 const num = (v) => Number(v) || 0;
 
 /** "2026-07" → "Iyl 26" */
-function monthTag(label, lang) {
+export function monthTag(label, lang) {
   const m = String(label || '').match(/^(\d{4})-(\d{2})/);
   return m ? `${monthShort(Number(m[2]) - 1, lang)} ${m[1].slice(2)}` : label;
 }
