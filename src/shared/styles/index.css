@@ -2492,6 +2492,7 @@ textarea.input { height: auto; padding: 11px 13px; resize: vertical; min-height:
   gap: 14px;
   transition: border-color 140ms var(--ease), box-shadow 140ms var(--ease);
 }
+.group-card { cursor: pointer; }
 .group-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
 .group-card.selected { border-color: var(--accent-ink); box-shadow: 0 0 0 1px var(--accent-ink); }
 .group-card .gc-top { display: flex; align-items: flex-start; gap: 10px; }

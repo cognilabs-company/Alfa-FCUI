@@ -102,15 +102,22 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
   }, []);
 
   React.useEffect(() => {
-    if (!selectedGroupId) { setGroupDetail(null); setGroupStudents([]); return; }
+    setGroupDetail(null);
+    setGroupStudents([]);
+    if (!selectedGroupId) return;
+    // a reply that lands after the modal was closed (or another group opened)
+    // must not bring it back
+    let alive = true;
     setGroupLoading(true);
     Promise.all([apiGetGroup(selectedGroupId), apiGetGroupStudents(selectedGroupId)])
       .then(([gRes, sRes]) => {
+        if (!alive) return;
         setGroupDetail(gRes?.data || null);
         setGroupStudents(sRes?.data || []);
       })
       .catch(() => {})
-      .finally(() => setGroupLoading(false));
+      .finally(() => alive && setGroupLoading(false));
+    return () => { alive = false; };
   }, [selectedGroupId]);
 
   const coachMap = React.useMemo(() => {
@@ -217,7 +224,14 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
 
   if (loading) return <div className="empty loading" style={{ padding: 64 }}>{t('loading')}</div>;
 
-  const selectedGroup = groupDetail || groups.find(g => g.id === selectedGroupId) || null;
+  const selectedGroup = selectedGroupId
+    ? (groupDetail || groups.find(g => String(g.id) === String(selectedGroupId)) || null)
+    : null;
+  // the whole card / row opens the group, except its own controls
+  const openFrom = (e, id) => {
+    if (e.target.closest('button:not(.gc-open), input, a, label, .menu, [role="menu"]')) return;
+    onOpen?.(id);
+  };
 
   return (
     <div>
@@ -327,10 +341,10 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
             const capacity = Number(g.capacity) > 0 ? Number(g.capacity) : null;
             const pct = capacity ? Math.min(100, Math.round((count / capacity) * 100)) : null;
             return (
-              <div key={g.id} className={'card group-card' + (isSelected ? ' selected' : '')}>
+              <div key={g.id} className={'card group-card' + (isSelected ? ' selected' : '')} onClick={e => openFrom(e, g.id)}>
                 <div className="gc-top">
                   <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(g.id)} style={{ marginTop: 2 }} aria-label={g.name} />
-                  <button type="button" className="gc-open" onClick={() => onOpen && onOpen(g.id)}>
+                  <button type="button" className="gc-open">
                     {g.description && <div className="gc-eyebrow">{g.description}</div>}
                     <div className="gc-name">{g.name}</div>
                   </button>
@@ -392,11 +406,11 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
                 const coachName = coachMap[g.coach_id] || '—';
                 const isSelected = selectedIds.includes(g.id);
                 return (
-                  <tr key={g.id} className={isSelected ? 'selected' : undefined}>
+                  <tr key={g.id} className={isSelected ? 'selected' : undefined} onClick={e => openFrom(e, g.id)}>
                     <td onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(g.id)} />
                     </td>
-                    <td style={{ fontWeight: 600, cursor: 'pointer' }} onClick={() => onOpen && onOpen(g.id)}>{g.name}</td>
+                    <td style={{ fontWeight: 600 }}>{g.name}</td>
                     <td style={{ color: 'var(--muted)' }}>{g.description || '—'}</td>
                     <td>{coachName}</td>
                     <td style={{ fontVariantNumeric: 'tabular-nums' }}>{g.active_students_count ?? '—'}</td>
