@@ -3,7 +3,7 @@ import React from 'react';
 import { Icon } from '@/shared/ui/icons';
 import { useT } from '@/shared/i18n/lang';
 import { Stat } from '@/shared/ui/stat';
-import { apiGetFinanceReport, apiGetMonthlyLedger } from '@/shared/api';
+import { apiGetFinanceReport, apiGetMonthlyLedger, apiGetProfitReport } from '@/shared/api';
 import { fmt, fmtMoneyRoll, monthLabel, toLocalISO } from '@/shared/lib/format';
 import { paymentSourceLabel } from '@/shared/lib/labels';
 import { CATEGORY_COLOR, categoryLabel } from '@/shared/lib/expenses';
@@ -37,14 +37,19 @@ export function LedgerTab({ onNav }) {
   // The former "Moliya hisoboti" for the same month: cash actually received
   // by source, and the one debt figure every report agrees on.
   const [finance, setFinance] = React.useState(null);
+  // The month's cash split by who paid: students on a contract, and pending students without one.
+  const [studentCash, setStudentCash] = React.useState(null);
 
   React.useEffect(() => {
     let alive = true;
     setFinance(null);
-    apiGetFinanceReport({
+    setStudentCash(null);
+    const range = {
       from_date: toLocalISO(new Date(period.year, period.month - 1, 1)),
       to_date: toLocalISO(new Date(period.year, period.month, 0)),
-    }).then(res => alive && setFinance(res?.data || null)).catch(() => {});
+    };
+    apiGetFinanceReport(range).then(res => alive && setFinance(res?.data || null)).catch(() => {});
+    apiGetProfitReport(range).then(res => alive && setStudentCash(res?.data?.student_finance || null)).catch(() => {});
     return () => { alive = false; };
   }, [period.year, period.month, period.version]);
 
@@ -118,6 +123,30 @@ export function LedgerTab({ onNav }) {
           </div>
 
           <div className="chart-grid-2" style={{ marginBottom: 14 }}>
+            {studentCash?.cash_collected_pending != null && (
+              <ChartCard t={t} span title={t('lg_students_income_title')} sub={dataMonth} value={money(studentCash.cash_collected)}>
+                <div className="table-scroll">
+                  <table className="table compact-report-table">
+                    <tbody>
+                      <tr className="static">
+                        <td>{t('lg_income_official')}</td>
+                        <td className="money" style={{ textAlign: 'right' }}>{fmt.format(Math.round(num(studentCash.cash_collected_official)))}</td>
+                      </tr>
+                      <tr className="static">
+                        <td>{t('lg_income_pending')}</td>
+                        <td className="money" style={{ textAlign: 'right' }}>{fmt.format(Math.round(num(studentCash.cash_collected_pending)))}</td>
+                      </tr>
+                    </tbody>
+                    <tfoot>
+                      <tr className="static">
+                        <td style={{ fontWeight: 800 }}>{t('total')}</td>
+                        <td className="money" style={{ textAlign: 'right', fontWeight: 800 }}>{fmt.format(Math.round(num(studentCash.cash_collected)))}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </ChartCard>
+            )}
             {(finance?.breakdown || []).length > 0 && (
               <ChartCard t={t} span title={t('lg_sources_title')} sub={dataMonth} value={money(received)}>
                 <div className="table-scroll">

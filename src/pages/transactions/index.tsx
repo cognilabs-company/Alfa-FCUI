@@ -428,12 +428,22 @@ export function TransactionsScreen({ onToast, onOpenStudent } = {}) {
             { key: 'other', label: t('dash_other'), value: other, color: 'var(--viz-cash)' },
           ];
           const sum = parts.reduce((s, p) => s + p.value, 0) || 1;
+          // total_paid is students on a contract; pending students' money comes apart and adds to the total
+          const official = Number(stats.total_paid) || 0;
+          const pendingPaid = Number(stats.total_paid_pending) || 0;
+          const pendingCount = Number(stats.pending_transactions) || 0;
+          const allPaid = official + pendingPaid;
           return (
             <section className="summary-card">
               <div>
                 <div className="s-label"><I.HandCoins size={15}/> {t('tx_stat_total_paid')}</div>
-                <div className="s-big"><CountUp value={Number(stats.total_paid) || 0} format={fmtMoneyRoll} duration={1900}/></div>
-                <div className="s-note">{fmt.format(stats.total_paid || 0)} {t('currency')}</div>
+                <div className="s-big"><CountUp value={allPaid} format={fmtMoneyRoll} duration={1900}/></div>
+                <div className="s-note">{fmt.format(allPaid)} {t('currency')}</div>
+                {pendingPaid > 0 && (
+                  <div className="s-note">
+                    {t('tx_stat_official')}: {fmt.format(official)} · {t('tx_stat_pending')}: {fmt.format(pendingPaid)}
+                  </div>
+                )}
               </div>
               <div className="dist">
                 <div className="dist-bar">
@@ -455,7 +465,7 @@ export function TransactionsScreen({ onToast, onOpenStudent } = {}) {
               <div className="s-side">
                 <div className="s-label"><I.CheckCircle size={15}/> {t('tx_stat_success_count')}</div>
                 <div className="s-mid"><CountUp value={success} duration={1500}/></div>
-                <div className="s-note">{t('nav_transactions')}</div>
+                <div className="s-note">{t('nav_transactions')}{pendingCount > 0 ? ` · + ${pendingCount} ${t('tx_stat_pending').toLowerCase()}` : ''}</div>
               </div>
             </section>
           );

@@ -33,6 +33,11 @@ export async function apiDeletePendingStudent(id) {
   return apiFetch(`/students/pending-documents/${id}`, { method: 'DELETE' });
 }
 
+/** One more payment from a pending student — as many as needed, each its own transaction. */
+export async function apiAddPendingStudentPayment(id, data) {
+  return apiFetch(`/students/pending-documents/${id}/payments`, { method: 'POST', body: JSON.stringify(data) });
+}
+
 /** Documents arrived: creates the student and the contract. FormData (files optional). */
 export async function apiCompletePendingStudent(id, formData) {
   return apiFetch(`/students/pending-documents/${id}/complete`, { method: 'POST', body: formData });

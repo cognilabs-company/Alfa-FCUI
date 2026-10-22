@@ -1,41 +1,31 @@
 // @ts-nocheck
 import React from 'react';
 import { Icon } from '@/shared/ui/icons';
-import { DateInput } from '@/shared/ui/date-picker';
+import { DateInput, DateTimeInput } from '@/shared/ui/date-picker';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
-import { Modal } from '@/shared/ui/modal';
-import { Badge } from '@/shared/ui/status';
+import { Modal, DetailGrid } from '@/shared/ui/modal';
+import { Badge, txStatusBadge } from '@/shared/ui/status';
 import { Pager, menuPosition } from '@/shared/ui/pager';
-import { Stat } from '@/shared/ui/stat';
 import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
 import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
-import { fmt, fmtDate, monthShort, todayISO, toLocalISO } from '@/shared/lib/format';
+import { fmt, fmtDate, fmtDateTime, todayISO } from '@/shared/lib/format';
+import { paymentSourceLabel } from '@/shared/lib/labels';
+import { isPaid } from '@/shared/lib/analytics';
 import {
   apiGetPendingStudents, apiCreatePendingStudent, apiUpdatePendingStudent,
-  apiDeletePendingStudent, apiCompletePendingStudent, apiGetGroupsForSelect, apiGetTransaction,
+  apiDeletePendingStudent, apiCompletePendingStudent, apiGetGroupsForSelect,
+  apiGetTransactions, apiAddPendingStudentPayment,
 } from '@/shared/api';
+import { MoneyInput } from '@/widgets/expenses';
 import { StudentsTabs } from './students-tabs';
-import { PreContractTrainingFields, emptyPreContract, preContractError } from './pre-contract-training';
+import { PRE_CONTRACT_PRICE_PER_SESSION } from './pre-contract-training';
 
 const PAGE_SIZE = 20;
 
-/** "18 Sen" — enough to read a period in a narrow column, the year lives elsewhere. */
-function shortDay(iso) {
-  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m ? `${Number(m[3])} ${monthShort(Number(m[2]) - 1)}` : '—';
-}
-
-/** First day of the month after the given date — where a short first period naturally ends. */
-function firstOfNextMonth(iso = todayISO()) {
-  const [y, m] = String(iso).split('-').map(Number);
-  if (!y || !m) return todayISO();
-  return toLocalISO(new Date(y, m, 1));
-}
-
 const emptyPending = {
-  first_name: '', last_name: '', phone: '', date_of_birth: '',
+  first_name: '', last_name: '', phone: '', date_of_birth: '', group_id: '',
 };
 const emptyComplete = {
   first_name: '', last_name: '', date_of_birth: '', height: '', weight: '',
@@ -44,37 +34,198 @@ const emptyComplete = {
   monthly_fee_amount: '', uniform_fee_amount: '', contract_start_date: '', contract_end_date: '',
   photo: null, passport: null, extra_file: null,
 };
+const emptyPayment = () => ({ session_count: '', amount: '', source: 'cash', paid_at: '', comment: '' });
 
-/**
- * How close the deadline is. The backend sends days_until_due / is_overdue;
- * both are recomputed from the date when they are missing so the badge never
- * goes blank on an older response. The due date itself is optional: without
- * one there is no deadline, so no badge at all.
- */
-function dueState(row) {
-  if (row.converted_at || row.converted_student_id) return { key: 'done', tone: 'success' };
-  let days = row.days_until_due;
-  if (days == null && row.document_due_date) {
-    const due = new Date(row.document_due_date + 'T00:00:00');
-    const now = new Date();
-    days = Math.round((due - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
-  }
-  if (days == null) return { key: 'none' };
-  if (days < 0 || row.is_overdue) return { key: 'overdue', tone: 'danger', days };
-  if (days === 0) return { key: 'today', tone: 'warning', days };
-  if (days <= 2) return { key: 'soon', tone: days === 1 ? 'warning' : 'info', days };
-  return { key: 'ontime', tone: 'neutral', days };
+/** Every payment taken from one pending student, newest first. */
+async function loadPayments(id) {
+  const res = await apiGetTransactions({ pending_student_id: id, page_size: 100 });
+  return [...(res?.data || [])].sort((a, b) =>
+    String(b.paid_at || b.created_at || '').localeCompare(String(a.paid_at || a.created_at || '')));
 }
 
-function StateBadge({ row, t, tp }) {
+function paidSummary(rows) {
+  const paid = (rows || []).filter(isPaid);
+  return { total: paid.reduce((s, tx) => s + (Number(tx.amount) || 0), 0), count: paid.length };
+}
+
+/**
+ * One pending student: who they are, every payment taken from them, and a
+ * form to take another — as many as needed, since they pay while the
+ * documents are still on their way.
+ */
+function PendingDetail({ row, groupName, canEdit, onClose, onChanged, onEdit, onComplete, onDelete }) {
   const I = Icon;
-  const s = dueState(row);
-  if (s.key === 'done') return <Badge tone="success" icon={I.CheckCircle}>{t('ps_state_done')}</Badge>;
-  if (s.key === 'none') return <span style={{ color: 'var(--muted)' }}>—</span>;
-  if (s.key === 'overdue') return <Badge tone="danger" icon={I.AlertCircle}>{t('ps_state_overdue')}</Badge>;
-  if (s.key === 'today') return <Badge tone="warning" icon={I.Clock}>{t('ps_state_today')}</Badge>;
-  if (s.key === 'soon') return <Badge tone={s.tone} icon={I.Clock}>{tp('ps_state_days_left', s.days)}</Badge>;
-  return <Badge tone="neutral" icon={I.Calendar}>{t('ps_state_ontime')}</Badge>;
+  const { t, tp } = useT();
+  const [payments, setPayments] = React.useState(null);
+  const [error, setError] = React.useState('');
+  const [form, setForm] = React.useState(null);
+  const [saving, setSaving] = React.useState(false);
+  const done = !!(row.converted_at || row.converted_student_id);
+
+  async function reload() {
+    setError('');
+    try { setPayments(await loadPayments(row.id)); }
+    catch (e) { setPayments([]); setError(e.message); }
+  }
+  React.useEffect(() => { reload(); }, [row.id]);
+
+  const setP = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  async function addPayment() {
+    const count = Number(form.session_count);
+    const amount = Number(form.amount);
+    // either is enough: sessions alone are billed count × price by the server
+    if (!(amount > 0) && !(count > 0)) { notify.error(t('ps_err_amount_or_sessions')); return; }
+    setSaving(true);
+    try {
+      await apiAddPendingStudentPayment(row.id, {
+        session_count: count > 0 ? count : undefined,
+        amount: amount > 0 ? amount : undefined,
+        source: form.source || 'cash',
+        paid_at: form.paid_at ? new Date(form.paid_at).toISOString() : undefined,
+        comment: form.comment.trim() || undefined,
+      });
+      notify.success(t('ps_pay_added'));
+      setForm(null);
+      await reload();
+      onChanged?.(row.id);
+    } catch (e) {
+      notify.error(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const name = `${row.first_name || ''} ${row.last_name || ''}`.trim() || `#${row.id}`;
+  const sum = paidSummary(payments);
+
+  return (
+    <Modal icon={I.User} size="lg" onClose={onClose} title={name}
+      subtitle={done ? t('ps_state_done') : t('ps_title')}
+      headerExtra={canEdit && !done ? (
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          <button className="btn ghost sm" onClick={() => onEdit(row)}><I.Edit size={13}/> {t('edit')}</button>
+        </div>
+      ) : null}
+      footer={canEdit && !done ? (
+        <>
+          <button className="btn danger-ghost" style={{ marginRight: 'auto' }} onClick={() => onDelete(row)}><I.Trash2 size={14}/> {t('delete')}</button>
+          <button className="btn primary" onClick={() => onComplete(row)}><I.Check size={14}/> {t('ps_complete')}</button>
+        </>
+      ) : undefined}>
+      <DetailGrid items={[
+        { label: t('field_phone'), value: row.phone || '—', icon: I.Phone },
+        { label: t('field_birth_date'), value: row.date_of_birth ? fmtDate(row.date_of_birth) : '—', icon: I.Calendar },
+        { label: t('field_group2'), value: groupName || '—', icon: I.UsersFour },
+        { label: t('ps_added_at'), value: fmtDate(row.created_at), icon: I.UserPlus },
+      ]}/>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', margin: '20px 0 10px' }}>
+        <div className="card-title">{t('ps_payments_title')}</div>
+        {payments && <span className="chip">{sum.count} {tp('contract_payments_sfx', sum.count)}</span>}
+        {payments && sum.total > 0 && <span className="chip success">{t('ps_paid_total')}: {fmt.format(sum.total)} {t('currency')}</span>}
+        {canEdit && !done && !form && (
+          <button className="btn sm primary" style={{ marginLeft: 'auto' }} onClick={() => setForm(emptyPayment())}>
+            <I.Plus size={14}/> {t('ps_pay_add')}
+          </button>
+        )}
+      </div>
+
+      {form && (
+        <div className="opt-card on" style={{ display: 'block', marginBottom: 14 }}>
+          <div className="form-row">
+            <div className="field">
+              <label>{t('ps_pay_sessions')}</label>
+              {/* the count fills the amount at the per-session price; the amount stays editable */}
+              <input type="number" min="1" inputMode="numeric" value={form.session_count} placeholder="12" autoFocus
+                onChange={e => {
+                  const n = Number(e.target.value);
+                  setForm(p => ({ ...p, session_count: e.target.value, amount: n > 0 ? String(n * PRE_CONTRACT_PRICE_PER_SESSION) : '' }));
+                }}/>
+            </div>
+            <div className="field">
+              <label>{t('exp_amount')}</label>
+              <MoneyInput value={form.amount} onChange={v => setP('amount', v)} placeholder="300 000"/>
+              {Number(form.session_count) > 0 && (
+                <div className="hint">
+                  {t('pct_calc')
+                    .replace('{n}', String(Number(form.session_count)))
+                    .replace('{price}', fmt.format(PRE_CONTRACT_PRICE_PER_SESSION))
+                    .replace('{total}', fmt.format(Number(form.session_count) * PRE_CONTRACT_PRICE_PER_SESSION))}
+                </div>
+              )}
+            </div>
+            <div className="field">
+              <label>{t('prorated_source')}</label>
+              <SearchableSelect value={form.source} onChange={v => setP('source', v)}
+                options={[
+                  { value: 'cash', label: t('tx_src_cash') },
+                  { value: 'click', label: 'Click' },
+                  { value: 'payme', label: 'Payme' },
+                  { value: 'bank', label: t('tx_src_bank') },
+                ]}/>
+            </div>
+            <div className="field">
+              <label>{t('prorated_paid_at')}</label>
+              <DateTimeInput value={form.paid_at} onChange={v => setP('paid_at', v)} placeholder={t('pct_paid_now')}/>
+            </div>
+            <div className="field">
+              <label>{t('ps_pay_comment')}</label>
+              <input value={form.comment} onChange={e => setP('comment', e.target.value)}/>
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+            <button className="btn ghost sm" onClick={() => setForm(null)} disabled={saving}>{t('cancel')}</button>
+            <button className="btn primary sm" onClick={addPayment} disabled={saving}>
+              <I.Check size={14}/> {saving ? t('saving') : t('save')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {error && <div className="alert danger" style={{ marginBottom: 10 }}><I.AlertTriangle size={16}/> <span>{error}</span></div>}
+      {payments === null ? (
+        <div className="empty loading" style={{ padding: 20 }}>{t('loading')}</div>
+      ) : payments.length === 0 ? (
+        <div className="empty" style={{ padding: 20 }}>{t('ps_pay_empty')}</div>
+      ) : (
+        <div className="table-wrap">
+          <div className="table-scroll">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>{t('transactions_col_date')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('exp_amount')}</th>
+                  <th>{t('prorated_source')}</th>
+                  <th>{t('ps_pay_comment')}</th>
+                  <th>{t('transactions_col_status')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map(tx => (
+                  <tr key={tx.id} className="static">
+                    <td className="num" style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>{fmtDateTime(tx.paid_at || tx.created_at)}</td>
+                    <td className="money" style={{ textAlign: 'right' }}>
+                      <div>{fmt.format(tx.amount || 0)} {t('currency')}</div>
+                      {Number(tx.training_session_count) > 0 && (
+                        <div style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>
+                          {tx.training_session_count} {tp('ps_sessions_sfx', Number(tx.training_session_count))}
+                          {Number(tx.training_price_per_session) > 0 ? ` × ${fmt.format(tx.training_price_per_session)}` : ''}
+                        </div>
+                      )}
+                    </td>
+                    <td><span className="chip">{paymentSourceLabel(tx.source, t)}</span></td>
+                    <td className="cell-note" title={tx.comment || ''}>{tx.comment || '—'}</td>
+                    <td>{txStatusBadge(tx.status, t)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
 }
 
 /** Students who train already but have not handed in their documents yet. */
@@ -89,13 +240,9 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
   const [page, setPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);
   const [totalCount, setTotalCount] = React.useState(0);
-  const [summary, setSummary] = React.useState({ all: 0, today: 0, soon: 0, overdue: 0 });
 
   // filters
   const [q, setQ] = React.useState('');
-  const [fromDue, setFromDue] = React.useState('');
-  const [toDue, setToDue] = React.useState('');
-  const [overdueOnly, setOverdueOnly] = React.useState(false);
   const [withDone, setWithDone] = React.useState(false);
 
   // create / edit
@@ -103,12 +250,10 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
   const [editing, setEditing] = React.useState(null);
   const [form, setForm] = React.useState(emptyPending);
   const [saving, setSaving] = React.useState(false);
-  // Training before the contract is paid at the door, while the documents are
-  // still missing — so it is taken here, once, when the record is opened.
-  const [preTraining, setPreTraining] = React.useState(false);
-  const [pct, setPct] = React.useState(emptyPreContract);
-  // That payment is a transaction of its own; a record carries only its id.
-  const [pctTx, setPctTx] = React.useState({});
+  // what each row has paid so far: id → { total, count }
+  const [paid, setPaid] = React.useState({});
+  // the record whose card is open
+  const [detail, setDetail] = React.useState(null);
   // complete
   const [completing, setCompleting] = React.useState(null);
   const [cForm, setCForm] = React.useState(emptyComplete);
@@ -135,9 +280,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       const params = { page: overrides.page ?? page, page_size: PAGE_SIZE };
       const query = overrides.search ?? q;
       if (query) params.search = query;
-      if (fromDue) params.from_due_date = fromDue;
-      if (toDue) params.to_due_date = toDue;
-      if (overdueOnly) params.overdue_only = true;
       if (withDone) params.include_converted = true;
       const res = await apiGetPendingStudents(params);
       setRows(res?.data || []);
@@ -153,46 +295,23 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
     }
   }
 
-  /**
-   * The tiles describe the whole queue, not the page in view — counting the
-   * twenty rows in hand would quietly under-report as soon as there are more.
-   * Each count is one row asked of the server purely for its meta.total.
-   */
-  async function loadSummary() {
-    const day = (n) => {
-      const d = new Date();
-      d.setDate(d.getDate() + n);
-      return toLocalISO(d);
-    };
-    const count = async (params) => {
-      try { return (await apiGetPendingStudents({ ...params, page: 1, page_size: 1 }))?.meta?.total ?? 0; }
-      catch { return 0; }
-    };
-    const [all, today, soon, overdue] = await Promise.all([
-      count({}),
-      count({ from_due_date: day(0), to_due_date: day(0) }),
-      count({ from_due_date: day(1), to_due_date: day(2) }),
-      count({ overdue_only: true }),
-    ]);
-    setSummary({ all, today, soon, overdue });
-  }
-
   React.useEffect(() => {
     apiGetGroupsForSelect().then(r => setGroups(r?.data || [])).catch(() => {});
-    loadSummary();
   }, []);
 
   React.useEffect(() => {
     const timer = setTimeout(() => { setPage(1); load({ page: 1 }); }, q ? 400 : 0);
     return () => clearTimeout(timer);
-  }, [q, fromDue, toDue, overdueOnly, withDone]);
+  }, [q, withDone]);
 
-  React.useEffect(() => {
-    const ids = [...new Set(rows.map(r => r.pre_contract_training_transaction_id).filter(Boolean))]
-      .filter(id => !(id in pctTx));
+  // payment totals for the rows in view; a row whose total is known is not asked again
+  function refreshPaid(ids) {
     if (!ids.length) return;
-    Promise.all(ids.map(id => apiGetTransaction(id).then(r => [id, r?.data || null]).catch(() => [id, null])))
-      .then(pairs => setPctTx(p => ({ ...p, ...Object.fromEntries(pairs) })));
+    Promise.all(ids.map(id => loadPayments(id).then(list => [id, paidSummary(list)]).catch(() => [id, null])))
+      .then(pairs => setPaid(p => ({ ...p, ...Object.fromEntries(pairs) })));
+  }
+  React.useEffect(() => {
+    refreshPaid(rows.map(r => r.id).filter(id => !(id in paid)));
   }, [rows]);
 
   React.useEffect(() => {
@@ -201,45 +320,30 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
     return () => window.removeEventListener('click', close);
   }, []);
 
+  const groupMap = React.useMemo(() => {
+    const m = {};
+    groups.forEach(g => { m[g.id] = g.name; });
+    return m;
+  }, [groups]);
+
   const nameOf = (r) => `${r.first_name || ''} ${r.last_name || ''}`.trim() || `#${r.id}`;
   const isDone = (r) => !!(r.converted_at || r.converted_student_id);
-
-  /** The money taken before the contract: a pre-contract training payment, or an older record's short first payment. */
-  function firstPayment(r) {
-    const tx = pctTx[r.pre_contract_training_transaction_id];
-    if (tx && Number(tx.amount) > 0) {
-      return {
-        amount: tx.amount, start: tx.period_start_date, end: tx.period_end_date,
-        count: tx.training_session_count, price: tx.training_price_per_session, preContract: true,
-      };
-    }
-    if (Number(r.initial_payment_amount) > 0) {
-      return {
-        amount: r.initial_payment_amount, start: r.initial_payment_start_date, end: r.initial_payment_end_date,
-        count: r.initial_payment_session_count, price: r.initial_payment_price_per_session,
-      };
-    }
-    return null;
-  }
 
   function openNew() {
     setEditing(null);
     setForm(emptyPending);
-    setPreTraining(false);
-    setPct(emptyPreContract());
     setShowForm(true);
   }
 
   function openEdit(r) {
+    setDetail(null);
     setEditing(r);
     setForm({
       ...emptyPending,
       first_name: r.first_name || '', last_name: r.last_name || '', phone: r.phone || '',
       date_of_birth: r.date_of_birth || '',
-      group_id: String(r.group_id || ''),
+      group_id: r.group_id ? String(r.group_id) : '',
     });
-    // payments are taken once, when the record is opened
-    setPreTraining(false);
     setShowForm(true);
     setOpenMenuId(null);
   }
@@ -249,9 +353,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       notify.error(t('toast_required'));
       return;
     }
-    const withPayment = !editing && preTraining;
-    const pctError = withPayment ? preContractError(pct) : '';
-    if (pctError) { notify.error(t(pctError)); return; }
     setSaving(true);
     try {
       const payload = {
@@ -260,31 +361,13 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
         phone: form.phone.trim() || undefined,
         date_of_birth: form.date_of_birth || undefined,
       };
-      if (withPayment) {
-        payload.pre_contract_training = {
-          period_start_date: pct.start_date,
-          period_end_date: pct.end_date,
-          session_count: Number(pct.session_count),
-          // left out, the backend bills count × price itself
-          amount: String(pct.amount).trim() ? Number(pct.amount) : undefined,
-          source: pct.source || 'cash',
-          paid_at: pct.paid_at || undefined,
-          comment: pct.comment.trim() || undefined,
-        };
-      }
-      let dropped = false;
-      if (editing) await apiUpdatePendingStudent(editing.id, payload);
-      else {
-        const res = await apiCreatePendingStudent(payload);
-        // A server without the pre-contract payment keeps the record and quietly
-        // drops the money; say so rather than let it look recorded.
-        dropped = withPayment && !res?.data?.pre_contract_training_transaction_id;
-      }
-      if (dropped) onToast?.(t('ps_pct_not_saved'), 'error');
-      else onToast?.(t(editing ? 'ps_updated' : 'ps_created'));
+      const groupId = form.group_id ? Number(form.group_id) : null;
+      // on an edit, null takes the record out of its group
+      if (editing) await apiUpdatePendingStudent(editing.id, { ...payload, group_id: groupId });
+      else await apiCreatePendingStudent({ ...payload, group_id: groupId ?? undefined });
+      onToast?.(t(editing ? 'ps_updated' : 'ps_created'));
       setShowForm(false);
       load();
-      loadSummary();
     } catch (e) {
       onToast?.(e.message, 'error');
     } finally {
@@ -297,15 +380,16 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
     if (!await confirmDialog(t('ps_delete_confirm').replace('{name}', nameOf(r)))) return;
     try {
       await apiDeletePendingStudent(r.id);
+      setDetail(null);
       onToast?.(t('ps_deleted'));
       load();
-      loadSummary();
     } catch (e) {
       onToast?.(e.message, 'error');
     }
   }
 
   function openComplete(r) {
+    setDetail(null);
     setCompleting(r);
     setCStep(1);
     setOpenMenuId(null);
@@ -346,7 +430,6 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
       onToast?.(t('ps_completed'));
       // stay in the queue: whoever is processing documents usually has several
       load();
-      loadSummary();
     } catch (e) {
       onToast?.(e.message, 'error');
     } finally {
@@ -354,7 +437,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
     }
   }
 
-  const hasFilters = q || fromDue || toDue || overdueOnly || withDone;
+  const hasFilters = q || withDone;
 
   return (
     <div>
@@ -381,154 +464,123 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
           <div style={{ fontWeight: 700 }}>{t('ps_unsupported')}</div>
         </div>
       ) : (
-        <>
-          <div className="grid-4" style={{ marginBottom: 14 }}>
-            <Stat feature label={t('total')} value={summary.all} icon={I.Clipboard}/>
-            <Stat label={t('ps_sum_today')} value={summary.today} tone="warning" icon={I.Clock}/>
-            <Stat label={t('ps_sum_soon')} value={summary.soon} tone="info" icon={I.Calendar}/>
-            <Stat label={t('ps_sum_overdue')} value={summary.overdue} tone="danger" icon={I.AlertCircle}/>
+        <div className="table-wrap">
+          <div className="table-toolbar">
+            <div className="search">
+              <span className="icon-l"><I.Search size={15}/></span>
+              <input value={q} onChange={e => setQ(e.target.value)} placeholder={t('students_search')}/>
+            </div>
+            <label className="check-line">
+              <input type="checkbox" checked={withDone} onChange={e => setWithDone(e.target.checked)}/>
+              {t('ps_with_done')}
+            </label>
+            {hasFilters && (
+              <button className="btn ghost sm" onClick={() => { setQ(''); setWithDone(false); }}>
+                <I.X size={14}/> {t('clear_filters')}
+              </button>
+            )}
+            <div className="toolbar-meta">{rows.length > 0 ? t('ps_open_hint') : `${totalCount} ${tp('ps_count_sfx', totalCount)}`}</div>
           </div>
 
-          <div className="table-wrap">
-            <div className="table-toolbar">
-              <div className="search">
-                <span className="icon-l"><I.Search size={15}/></span>
-                <input value={q} onChange={e => setQ(e.target.value)} placeholder={t('students_search')}/>
-              </div>
-              <DateInput value={fromDue} onChange={setFromDue} placeholder={t('cal_from')}/>
-              <DateInput value={toDue} onChange={setToDue} placeholder={t('cal_to')}/>
-              <label className="check-line">
-                <input type="checkbox" checked={overdueOnly} onChange={e => setOverdueOnly(e.target.checked)}/>
-                {t('ps_only_overdue')}
-              </label>
-              <label className="check-line">
-                <input type="checkbox" checked={withDone} onChange={e => setWithDone(e.target.checked)}/>
-                {t('ps_with_done')}
-              </label>
-              {hasFilters && (
-                <button className="btn ghost sm" onClick={() => { setQ(''); setFromDue(''); setToDue(''); setOverdueOnly(false); setWithDone(false); }}>
-                  <I.X size={14}/> {t('clear_filters')}
-                </button>
-              )}
-              <div className="toolbar-meta">{totalCount} {tp('ps_count_sfx', totalCount)}</div>
-            </div>
-
-            {loading && rows.length === 0 ? (
-              <div className="empty loading" style={{ padding: 40 }}>{t('loading')}</div>
-            ) : (
-              <div className="table-scroll"><table className="table">
-                <thead>
-                  <tr>
-                    <th>{t('students_col_name')}</th>
-                    <th>{t('ps_col_due')}</th>
-                    <th>{t('ps_col_initial')}</th>
-                    <th>{t('ps_col_full')}</th>
-                    <th>{t('students_col_status')}</th>
-                    <th>{t('field_comment')}</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.length === 0 && (
-                    <tr className="static"><td colSpan={7} className="empty-cell">{t('ps_empty')}</td></tr>
-                  )}
-                  {rows.map(r => {
-                    const done = isDone(r);
-                    return (
-                      <tr key={r.id} className="static">
-                        <td>
-                          <div className="row-name">
-                            <div className="avatar" style={{ background: avatarColor(r.id) }}>
-                              {(r.first_name || '?')[0]}{(r.last_name || '')[0]}
-                            </div>
-                            <div className="meta">
-                              <span className="name">{nameOf(r)}</span>
-                              {/* the phone rides under the name; a column of its own pushed
-                                  the "complete" button past the edge of the card */}
-                              <span className="sub">{r.phone || '—'}</span>
+          {loading && rows.length === 0 ? (
+            <div className="empty loading" style={{ padding: 40 }}>{t('loading')}</div>
+          ) : (
+            <div className="table-scroll"><table className="table">
+              <thead>
+                <tr>
+                  <th>{t('students_col_name')}</th>
+                  <th>{t('field_group2')}</th>
+                  <th>{t('ps_col_payments')}</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 && (
+                  <tr className="static"><td colSpan={4} className="empty-cell">{t('ps_empty')}</td></tr>
+                )}
+                {rows.map(r => {
+                  const done = isDone(r);
+                  const pay = paid[r.id];
+                  return (
+                    <tr key={r.id} onClick={() => setDetail(r)} style={{ cursor: 'pointer' }}>
+                      <td>
+                        <div className="row-name">
+                          <div className="avatar" style={{ background: avatarColor(r.id) }}>
+                            {(r.first_name || '?')[0]}{(r.last_name || '')[0]}
+                          </div>
+                          <div className="meta">
+                            <span className="name">{nameOf(r)}</span>
+                            <span className="sub">{r.phone || '—'}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>{r.group_id ? <span className="chip navy">{groupMap[r.group_id] || `#${r.group_id}`}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+                      <td>
+                        {pay === undefined ? <span style={{ color: 'var(--muted)' }}>…</span>
+                          : !pay || pay.count === 0 ? <span style={{ color: 'var(--muted)' }}>—</span>
+                          : (
+                            <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.35 }}>
+                              <b style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt.format(pay.total)} {t('currency')}</b>
+                              <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>{pay.count} {tp('contract_payments_sfx', pay.count)}</span>
+                            </span>
+                          )}
+                      </td>
+                      <td onClick={e => e.stopPropagation()}>
+                        {canEdit && !done && (
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
+                            <button className="btn sm primary" onClick={() => openComplete(r)}>
+                              <I.Check size={13}/> {t('ps_complete')}
+                            </button>
+                            <div style={{ position: 'relative' }}>
+                              <button className="icon-btn plain" aria-label={t('actions')} onClick={(e) => {
+                                e.stopPropagation();
+                                if (openMenuId === r.id) { setOpenMenuId(null); return; }
+                                setMenuPos(menuPosition(e.currentTarget, 3));
+                                setOpenMenuId(r.id);
+                              }}>
+                                <I.More size={16}/>
+                              </button>
+                              {openMenuId === r.id && (
+                                <div className="menu" style={{ position: 'fixed', top: menuPos.y, left: menuPos.x }} onClick={e => e.stopPropagation()}>
+                                  <button className="menu-item" onClick={() => { setOpenMenuId(null); setDetail(r); }}><I.HandCoins size={14}/> {t('ps_pay_add')}</button>
+                                  <button className="menu-item" onClick={() => openEdit(r)}><I.Edit size={14}/> {t('edit')}</button>
+                                  <button className="menu-item danger" onClick={() => remove(r)}><I.Trash2 size={14}/> {t('delete')}</button>
+                                </div>
+                              )}
                             </div>
                           </div>
-                        </td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5, fontWeight: 700 }}>{fmtDate(r.document_due_date)}</td>
-                        <td>
-                          {(() => {
-                            const pay = firstPayment(r);
-                            if (!pay) return <span style={{ color: 'var(--muted)' }}>—</span>;
-                            return (
-                              <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.35 }}
-                                title={pay.preContract ? t('tx_type_pre_contract') : undefined}>
-                                <b style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt.format(Number(pay.amount))} {t('currency')}</b>
-                                {pay.end && (
-                                  <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>
-                                    {shortDay(pay.start)} → {shortDay(pay.end)}
-                                  </span>
-                                )}
-                                {Number(pay.count) > 0 && (
-                                  <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>
-                                    {pay.count} {tp('ps_sessions_sfx', Number(pay.count))}
-                                    {Number(pay.price) > 0 ? ' × ' + fmt.format(Number(pay.price)) : ''}
-                                  </span>
-                                )}
-                              </span>
-                            );
-                          })()}
-                        </td>
-                        <td>
-                          {Number(r.full_payment_amount) > 0 ? (
-                            <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.35 }}>
-                              <b style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt.format(Number(r.full_payment_amount))} {t('currency')}</b>
-                              {!!(r.full_payment_months || []).length && (
-                                <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>
-                                  {r.full_payment_months.map(m => monthShort(m - 1)).join(', ')}
-                                  {r.full_payment_year ? ` · ${r.full_payment_year}` : ''}
-                                </span>
-                              )}
-                            </span>
-                          ) : <span style={{ color: 'var(--muted)' }}>—</span>}
-                        </td>
-                        <td><StateBadge row={r} t={t} tp={tp}/></td>
-                        <td className="cell-note" title={r.note || ''}>{r.note || '—'}</td>
-                        <td>
-                          {canEdit && !done && (
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
-                              <button className="btn sm primary" onClick={() => openComplete(r)}>
-                                <I.Check size={13}/> {t('ps_complete')}
+                        )}
+                        {done && (
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
+                            <Badge tone="success" icon={I.CheckCircle}>{t('ps_state_done')}</Badge>
+                            {r.converted_student_id && onOpenStudent && (
+                              <button className="btn sm ghost" onClick={() => onOpenStudent(r.converted_student_id)}>
+                                <I.ArrowUpRight size={13}/> {t('view')}
                               </button>
-                              <div style={{ position: 'relative' }}>
-                                <button className="icon-btn plain" aria-label={t('actions')} onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (openMenuId === r.id) { setOpenMenuId(null); return; }
-                                  setMenuPos(menuPosition(e.currentTarget, 2));
-                                  setOpenMenuId(r.id);
-                                }}>
-                                  <I.More size={16}/>
-                                </button>
-                                {openMenuId === r.id && (
-                                  <div className="menu" style={{ position: 'fixed', top: menuPos.y, left: menuPos.x }} onClick={e => e.stopPropagation()}>
-                                    <button className="menu-item" onClick={() => openEdit(r)}><I.Edit size={14}/> {t('edit')}</button>
-                                    <button className="menu-item danger" onClick={() => remove(r)}><I.Trash2 size={14}/> {t('delete')}</button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          {done && r.converted_student_id && onOpenStudent && (
-                            <button className="btn sm ghost" onClick={() => onOpenStudent(r.converted_student_id)}>
-                              <I.ArrowUpRight size={13}/> {t('view')}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table></div>
-            )}
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table></div>
+          )}
 
-            <Pager page={page} totalPages={totalPages} total={totalCount} pageSize={PAGE_SIZE}
-              onPage={(p) => { setPage(p); load({ page: p }); }}/>
-          </div>
-        </>
+          <Pager page={page} totalPages={totalPages} total={totalCount} pageSize={PAGE_SIZE}
+            onPage={(p) => { setPage(p); load({ page: p }); }}/>
+        </div>
+      )}
+
+      {detail && (
+        <PendingDetail row={detail} groupName={detail.group_id ? (groupMap[detail.group_id] || `#${detail.group_id}`) : ''}
+          canEdit={canEdit}
+          onClose={() => setDetail(null)}
+          onChanged={(id) => refreshPaid([id])}
+          onEdit={openEdit}
+          onComplete={openComplete}
+          onDelete={remove}/>
       )}
 
       {showForm && (
@@ -559,9 +611,10 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
               <label>{t('field_birth_date')}</label>
               <DateInput value={form.date_of_birth} onChange={v => setF('date_of_birth', v)}/>
             </div>
-            {!editing && (
-              <PreContractTrainingFields enabled={preTraining} onToggle={setPreTraining} value={pct} onChange={setPct}/>
-            )}
+            <div className="field col-span-2">
+              <label>{t('field_group2')}</label>
+              <SearchableGroupSelect value={form.group_id} onChange={v => setF('group_id', v)} groups={groups} placeholder={t('not_selected')}/>
+            </div>
           </div>
         </Modal>
       )}
