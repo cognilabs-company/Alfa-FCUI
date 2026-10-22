@@ -106,7 +106,12 @@ export function StudentPaymentsTab({ groups = [], initialStatus = 'all' }) {
         <Stat label={t('sp_expected_total')} icon={I.Receipt} value={data ? num(sum.expected_total) : '—'} format={fmtMoneyRoll} unit={data ? t('currency') : undefined}
           sub={data ? `${money(sum.expected_total)} · ${periodLabel}` : null}/>
         <Stat label={t('exp_totals_paid')} tone="success" icon={I.HandCoins} value={data ? num(sum.paid_total) : '—'} format={fmtMoneyRoll} unit={data ? t('currency') : undefined}
-          sub={data ? `${money(sum.paid_total)}${num(sum.expected_total) > 0 ? ` · ${Math.round((num(sum.paid_total) / num(sum.expected_total)) * 100)}% ${t('lg_collected_share')}` : ''}` : null}/>
+          sub={data ? money(sum.paid_total) : null}>
+          {/* students on a contract and pending ones, apart, when pending students paid anything */}
+          {data && num(sum.paid_pending) > 0 && (
+            <div className="stat-sub">{t('tx_stat_official')}: {money(sum.paid_official)} · {t('tx_stat_pending')}: {money(sum.paid_pending)}</div>
+          )}
+        </Stat>
         <Stat label={t('rpt_total_debt')} tone="danger" icon={I.AlertCircle} value={data ? num(sum.debt_total) : '—'} format={fmtMoneyRoll} unit={data ? t('currency') : undefined}
           sub={data ? `${money(sum.debt_total)} · ${periodLabel}` : null}/>
       </div>

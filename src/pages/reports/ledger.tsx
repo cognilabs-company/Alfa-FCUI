@@ -11,8 +11,90 @@ import { ExpenseStatusBadge, useMoney } from '@/widgets/expenses';
 import { ChartCard } from './analytics';
 import { MonthNav } from '@/shared/ui/month-nav';
 import { useSelectedMonth } from '@/shared/lib/selected-month';
+import { Modal } from '@/shared/ui/modal';
 
 const num = (v) => Number(v) || 0;
+
+/**
+ * The month's cash profit as a sum, line by line: what came in from students
+ * on a contract and from pending ones, then what was paid out for expenses
+ * (by category) and salaries (in total). Every figure is the server's;
+ * nothing is added up here. Shown in "Oy yakuni" and in the net-profit dialog.
+ */
+function ProfitBreakdown({ pb, expenses, salaries }) {
+  const { t } = useT();
+  const money = useMoney();
+  const signed = (v) => ({ color: num(v) < 0 ? 'var(--danger)' : num(v) > 0 ? 'var(--success)' : 'var(--muted)' });
+  const cell = (v, style) => <td className="money" style={{ textAlign: 'right', ...style }}>{fmt.format(Math.round(num(v)))}</td>;
+  // Total / paid / left for each line: only "paid" is taken off the income, the rest is shown for context.
+  const muted = { color: 'var(--muted)' };
+  const paidStyle = { fontWeight: 800 };
+  const planStyle = { color: 'var(--text-2)' };
+  const salaryLine = (label, value, style) => (
+    <div className="receipt-line" style={{ paddingLeft: 18 }}>
+      <span className="rl-muted" style={{ fontSize: 12.5 }}>{label}</span>
+      <span style={{ fontSize: 12.5, fontVariantNumeric: 'tabular-nums', ...style }}>{money(value)}</span>
+    </div>
+  );
+  return (
+    <>
+      <div className="receipt-line"><span className="rl-muted">+ {t('lg_income_official')}</span><b>{money(pb.income_official)}</b></div>
+      {num(pb.income_pending) > 0 && (
+        <div className="receipt-line"><span className="rl-muted">+ {t('lg_income_pending')}</span><b>{money(pb.income_pending)}</b></div>
+      )}
+      <div className="receipt-line receipt-total"><span className="receipt-label">= {t('lg_f_income_total')}</span><b style={{ color: 'var(--success)' }}>{money(pb.income_total)}</b></div>
+      <div className="receipt-tear"/>
+      <div className="hint" style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, margin: '2px 0 8px' }}>{t('lg_paid_only_hint')}</div>
+      {/* the heading only — what is taken off is the "paid" figure in the lines under it */}
+      <div className="receipt-line"><b>− {t('lg_f_expenses')}</b></div>
+      <div className="table-scroll" style={{ margin: '4px 0 8px' }}>
+        <table className="table compact-report-table">
+          <thead>
+            <tr>
+              <th>{t('exp_category')}</th>
+              <th style={{ textAlign: 'right' }}>{t('lg_planned')}</th>
+              <th style={{ textAlign: 'right' }}>{t('exp_totals_paid')}</th>
+              <th style={{ textAlign: 'right' }}>{t('lg_left_col')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(expenses?.by_category || []).length === 0 && <tr className="static"><td colSpan={4} className="empty-cell">{t('an_no_data')}</td></tr>}
+            {(expenses?.by_category || []).map(r => (
+              <tr key={r.category} className="static">
+                <td>{categoryLabel(t, r.category, r.label)}</td>
+                {cell(r.expected, planStyle)}{cell(r.paid, paidStyle)}{cell(r.unpaid, muted)}
+              </tr>
+            ))}
+            <tr className="static">
+              <td style={{ fontWeight: 800 }}>{t('total')}</td>
+              {cell(expenses?.expected, planStyle)}{cell(expenses?.paid, paidStyle)}{cell(expenses?.unpaid, muted)}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {/* salaries in total only — who earned what lives on the Oyliklar card */}
+      <div className="receipt-line"><b>− {t('lg_f_salaries')}</b></div>
+      {salaryLine(t('lg_salary_earned'), salaries?.earned_this_month, planStyle)}
+      {salaryLine(t('exp_totals_paid'), salaries?.paid_this_month, paidStyle)}
+      {salaryLine(t('lg_salary_left'), salaries?.remaining_this_month, muted)}
+      <div className="receipt-line receipt-total"><span className="receipt-label">= {t('lg_f_deductions')}</span><b>{money(pb.deductions_total)}</b></div>
+      <div className="receipt-tear"/>
+      <div className="receipt-line"><span className="rl-muted">{t('lg_f_income_total')} − {t('lg_f_deductions').toLowerCase()}</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{money(pb.income_total)} − {money(pb.deductions_total)}</span></div>
+      <div className="receipt-line receipt-total"><span className="receipt-label">= {t('lg_f_net')}</span><b style={signed(pb.net_profit)}>{money(pb.net_profit)}</b></div>
+    </>
+  );
+}
+
+function NetProfitModal({ pb, expenses, salaries, periodName, onClose }) {
+  const { t } = useT();
+  return (
+    <Modal icon={Icon.TrendingUp} size="lg" onClose={onClose} title={t('lg_net_detail_title')} subtitle={periodName}>
+      <div className="receipt">
+        <ProfitBreakdown pb={pb} expenses={expenses} salaries={salaries}/>
+      </div>
+    </Modal>
+  );
+}
 
 /** A category or an employee is settled when nothing is left, untouched when nothing was paid. */
 function settleStatus(paid, unpaid) {
@@ -39,6 +121,7 @@ export function LedgerTab({ onNav }) {
   const [finance, setFinance] = React.useState(null);
   // The month's cash split by who paid: students on a contract, and pending students without one.
   const [studentCash, setStudentCash] = React.useState(null);
+  const [showNet, setShowNet] = React.useState(false);
 
   React.useEffect(() => {
     let alive = true;
@@ -87,6 +170,9 @@ export function LedgerTab({ onNav }) {
   const sal = data?.salaries || {};
   const tot = data?.totals || {};
   const pf = data?.profit || {};
+  const pb = pf.breakdown || null;
+  // contract plan plus pending students' payments when the server splits it; the plain plan otherwise
+  const expectedTotal = income.expected_total ?? income.expected;
   const received = finance ? num(finance.total_revenue) : null;
   // debt is the current month's only — earlier months are not carried — so it is shown for this month alone
   const showDebt = period.isCurrent && finance?.total_debt != null;
@@ -107,19 +193,32 @@ export function LedgerTab({ onNav }) {
       {data && (
         <>
           <div className={showDebt ? 'grid-4' : 'grid-3'} style={{ marginBottom: 14 }}>
-            <Stat feature label={t('lg_income_expected')} icon={I.Receipt} value={num(income.expected)} format={fmtMoneyRoll} unit={t('currency')}
-              sub={`${money(income.expected)} · ${dataMonth}`} title={t('lg_expected_tip')}>
-              {/* the full monthly plan, before part-month joiners are prorated */}
-              {income.mrr != null && <div className="stat-sub">{t('lg_mrr_line').replace('{amount}', money(income.mrr))}</div>}
+            <Stat feature label={t('lg_income_expected')} icon={I.Receipt} value={num(expectedTotal)} format={fmtMoneyRoll} unit={t('currency')}
+              sub={`${money(expectedTotal)} · ${dataMonth}`} title={t('lg_expected_tip')}>
+              {income.expected_total != null ? (
+                // the plan from students on a contract, plus what pending students paid this month
+                <div className="stat-sub">
+                  {t('lg_expected_official').replace('{amount}', money(income.expected_official))}
+                  {num(income.expected_pending) > 0 && <> + {t('lg_expected_pending').replace('{amount}', money(income.expected_pending))}</>}
+                </div>
+              ) : (
+                // the full monthly plan, before part-month joiners are prorated
+                income.mrr != null && <div className="stat-sub">{t('lg_mrr_line').replace('{amount}', money(income.mrr))}</div>
+              )}
             </Stat>
             <Stat label={t('pf_cash_collected')} tone="success" icon={I.HandCoins} value={received ?? '—'} format={fmtMoneyRoll} unit={received != null ? t('currency') : undefined}
-              sub={received != null ? `${money(received)}${num(income.expected) > 0 ? ` · ${Math.round((received / num(income.expected)) * 100)}% ${t('lg_collected_share')}` : ''}` : null}/>
+              sub={received != null ? money(received) : null}>
+              {num(income.pending_collected) > 0 && <div className="stat-sub">{t('lg_of_pending').replace('{amount}', money(income.pending_collected))}</div>}
+            </Stat>
             {showDebt && (
               <Stat label={t('rpt_total_debt')} tone="danger" icon={I.AlertCircle} value={num(finance.total_debt)} format={fmtMoneyRoll} unit={t('currency')}
-                sub={`${money(finance.total_debt)} · ${t('period_current_month')}`} onClick={onNav ? () => onNav('reports-debtors') : undefined}/>
+                sub={`${money(finance.total_debt)} · ${t('period_current_month')}`} onClick={onNav ? () => onNav('reports-debtors') : undefined}>
+                {income.debt_source === 'official' && <div className="stat-sub">{t('lg_debt_official')}</div>}
+              </Stat>
             )}
             <Stat label={t('lg_net_cash')} tone={num(pf.net_cash) < 0 ? 'danger' : 'success'} icon={I.TrendingUp}
-              value={num(pf.net_cash)} format={fmtMoneyRoll} unit={t('currency')} sub={`${money(pf.net_cash)} · ${t('lg_net_cash_sub')}`}/>
+              value={num(pf.net_cash)} format={fmtMoneyRoll} unit={t('currency')} sub={`${money(pf.net_cash)} · ${t('lg_net_cash_sub')}`}
+              title={pb ? t('lg_net_detail_hint') : undefined} onClick={pb ? () => setShowNet(true) : undefined}/>
           </div>
 
           <div className="chart-grid-2" style={{ marginBottom: 14 }}>
@@ -279,7 +378,23 @@ export function LedgerTab({ onNav }) {
                   <b style={{ color: num(tot.total_remaining) > 0 ? 'var(--danger)' : 'var(--muted)' }}>{money(tot.total_remaining)}</b>
                 </div>
                 <div className="receipt-tear"/>
-                <div className="receipt-line"><span className="rl-muted">{t('lg_net_cash')}</span><b style={signed(pf.net_cash)}>{money(pf.net_cash)}</b></div>
+                {pb ? (
+                  <ProfitBreakdown pb={pb} expenses={ex} salaries={sal}/>
+                ) : (
+                  <>
+                    {/* a server without the breakdown: what students brought in, then the cash profit */}
+                    <div className="receipt-line"><span className="rl-muted">{t('lg_income_collected')}</span><b style={{ color: 'var(--success)' }}>{money(income.collected)}</b></div>
+                    {num(income.pending_collected) > 0 && (
+                      <>
+                        <div className="receipt-line"><span className="rl-muted">· {t('lg_income_official')}</span><span>{money(income.official_collected)}</span></div>
+                        <div className="receipt-line"><span className="rl-muted">· {t('lg_income_pending')}</span><span>{money(income.pending_collected)}</span></div>
+                      </>
+                    )}
+                    <div className="receipt-tear"/>
+                    <div className="receipt-line"><span className="rl-muted">{t('lg_net_cash')}</span><b style={signed(pf.net_cash)}>{money(pf.net_cash)}</b></div>
+                  </>
+                )}
+                <div className="receipt-tear"/>
                 <div className="receipt-line"><span className="rl-muted">{t('lg_net_expected')}</span><b style={signed(pf.net_expected_this_month)}>{money(pf.net_expected_this_month)}</b></div>
                 <div className="receipt-line"><span className="rl-muted">{t('lg_net_expected_carry')}</span><b style={signed(pf.net_expected_incl_carryover)}>{money(pf.net_expected_incl_carryover)}</b></div>
               </div>
@@ -325,6 +440,10 @@ export function LedgerTab({ onNav }) {
             </ChartCard>
           </div>
         </>
+      )}
+
+      {showNet && pb && (
+        <NetProfitModal pb={pb} expenses={ex} salaries={sal} periodName={dataMonth} onClose={() => setShowNet(false)}/>
       )}
     </div>
   );
