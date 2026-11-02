@@ -3,14 +3,13 @@ import React from 'react';
 import { Icon } from '@/shared/ui/icons';
 import { useT } from '@/shared/i18n/lang';
 import { Stat } from '@/shared/ui/stat';
-import { apiGetFinanceReport, apiGetMonthlyLedger, apiGetProfitReport } from '@/shared/api';
-import { fmt, fmtMoneyRoll, monthLabel, toLocalISO } from '@/shared/lib/format';
+import { apiGetFinanceReport, apiGetMonthlyLedger, apiGetProfitReport, apiGetProfitTrend } from '@/shared/api';
+import { fmt, fmtMoneyRoll, monthLabel } from '@/shared/lib/format';
 import { paymentSourceLabel } from '@/shared/lib/labels';
 import { CATEGORY_COLOR, categoryLabel } from '@/shared/lib/expenses';
 import { ExpenseStatusBadge, useMoney } from '@/widgets/expenses';
 import { ChartCard } from './analytics';
-import { MonthNav } from '@/shared/ui/month-nav';
-import { useSelectedMonth } from '@/shared/lib/selected-month';
+import { periodLabel } from '@/shared/lib/selected-month';
 import { Modal } from '@/shared/ui/modal';
 
 const num = (v) => Number(v) || 0;
@@ -103,15 +102,15 @@ function settleStatus(paid, unpaid) {
 }
 
 /**
- * Reports → Oylik daftar (GET /reports/monthly-ledger): one month of money in
- * one request — income, this month's expenses, what was carried over unpaid
- * from earlier months and why, salaries, and how the month closes.
+ * Reports → Moliya. For one month (GET /reports/monthly-ledger): income, this
+ * month's expenses, what was carried over unpaid from earlier months and why,
+ * salaries, and how the month closes. For a from–to range the ledger has no
+ * answer, so the range is summed month by month from /reports/profit-trend.
  */
-export function LedgerTab({ onNav }) {
+export function LedgerTab({ period, onNav }) {
   const I = Icon;
   const { t, lang } = useT();
   const money = useMoney();
-  const period = useSelectedMonth();
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
@@ -122,37 +121,41 @@ export function LedgerTab({ onNav }) {
   // The month's cash split by who paid: students on a contract, and pending students without one.
   const [studentCash, setStudentCash] = React.useState(null);
   const [showNet, setShowNet] = React.useState(false);
+  // range mode: one row per month of the range
+  const [trend, setTrend] = React.useState(null);
+  const { from_date, to_date, isRange } = period;
 
   React.useEffect(() => {
     let alive = true;
     setFinance(null);
     setStudentCash(null);
-    const range = {
-      from_date: toLocalISO(new Date(period.year, period.month - 1, 1)),
-      to_date: toLocalISO(new Date(period.year, period.month, 0)),
-    };
+    const range = { from_date, to_date };
     apiGetFinanceReport(range).then(res => alive && setFinance(res?.data || null)).catch(() => {});
     apiGetProfitReport(range).then(res => alive && setStudentCash(res?.data?.student_finance || null)).catch(() => {});
     return () => { alive = false; };
-  }, [period.year, period.month, period.version]);
+  }, [from_date, to_date, period.version]);
 
   React.useEffect(() => {
     let alive = true;
     setLoading(true);
     setError('');
-    apiGetMonthlyLedger({ year: period.year, month: period.month })
-      .then(res => { if (alive) { setData(res?.data || null); setUnsupported(false); } })
+    setData(null);
+    setTrend(null);
+    const req = isRange
+      ? apiGetProfitTrend({ from_date, to_date }).then(res => { if (alive) setTrend(Array.isArray(res?.data) ? res.data : []); })
+      : apiGetMonthlyLedger({ year: period.year, month: period.month }).then(res => { if (alive) setData(res?.data || null); });
+    req
+      .then(() => alive && setUnsupported(false))
       .catch(e => {
         if (!alive) return;
-        setData(null);
         if (e.status === 404) setUnsupported(true);
         else setError(e.message);
       })
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [period.year, period.month, period.version]);
+  }, [isRange, from_date, to_date, period.year, period.month, period.version]);
 
-  const periodName = `${monthLabel(period.month - 1, lang)} ${period.year}`;
+  const periodName = periodLabel(period, lang);
   const signed = (v) => ({ color: num(v) < 0 ? 'var(--danger)' : num(v) > 0 ? 'var(--success)' : 'var(--muted)' });
 
   if (unsupported) {
@@ -179,13 +182,61 @@ export function LedgerTab({ onNav }) {
   // every figure here is for one month — the response names which
   const dataMonth = data?.period?.month ? `${monthLabel(num(data.period.month) - 1, lang)} ${data.period.year}` : periodName;
 
+  // where the money came from: students on a contract vs pending ones, and by payment source
+  const incomeCards = (
+    <>
+            {studentCash?.cash_collected_pending != null && (
+              <ChartCard t={t} span title={t('lg_students_income_title')} sub={periodName} value={money(studentCash.cash_collected)}>
+                <div className="table-scroll">
+                  <table className="table compact-report-table">
+                    <tbody>
+                      <tr className="static">
+                        <td>{t('lg_income_official')}</td>
+                        <td className="money" style={{ textAlign: 'right' }}>{fmt.format(Math.round(num(studentCash.cash_collected_official)))}</td>
+                      </tr>
+                      <tr className="static">
+                        <td>{t('lg_income_pending')}</td>
+                        <td className="money" style={{ textAlign: 'right' }}>{fmt.format(Math.round(num(studentCash.cash_collected_pending)))}</td>
+                      </tr>
+                    </tbody>
+                    <tfoot>
+                      <tr className="static">
+                        <td style={{ fontWeight: 800 }}>{t('total')}</td>
+                        <td className="money" style={{ textAlign: 'right', fontWeight: 800 }}>{fmt.format(Math.round(num(studentCash.cash_collected)))}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </ChartCard>
+            )}
+            {(finance?.breakdown || []).length > 0 && (
+              <ChartCard t={t} span title={t('lg_sources_title')} sub={periodName} value={money(received)}>
+                <div className="table-scroll">
+                  <table className="table compact-report-table">
+                    <thead><tr><th>{t('rpt_source_col')}</th><th style={{ textAlign: 'right' }}>{t('rpt_sum_col')}</th><th style={{ textAlign: 'right' }}>{t('rpt_count_col')}</th></tr></thead>
+                    <tbody>
+                      {finance.breakdown.map((b, i) => (
+                        <tr key={b.source || i} className="static">
+                          <td><span className="chip">{paymentSourceLabel(b.source, t)}</span></td>
+                          <td className="money" style={{ textAlign: 'right' }}>{fmt.format(Math.round(num(b.total_amount)))}</td>
+                          <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{num(b.transaction_count)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </ChartCard>
+            )}
+    </>
+  );
+
+  if (isRange) {
+    return <RangeLedger t={t} money={money} lang={lang} rows={trend} loading={loading} error={error}
+      finance={finance} periodName={periodName} incomeCards={incomeCards}/>;
+  }
+
   return (
     <div>
-      <div className="toolbar" style={{ marginBottom: 14 }}>
-        <MonthNav period={period}/>
-        <span className="toolbar-meta" style={{ fontWeight: 600 }}>{t('lg_sub')}</span>
-      </div>
-
       {error && <div className="alert danger" style={{ marginBottom: 14 }}><I.AlertTriangle size={16}/> <span>{error}</span></div>}
       {loading && !data && <div className="empty loading" style={{ padding: 48 }}>{t('loading')}</div>}
       {!loading && !data && !error && <div className="card empty" style={{ padding: 48 }}>{t('pf_empty')}</div>}
@@ -222,48 +273,7 @@ export function LedgerTab({ onNav }) {
           </div>
 
           <div className="chart-grid-2" style={{ marginBottom: 14 }}>
-            {studentCash?.cash_collected_pending != null && (
-              <ChartCard t={t} span title={t('lg_students_income_title')} sub={dataMonth} value={money(studentCash.cash_collected)}>
-                <div className="table-scroll">
-                  <table className="table compact-report-table">
-                    <tbody>
-                      <tr className="static">
-                        <td>{t('lg_income_official')}</td>
-                        <td className="money" style={{ textAlign: 'right' }}>{fmt.format(Math.round(num(studentCash.cash_collected_official)))}</td>
-                      </tr>
-                      <tr className="static">
-                        <td>{t('lg_income_pending')}</td>
-                        <td className="money" style={{ textAlign: 'right' }}>{fmt.format(Math.round(num(studentCash.cash_collected_pending)))}</td>
-                      </tr>
-                    </tbody>
-                    <tfoot>
-                      <tr className="static">
-                        <td style={{ fontWeight: 800 }}>{t('total')}</td>
-                        <td className="money" style={{ textAlign: 'right', fontWeight: 800 }}>{fmt.format(Math.round(num(studentCash.cash_collected)))}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </ChartCard>
-            )}
-            {(finance?.breakdown || []).length > 0 && (
-              <ChartCard t={t} span title={t('lg_sources_title')} sub={dataMonth} value={money(received)}>
-                <div className="table-scroll">
-                  <table className="table compact-report-table">
-                    <thead><tr><th>{t('rpt_source_col')}</th><th style={{ textAlign: 'right' }}>{t('rpt_sum_col')}</th><th style={{ textAlign: 'right' }}>{t('rpt_count_col')}</th></tr></thead>
-                    <tbody>
-                      {finance.breakdown.map((b, i) => (
-                        <tr key={b.source || i} className="static">
-                          <td><span className="chip">{paymentSourceLabel(b.source, t)}</span></td>
-                          <td className="money" style={{ textAlign: 'right' }}>{fmt.format(Math.round(num(b.total_amount)))}</td>
-                          <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{num(b.transaction_count)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </ChartCard>
-            )}
+            {incomeCards}
 
             <ChartCard t={t} span title={t('lg_expenses_title')} sub={`${periodName} · ${t('lg_expenses_sub')}`}
               right={(
@@ -444,6 +454,96 @@ export function LedgerTab({ onNav }) {
 
       {showNet && pb && (
         <NetProfitModal pb={pb} expenses={ex} salaries={sal} periodName={dataMonth} onClose={() => setShowNet(false)}/>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Moliya for a from–to range: the range's totals, where the money came from,
+ * and each month of the range as a row (GET /reports/profit-trend). The month
+ * ledger's own blocks — expense plan by category, carry-over, how the month
+ * closes — belong to a single month, so they are left to the month view.
+ */
+function RangeLedger({ t, money, lang, rows, loading, error, finance, periodName, incomeCards }) {
+  const I = Icon;
+  const list = rows || [];
+  const sum = (k) => list.reduce((s, r) => s + num(r[k]), 0);
+  const expected = sum('expected_income');
+  const received = finance ? num(finance.total_revenue) : sum('collected_income');
+  const expensePaid = sum('expense_paid');
+  const salaryPaid = sum('salary_paid');
+  const net = sum('net_cash');
+  const signed = (v) => ({ color: num(v) < 0 ? 'var(--danger)' : num(v) > 0 ? 'var(--success)' : 'var(--muted)' });
+  const cell = (v, style) => <td className="money" style={{ textAlign: 'right', ...style }}>{fmt.format(Math.round(num(v)))}</td>;
+
+  return (
+    <div>
+      {error && <div className="alert danger" style={{ marginBottom: 14 }}><I.AlertTriangle size={16}/> <span>{error}</span></div>}
+      {loading && !rows && <div className="empty loading" style={{ padding: 48 }}>{t('loading')}</div>}
+
+      {rows && (
+        <>
+          <div className="grid-4" style={{ marginBottom: 14 }}>
+            <Stat feature label={t('lg_r_expected')} icon={I.Receipt} value={expected} format={fmtMoneyRoll} unit={t('currency')}
+              sub={`${money(expected)} · ${periodName}`}/>
+            <Stat label={t('pf_cash_collected')} tone="success" icon={I.HandCoins} value={received} format={fmtMoneyRoll} unit={t('currency')}
+              sub={money(received)}/>
+            <Stat label={t('lg_r_outflow')} tone="warning" icon={I.Coins} value={expensePaid + salaryPaid} format={fmtMoneyRoll} unit={t('currency')}
+              sub={`${t('nav_expenses')}: ${money(expensePaid)} · ${t('nav_payroll')}: ${money(salaryPaid)}`}/>
+            <Stat label={t('lg_net_cash')} tone={net < 0 ? 'danger' : 'success'} icon={I.TrendingUp} value={net} format={fmtMoneyRoll} unit={t('currency')}
+              sub={`${money(net)} · ${t('lg_net_cash_sub')}`}/>
+          </div>
+
+          <div className="chart-grid-2" style={{ marginBottom: 14 }}>
+            {incomeCards}
+
+            <ChartCard t={t} span title={t('lg_r_by_month')} sub={periodName} value={money(net)}>
+              {list.length === 0
+                ? <div className="chart-empty">{t('pf_empty')}</div>
+                : (
+                  <div className="table-scroll">
+                    <table className="table compact-report-table">
+                      <thead>
+                        <tr>
+                          <th>{t('lg_r_month')}</th>
+                          <th style={{ textAlign: 'right' }}>{t('lg_r_expected')}</th>
+                          <th style={{ textAlign: 'right' }}>{t('pf_cash_collected')}</th>
+                          <th style={{ textAlign: 'right' }}>{t('nav_expenses')}</th>
+                          <th style={{ textAlign: 'right' }}>{t('nav_payroll')}</th>
+                          <th style={{ textAlign: 'right' }}>{t('lg_net_cash')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {list.map(r => (
+                          <tr key={r.period || `${r.year}-${r.month}`} className="static">
+                            <td style={{ fontWeight: 750 }}>{monthLabel(num(r.month) - 1, lang)} {r.year}</td>
+                            {cell(r.expected_income)}
+                            {cell(r.collected_income, { color: 'var(--success)' })}
+                            {cell(r.expense_paid)}
+                            {cell(r.salary_paid)}
+                            {cell(r.net_cash, signed(r.net_cash))}
+                          </tr>
+                        ))}
+                        <tr className="static">
+                          <td style={{ fontWeight: 800 }}>{t('total')}</td>
+                          {cell(expected, { fontWeight: 800 })}
+                          {cell(sum('collected_income'), { fontWeight: 800, color: 'var(--success)' })}
+                          {cell(expensePaid, { fontWeight: 800 })}
+                          {cell(salaryPaid, { fontWeight: 800 })}
+                          {cell(net, { fontWeight: 800, ...signed(net) })}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+            </ChartCard>
+          </div>
+
+          <div className="alert info">
+            <I.Info size={16}/> <span>{t('lg_range_note')}</span>
+          </div>
+        </>
       )}
     </div>
   );

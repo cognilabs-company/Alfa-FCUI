@@ -79,6 +79,8 @@ import { AnalyticsTab } from './analytics';
 import { LedgerTab } from './ledger';
 import { StudentPaymentsTab } from './student-payments';
 import { AttendanceTab } from './attendance';
+import { PeriodPicker } from '@/shared/ui/period-picker';
+import { useReportPeriod } from '@/shared/lib/selected-month';
 import { avatarColor } from '@/shared/lib/avatar';
 
 export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
@@ -90,6 +92,8 @@ export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
   const legacy = { debtors: ['student-payments', 'unpaid'], payers: ['student-payments', 'paid'], dashboard: ['ledger'], finance: ['ledger'], profit: ['analytics'] };
   const [tab, setTab] = React.useState(() => legacy[initialTab]?.[0] || initialTab);
   const spInitialStatus = legacy[initialTab]?.[1] || 'all';
+  // one period for every tab: a month or a from–to range
+  const period = useReportPeriod();
   const [groups, setGroups] = React.useState([]);
 
   React.useEffect(() => {
@@ -154,13 +158,18 @@ export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
         </div>
       </div>
 
-      {tab === 'ledger' && <LedgerTab onNav={onNav}/>}
+      <div className="toolbar" style={{ marginBottom: 14 }}>
+        <PeriodPicker period={period}/>
+        <span className="toolbar-meta" style={{ fontWeight: 600 }}>{t('pp_hint')}</span>
+      </div>
 
-      {tab === 'analytics' && <AnalyticsTab onNav={onNav}/>}
+      {tab === 'ledger' && <LedgerTab period={period} onNav={onNav}/>}
 
-      {tab === 'student-payments' && <StudentPaymentsTab groups={groups} initialStatus={spInitialStatus}/>}
+      {tab === 'analytics' && <AnalyticsTab period={period} onNav={onNav}/>}
 
-      {tab === 'attendance' && <AttendanceTab/>}
+      {tab === 'student-payments' && <StudentPaymentsTab period={period} groups={groups} initialStatus={spInitialStatus}/>}
+
+      {tab === 'attendance' && <AttendanceTab period={period}/>}
 
 
     </div>

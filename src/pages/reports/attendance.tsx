@@ -2,7 +2,7 @@
 import React from 'react';
 import { Icon } from '@/shared/ui/icons';
 import { useT } from '@/shared/i18n/lang';
-import { DateInput } from '@/shared/ui/date-picker';
+import { periodLabel } from '@/shared/lib/selected-month';
 import { attendanceBadge } from '@/shared/ui/status';
 import {
   apiGetAttendanceGroupsReport, apiGetGroupAttendanceSessions, apiGetSessionAttendance,
@@ -27,13 +27,13 @@ function Pct({ value }) {
 /**
  * Reports → Davomat (FRONTEND_DAVOMAT_DRILLDOWN.md): group → its sessions
  * (date + %) → who came and who did not, all opened in place. Each level is
- * fetched only when it is opened, for the chosen date range.
+ * fetched only when it is opened, for the Reports period — or for all time.
  */
-export function AttendanceTab() {
+export function AttendanceTab({ period }) {
   const I = Icon;
   const { t, tp, lang } = useT();
-  const [from, setFrom] = React.useState('');
-  const [to, setTo] = React.useState('');
+  // every session ever, regardless of the Reports period
+  const [allTime, setAllTime] = React.useState(false);
   const [groups, setGroups] = React.useState(null);
   const [openGroups, setOpenGroups] = React.useState(() => new Set());
   const [openSessions, setOpenSessions] = React.useState(() => new Set());
@@ -41,12 +41,9 @@ export function AttendanceTab() {
   const [sessionsOf, setSessionsOf] = React.useState({});
   const [detailOf, setDetailOf] = React.useState({});
 
-  const range = React.useMemo(() => {
-    const p = {};
-    if (from) p.from_date = from;
-    if (to) p.to_date = to;
-    return p;
-  }, [from, to]);
+  const range = React.useMemo(() => (
+    allTime ? {} : { from_date: period.from_date, to_date: period.to_date }
+  ), [allTime, period.from_date, period.to_date]);
 
   React.useEffect(() => {
     let alive = true;
@@ -155,9 +152,10 @@ export function AttendanceTab() {
       <div className="toolbar" style={{ marginBottom: 6 }}>
         <div className="card-title">{t('rpt_att_groups')}</div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <DateInput value={from} onChange={setFrom} placeholder={t('cal_from')}/>
-          <DateInput value={to} onChange={setTo} placeholder={t('cal_to')}/>
-          {(from || to) && <button className="btn ghost" onClick={() => { setFrom(''); setTo(''); }}><I.X size={14}/> {t('clear_filters')}</button>}
+          <button type="button" className={'pill' + (!allTime ? ' active' : '')} onClick={() => setAllTime(false)}>
+            <I.Calendar size={13}/> {periodLabel(period, lang)}
+          </button>
+          <button type="button" className={'pill' + (allTime ? ' active' : '')} onClick={() => setAllTime(true)}>{t('pp_all_time')}</button>
         </div>
       </div>
       <div className="att-hint">{t('rpt_att_hint')}</div>

@@ -4,7 +4,7 @@ import { Icon } from '@/shared/ui/icons';
 import { useT } from '@/shared/i18n/lang';
 import { Columns, ChartLegend } from '@/shared/ui/charts';
 import { apiGetProfitTrend } from '@/shared/api';
-import { fmt, fmtMln, monthLabel, monthShort, toLocalISO } from '@/shared/lib/format';
+import { fmt, fmtMln, monthLabel, monthShort } from '@/shared/lib/format';
 import { ChartCard } from './analytics';
 
 const num = (v) => Number(v) || 0;
@@ -14,9 +14,9 @@ const num = (v) => Number(v) || 0;
  * each month was due to bring in against what it did, and what was left after
  * expenses and salaries. Net profit can fall below zero, which columns cannot
  * draw, so it rides in the tooltip and in the table under the chart. The range
- * is the Analytics one (3/6/12 months); `refresh` changes when it should reload.
+ * (from–to, `months` long) comes from the Reports period; `refresh` changes when it should reload.
  */
-export function ProfitTrendCard({ months, refresh }) {
+export function ProfitTrendCard({ from, to, months, refresh }) {
   const I = Icon;
   const { t, tp, lang } = useT();
   const [rows, setRows] = React.useState([]);
@@ -26,9 +26,6 @@ export function ProfitTrendCard({ months, refresh }) {
 
   React.useEffect(() => {
     let alive = true;
-    const now = new Date();
-    const from = toLocalISO(new Date(now.getFullYear(), now.getMonth() - (months - 1), 1));
-    const to = toLocalISO(new Date(now.getFullYear(), now.getMonth() + 1, 0));
     setLoading(true);
     setError('');
     apiGetProfitTrend({ from_date: from, to_date: to })
@@ -41,7 +38,7 @@ export function ProfitTrendCard({ months, refresh }) {
       })
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [months, refresh]);
+  }, [from, to, refresh]);
 
   const money = (v, axis) => (axis ? fmtMln(v, lang) : `${fmt.format(Math.round(num(v)))} ${t('currency')}`);
   const series = [

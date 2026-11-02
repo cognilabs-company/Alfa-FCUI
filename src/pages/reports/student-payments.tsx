@@ -4,10 +4,11 @@ import { Icon } from '@/shared/ui/icons';
 import { useT } from '@/shared/i18n/lang';
 import { Stat } from '@/shared/ui/stat';
 import { Pager } from '@/shared/ui/pager';
-import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
+import { SearchableGroupSelect } from '@/shared/ui/controls';
 import { apiGetStudentPayments } from '@/shared/api';
 import { avatarColor } from '@/shared/lib/avatar';
-import { fmt, fmtMoneyRoll, monthShort } from '@/shared/lib/format';
+import { fmt, fmtMoneyRoll, monthShort, todayISO } from '@/shared/lib/format';
+import { periodLabel } from '@/shared/lib/selected-month';
 import { ExpenseStatusBadge, useMoney } from '@/widgets/expenses';
 
 const PAGE_SIZE = 50;
@@ -21,14 +22,16 @@ export function monthTag(label, lang) {
 
 /**
  * Reports → O'quvchilar to'lovi (GET /reports/student-payments): every student
- * with what they owed, paid and still owe, by month, with the totals above.
+ * with what they owed, paid and still owe, by month, with the totals above —
+ * for the months of the Reports period, or since each contract began.
  */
-export function StudentPaymentsTab({ groups = [], initialStatus = 'all' }) {
+export function StudentPaymentsTab({ period, groups = [], initialStatus = 'all' }) {
   const I = Icon;
   const { t, tp, lang } = useT();
   const money = useMoney();
-  const thisYear = new Date().getFullYear();
-  const [year, setYear] = React.useState('');
+  // "since the contract began": only to_date is sent, the server starts each student at their contract
+  const [allTime, setAllTime] = React.useState(false);
+  const { from_date, to_date } = period;
   const [groupId, setGroupId] = React.useState('');
   const [status, setStatus] = React.useState(initialStatus);
   const [page, setPage] = React.useState(1);
@@ -37,14 +40,14 @@ export function StudentPaymentsTab({ groups = [], initialStatus = 'all' }) {
   const [error, setError] = React.useState('');
   const [unsupported, setUnsupported] = React.useState(false);
 
-  React.useEffect(() => { setPage(1); }, [year, groupId, status]);
+  React.useEffect(() => { setPage(1); }, [allTime, from_date, to_date, groupId, status]);
 
   React.useEffect(() => {
     let alive = true;
     setLoading(true);
     setError('');
-    const params = { page, page_size: PAGE_SIZE };
-    if (year) params.year = year;
+    const params = { page, page_size: PAGE_SIZE, to_date: allTime ? todayISO() : to_date };
+    if (!allTime) params.from_date = from_date;
     if (groupId) params.group_id = groupId;
     if (status !== 'all') params.status = status;
     apiGetStudentPayments(params)
@@ -57,7 +60,7 @@ export function StudentPaymentsTab({ groups = [], initialStatus = 'all' }) {
       })
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [year, groupId, status, page]);
+  }, [allTime, from_date, to_date, groupId, status, page, period.version]);
 
   if (unsupported) {
     return (
@@ -71,8 +74,8 @@ export function StudentPaymentsTab({ groups = [], initialStatus = 'all' }) {
   const items = data?.items || [];
   const sum = data?.summary || {};
   const pg = data?.pagination || {};
-  // the server names the span its totals cover ("Shartnoma boshidan bugungacha", "2026-yil")
-  const periodLabel = data?.period?.label || (year ? String(year) : t('sp_since_contract'));
+  // the server's label is raw dates ("2026-09-01 – 2026-09-30"), so the span is named here
+  const spanLabel = allTime ? t('sp_since_contract') : periodLabel(period, lang);
   const statusTabs = [
     { key: 'all', label: t('all'), icon: I.Stack },
     { key: 'unpaid', label: t('sp_tab_debtors'), icon: I.AlertCircle },
@@ -83,18 +86,18 @@ export function StudentPaymentsTab({ groups = [], initialStatus = 'all' }) {
   return (
     <div>
       <div className="toolbar" style={{ marginBottom: 14 }}>
-        <SearchableSelect value={String(year)} onChange={v => setYear(v)} style={{ minWidth: 150 }}
-          options={[
-            { value: '', label: t('sp_since_contract') },
-            ...[thisYear, thisYear - 1, thisYear - 2].map(y => ({ value: String(y), label: String(y) })),
-          ]}/>
+        <div className="pill-row">
+          <button type="button" className={'pill' + (!allTime ? ' active' : '')} onClick={() => setAllTime(false)}>
+            <I.Calendar size={13}/> {periodLabel(period, lang)}
+          </button>
+          <button type="button" className={'pill' + (allTime ? ' active' : '')} onClick={() => setAllTime(true)}>{t('sp_since_contract')}</button>
+        </div>
         <SearchableGroupSelect value={groupId} onChange={v => setGroupId(v === 'all' ? '' : v)} groups={groups} placeholder={t('students_all_groups')}/>
-        {(year || groupId || status !== 'all') && (
-          <button className="btn sm ghost" onClick={() => { setYear(''); setGroupId(''); setStatus('all'); }}>
+        {(allTime || groupId || status !== 'all') && (
+          <button className="btn sm ghost" onClick={() => { setAllTime(false); setGroupId(''); setStatus('all'); }}>
             <I.X size={14}/> {t('clear_filters')}
           </button>
         )}
-        {data && <span className="chip"><Icon.Calendar size={12}/> {periodLabel}</span>}
         {loading && data && <span className="toolbar-meta">{t('loading')}</span>}
       </div>
 
@@ -104,7 +107,7 @@ export function StudentPaymentsTab({ groups = [], initialStatus = 'all' }) {
         <Stat feature label={t('sp_students')} icon={I.Users} value={data ? num(sum.students_total) : '—'}
           sub={data ? `${num(sum.fully_paid_count)} ${t('sp_tab_paid').toLowerCase()} · ${num(sum.partial_count)} ${t('exp_status_partial').toLowerCase()} · ${num(sum.unpaid_count)} ${t('exp_status_unpaid').toLowerCase()}` : null}/>
         <Stat label={t('sp_expected_total')} icon={I.Receipt} value={data ? num(sum.expected_total) : '—'} format={fmtMoneyRoll} unit={data ? t('currency') : undefined}
-          sub={data ? `${money(sum.expected_total)} · ${periodLabel}` : null}/>
+          sub={data ? `${money(sum.expected_total)} · ${spanLabel}` : null}/>
         <Stat label={t('exp_totals_paid')} tone="success" icon={I.HandCoins} value={data ? num(sum.paid_total) : '—'} format={fmtMoneyRoll} unit={data ? t('currency') : undefined}
           sub={data ? money(sum.paid_total) : null}>
           {/* students on a contract and pending ones, apart, when pending students paid anything */}
@@ -113,7 +116,7 @@ export function StudentPaymentsTab({ groups = [], initialStatus = 'all' }) {
           )}
         </Stat>
         <Stat label={t('rpt_total_debt')} tone="danger" icon={I.AlertCircle} value={data ? num(sum.debt_total) : '—'} format={fmtMoneyRoll} unit={data ? t('currency') : undefined}
-          sub={data ? `${money(sum.debt_total)} · ${periodLabel}` : null}/>
+          sub={data ? `${money(sum.debt_total)} · ${spanLabel}` : null}/>
       </div>
 
       <div className="seg" style={{ marginBottom: 12 }}>

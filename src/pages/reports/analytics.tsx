@@ -4,10 +4,9 @@ import { Icon } from '@/shared/ui/icons';
 import { useT } from '@/shared/i18n/lang';
 import { Columns, Trend, BarList, Donut, ChartLegend } from '@/shared/ui/charts';
 import { apiGetAnalyticsKpis, apiGetDashboard, loadAnalytics } from '@/shared/api';
-import { fmt, fmtMln, monthLabel, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
+import { fmt, fmtMln, monthShort, toLocalISO, todayISO } from '@/shared/lib/format';
 import { paymentSourceLabel } from '@/shared/lib/labels';
-import { MonthNav } from '@/shared/ui/month-nav';
-import { useSelectedMonth } from '@/shared/lib/selected-month';
+import { periodLabel } from '@/shared/lib/selected-month';
 import { ProfitTrendCard } from './profit-trend';
 import {
   monthsBack, daysBack, dayKey, revenueSeries, sourceTotals, sourceTotalsFromSeries, paidTotal,
@@ -19,7 +18,8 @@ const SOURCE_COLOR = {
   payme: 'var(--viz-payme)', click: 'var(--viz-click)', cash: 'var(--viz-cash)',
   bank: 'var(--viz-bank)', other: 'var(--viz-other)',
 };
-const RANGES = [3, 6, 12];
+// months drawn by the month-by-month charts when a single month is chosen
+const MONTH_TREND = 6;
 
 function Delta({ value, t }) {
   if (value == null || !isFinite(value)) return null;
@@ -56,45 +56,50 @@ export function ChartCard({ title, sub, value, delta: d, span, children, right, 
 }
 
 /** Reports → Analytics: the club's money, debt, roster and attendance over time. */
-export function AnalyticsTab({ onNav }) {
+export function AnalyticsTab({ period, onNav }) {
   const I = Icon;
   const { t, tp, lang } = useT();
-  const [months, setMonths] = React.useState(6);
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   // Only charts here — the single figures live on the home page and in Moliya
-  // (FRONTEND_SODDALASHTIRISH.md). The source/daily charts follow the month
-  // chosen for every report; the month-by-month charts keep the 3/6/12 range.
-  const period = useSelectedMonth();
+  // (FRONTEND_SODDALASHTIRISH.md). Everything follows the Reports period: the
+  // source/daily charts show the period itself (the per-month summary only
+  // exists for a single month); the month-by-month charts show the range's
+  // months, or the six months up to the chosen one.
+  const { from_date, to_date, isRange } = period;
   const [monthData, setMonthData] = React.useState(null);
   React.useEffect(() => {
     let alive = true;
     setMonthData(null);
     Promise.allSettled([
-      apiGetAnalyticsKpis({ from_date: period.monthStart, to_date: period.monthEnd }),
-      apiGetDashboard({ year: period.year, month: period.month }),
+      apiGetAnalyticsKpis({ from_date, to_date }),
+      isRange ? Promise.resolve(null) : apiGetDashboard({ year: period.year, month: period.month }),
     ]).then(([k, d]) => alive && setMonthData({
       kpis: k.status === 'fulfilled' ? (k.value?.data || null) : null,
       month: d.status === 'fulfilled' ? (d.value?.data?.selected_month || null) : null,
     }));
     return () => { alive = false; };
-  }, [period.year, period.month, period.version]);
+  }, [from_date, to_date, isRange, period.year, period.month, period.version]);
 
-  const periods = React.useMemo(() => monthsBack(months), [months]);
+  const last = period.months[period.months.length - 1];
+  const months = isRange ? period.months.length : MONTH_TREND;
+  const endKey = `${last.year}-${last.month}`;
+  const periods = React.useMemo(() => monthsBack(months, new Date(last.year, last.month - 1, 1)), [months, endKey]);
   const fromDate = React.useMemo(() => toLocalISO(periods[0].date), [periods]);
+  const toDate = to_date < todayISO() ? to_date : todayISO();
   // One extra range back so this period can be compared with the previous one.
-  const prevPeriods = React.useMemo(() => monthsBack(months * 2).slice(0, months), [months]);
+  const prevPeriods = React.useMemo(() => monthsBack(months * 2, new Date(last.year, last.month - 1, 1)).slice(0, months), [months, endKey]);
   const loadFrom = React.useMemo(() => toLocalISO(prevPeriods[0].date), [prevPeriods]);
 
   React.useEffect(() => {
     let alive = true;
     setLoading(true);
-    loadAnalytics({ fromDate: loadFrom, toDate: todayISO(), months })
+    loadAnalytics({ fromDate: loadFrom, toDate, months })
       .then(res => { if (alive) setData(res); })
       .catch(() => { if (alive) setData(null); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [loadFrom, months, period.version]);
+  }, [loadFrom, toDate, months, period.version]);
 
   const money = (v, axis) => (axis ? fmtMln(v, lang) : `${fmt.format(Math.round(v))} ${t('currency')}`);
   const count = (v) => fmt.format(Math.round(v));
@@ -141,7 +146,7 @@ export function AnalyticsTab({ onNav }) {
   const aging = k || data?.debtAging ? agingFromApi(data?.debtAging?.buckets) : debtAging(debtors);
   const mk = monthData?.kpis || null;
   const sm = monthData?.month || null;
-  const monthName = `${monthLabel(period.month - 1, lang)} ${period.year}`;
+  const monthName = periodLabel(period, lang);
   // with a single calendar month the server answers kpis for that month; otherwise the old sources
   const totalDebt = mk?.total_debt != null ? Number(mk.total_debt)
     : (Number(data?.debtAging?.total_debt ?? k?.total_debt) || debtTotal(debtors));
@@ -184,25 +189,6 @@ export function AnalyticsTab({ onNav }) {
 
   return (
     <div>
-      <div className="table-toolbar" style={{ marginBottom: 14 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <I.Activity size={17}/> {t('an_period')}
-        </span>
-        <div className="pill-row">
-          {RANGES.map(m => (
-            <button key={m} type="button" className={'pill' + (months === m ? ' active' : '')} onClick={() => setMonths(m)}>
-              {m} {t('contract_months_sfx')}
-            </button>
-          ))}
-        </div>
-        <span className="toolbar-meta" style={{ fontWeight: 600 }}>{t('an_source_hint')}</span>
-      </div>
-
-      <div className="toolbar" style={{ marginBottom: 14 }}>
-        <MonthNav period={period}/>
-        <span className="toolbar-meta" style={{ fontWeight: 600 }}>{t('an_month_kpis')}</span>
-      </div>
-
       {notes.length > 0 && (
         <div className="alert warning" style={{ marginBottom: 14 }}>
           <I.AlertTriangle size={16}/> <span>{notes.join(' · ')}</span>
@@ -218,7 +204,7 @@ export function AnalyticsTab({ onNav }) {
             : <div className="chart-empty">{t('an_no_data')}</div>}
         </ChartCard>
 
-        <ChartCard t={t} title={t('an_revenue_by_source')} sub={sm ? monthName : t('an_revenue_by_source_sub')}>
+        <ChartCard t={t} title={t('an_revenue_by_source')} sub={sm || isRange ? monthName : t('an_revenue_by_source_sub')}>
           {sm
             ? (monthSources.length > 0
               ? <Donut items={monthSources} format={money} centerValue={fmtMln(Number(sm.total_inflow) || 0, lang)} centerLabel={t('total')}/>
@@ -235,7 +221,7 @@ export function AnalyticsTab({ onNav }) {
             : <div className="chart-empty">{t('an_no_data')}</div>}
         </ChartCard>
 
-        <ProfitTrendCard months={months} refresh={period.version}/>
+        <ProfitTrendCard from={fromDate} to={toLocalISO(new Date(last.year, last.month, 0))} months={months} refresh={period.version}/>
 
         <ChartCard t={t} title={t('an_debt_aging')} sub={t('an_debt_aging_sub')} value={money(totalDebt)}>
           <BarList
