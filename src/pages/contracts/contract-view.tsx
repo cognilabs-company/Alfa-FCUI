@@ -284,16 +284,18 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
     });
     setEditModal(true);
   };
-  // the fee can start no earlier than the contract and no later than its end (a year ahead without one)
-  const feeMin = String(contract.start_date || '').slice(0, 10);
-  const feeMax = String(contract.end_date || '').slice(0, 10)
-    || toLocalISO(new Date(new Date().getFullYear() + 1, new Date().getMonth(), new Date().getDate()));
+  // A fee counts per month, so the date is always a month's 1st: from the contract's
+  // first month to its last (a year ahead without an end).
+  const firstOfMonth = (iso) => (iso ? `${iso.slice(0, 7)}-01` : '');
+  const feeMin = firstOfMonth(String(contract.start_date || '').slice(0, 10));
+  const feeMax = firstOfMonth(String(contract.end_date || '').slice(0, 10)
+    || toLocalISO(new Date(new Date().getFullYear() + 1, new Date().getMonth(), 1)));
   const feeFromValid = !!feeFrom && (!feeMin || feeFrom >= feeMin) && feeFrom <= feeMax;
   const feeValid = Number.isInteger(Number(newFee)) && Number(newFee) > 0 && feeFromValid;
   const openFee = () => {
     setMoreOpen(false);
     setNewFee('');
-    // the 1st of this month, kept inside the contract's dates
+    // this month, kept inside the contract's months
     const first = toLocalISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
     setFeeFrom(feeMin && first < feeMin ? feeMin : first > feeMax ? feeMax : first);
     setFeeModal(true);
@@ -546,11 +548,10 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
           </div>
           <div className="field" style={{ marginTop: 14 }}>
             <label>{t('contracts_fee_from_label')}</label>
-            <DateInput value={feeFrom} onChange={setFeeFrom} />
-            <span className="hint">{t('contracts_fee_from_hint')}</span>
-            {feeFromValid && !feeFrom.endsWith('-01') && (
-              <span className="hint" style={{ color: 'var(--warning)' }}>
-                {t('contracts_fee_from_mid_month').replace('{date}', fmtDate(toLocalISO(new Date(Number(feeFrom.slice(0, 4)), Number(feeFrom.slice(5, 7)), 1))))}
+            <DateInput value={feeFrom} onChange={v => setFeeFrom(firstOfMonth(v))} />
+            {feeFrom && (
+              <span className="hint">
+                {t('contracts_fee_from_hint').replace('{month}', `${monthLabel(Number(feeFrom.slice(5, 7)) - 1, lang)} ${feeFrom.slice(0, 4)}`)}
               </span>
             )}
             {feeFrom && !feeFromValid && (
