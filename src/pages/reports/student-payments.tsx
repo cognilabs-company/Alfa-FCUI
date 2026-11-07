@@ -9,6 +9,7 @@ import { apiGetStudentPayments } from '@/shared/api';
 import { avatarColor } from '@/shared/lib/avatar';
 import { fmt, fmtMoneyRoll, monthShort, todayISO } from '@/shared/lib/format';
 import { periodLabel } from '@/shared/lib/selected-month';
+import { PaymentsByGroup } from './payments-by-group';
 import { ExpenseStatusBadge, useMoney } from '@/widgets/expenses';
 
 const PAGE_SIZE = 50;
@@ -34,13 +35,16 @@ export function StudentPaymentsTab({ period, groups = [], initialStatus = 'all' 
   const { from_date, to_date } = period;
   const [groupId, setGroupId] = React.useState('');
   const [status, setStatus] = React.useState(initialStatus);
+  // the student list, or the same students counted per group
+  const [view, setView] = React.useState('list');
+  const listStatus = view === 'list' ? status : 'all';
   const [page, setPage] = React.useState(1);
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
   const [unsupported, setUnsupported] = React.useState(false);
 
-  React.useEffect(() => { setPage(1); }, [allTime, from_date, to_date, groupId, status]);
+  React.useEffect(() => { setPage(1); }, [allTime, from_date, to_date, groupId, listStatus]);
 
   React.useEffect(() => {
     let alive = true;
@@ -49,7 +53,7 @@ export function StudentPaymentsTab({ period, groups = [], initialStatus = 'all' 
     const params = { page, page_size: PAGE_SIZE, to_date: allTime ? todayISO() : to_date };
     if (!allTime) params.from_date = from_date;
     if (groupId) params.group_id = groupId;
-    if (status !== 'all') params.status = status;
+    if (listStatus !== 'all') params.status = listStatus;
     apiGetStudentPayments(params)
       .then(res => { if (alive) { setData(res?.data || null); setUnsupported(false); } })
       .catch(e => {
@@ -60,7 +64,7 @@ export function StudentPaymentsTab({ period, groups = [], initialStatus = 'all' 
       })
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [allTime, from_date, to_date, groupId, status, page, period.version]);
+  }, [allTime, from_date, to_date, groupId, listStatus, page, period.version]);
 
   if (unsupported) {
     return (
@@ -93,7 +97,7 @@ export function StudentPaymentsTab({ period, groups = [], initialStatus = 'all' 
           <button type="button" className={'pill' + (allTime ? ' active' : '')} onClick={() => setAllTime(true)}>{t('sp_since_contract')}</button>
         </div>
         <SearchableGroupSelect value={groupId} onChange={v => setGroupId(v === 'all' ? '' : v)} groups={groups} placeholder={t('students_all_groups')}/>
-        {(allTime || groupId || status !== 'all') && (
+        {(allTime || groupId || listStatus !== 'all') && (
           <button className="btn sm ghost" onClick={() => { setAllTime(false); setGroupId(''); setStatus('all'); }}>
             <I.X size={14}/> {t('clear_filters')}
           </button>
@@ -119,14 +123,29 @@ export function StudentPaymentsTab({ period, groups = [], initialStatus = 'all' 
           sub={data ? `${money(sum.debt_total)} · ${spanLabel}` : null}/>
       </div>
 
-      <div className="seg" style={{ marginBottom: 12 }}>
-        {statusTabs.map(s => (
-          <button key={s.key} type="button" className={status === s.key ? 'active' : ''} onClick={() => setStatus(s.key)}>
-            <s.icon size={14}/> {s.label}
+      <div className="toolbar" style={{ marginBottom: 12 }}>
+        <div className="seg">
+          <button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>
+            <I.Student size={14}/> {t('sp_view_list')}
           </button>
-        ))}
+          <button type="button" className={view === 'groups' ? 'active' : ''} onClick={() => setView('groups')}>
+            <I.UsersFour size={14}/> {t('sp_view_groups')}
+          </button>
+        </div>
+        {view === 'list' && (
+          <div className="seg">
+            {statusTabs.map(s => (
+              <button key={s.key} type="button" className={status === s.key ? 'active' : ''} onClick={() => setStatus(s.key)}>
+                <s.icon size={14}/> {s.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
+      {view === 'groups' ? (
+        <PaymentsByGroup fromDate={allTime ? null : from_date} toDate={allTime ? todayISO() : to_date} groupId={groupId} refresh={period.version}/>
+      ) : (
       <div className="table-wrap">
         {loading && !data ? (
           <div className="empty loading" style={{ padding: 40 }}>{t('loading')}</div>
@@ -195,6 +214,7 @@ export function StudentPaymentsTab({ period, groups = [], initialStatus = 'all' 
         )}
         <Pager page={page} totalPages={num(pg.total_pages) || 1} total={num(pg.total)} pageSize={PAGE_SIZE} onPage={setPage}/>
       </div>
+      )}
     </div>
   );
 }

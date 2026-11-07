@@ -3985,6 +3985,11 @@ button.choice { font-family: inherit; min-height: 38px; padding: 0 6px; }
 .name-link:hover { color: var(--accent-ink); text-decoration-color: currentColor; }
 .name-link:focus-visible { outline: none; box-shadow: var(--ring); }
 .sp-months .chip { font-size: 11px; }
+.sp-group-counts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.att-students.sp-group-students { grid-template-columns: repeat(auto-fill, minmax(min(420px, 100%), 1fr)); }
+.att-student.sp-group-student { background: var(--surface); flex-wrap: wrap; }
+.sp-group-owes { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; font-size: 13px; }
+.sp-group-owes .money { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .action-list { display: grid; gap: 8px; margin-top: 14px; }
 .action-tile {
