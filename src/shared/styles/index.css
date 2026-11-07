@@ -1333,6 +1333,10 @@ textarea.input { height: auto; padding: 11px 13px; resize: vertical; min-height:
 }
 .field input:disabled, .field textarea:disabled { opacity: 0.6; }
 .field .hint { font-size: 12px; color: var(--muted); font-weight: 500; }
+.fee-history { margin-top: 14px; display: grid; gap: 6px; }
+.fee-history .section-label { margin-bottom: 2px; }
+.fee-history-row { font-size: 13.5px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.fee-history-row b { color: var(--text); font-weight: 800; }
 .field .error { font-size: 12px; color: var(--danger); font-weight: 600; }
 .input-icon { position: relative; }
 .input-icon > svg,

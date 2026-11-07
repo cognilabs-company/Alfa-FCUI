@@ -38,7 +38,7 @@ export async function apiPatchContractStatus(id, data) {
 }
 
 export async function apiPatchContractMonthlyFee(id, data) {
-  return apiUpdateContract(id, normalizeContractMonthlyFeePayload(data));
+  return apiFetch(`/contracts/${id}/monthly-fee`, { method: 'PATCH', body: JSON.stringify(data) });
 }
 
 export async function apiPatchContractDates(id, data) {

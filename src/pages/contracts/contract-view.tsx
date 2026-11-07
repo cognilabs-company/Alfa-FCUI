@@ -75,7 +75,7 @@ import {
   apiGetStudentPayments,
 } from '@/shared/api';
 
-import { fmt, fmtDate, fmtDateTime, monthLabel } from '@/shared/lib/format';
+import { fmt, fmtDate, fmtDateTime, monthLabel, toLocalISO } from '@/shared/lib/format';
 import { Stat } from '@/shared/ui/stat';
 import { Modal, DetailGrid } from '@/shared/ui/modal';
 
@@ -102,10 +102,11 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
   const [terminateAt, setTerminateAt] = React.useState('');
   const [feeModal, setFeeModal] = React.useState(false);
   const [newFee, setNewFee] = React.useState('');
+  const [feeFrom, setFeeFrom] = React.useState('');
   const [datesModal, setDatesModal] = React.useState(false);
   const [datesForm, setDatesForm] = React.useState({ start_date: '', end_date: '' });
   const [editModal, setEditModal] = React.useState(false);
-  const [editForm, setEditForm] = React.useState({ monthly_fee: '', customer_full_name: '', customer_passport_number: '', customer_address: '' });
+  const [editForm, setEditForm] = React.useState({ customer_full_name: '', customer_passport_number: '', customer_address: '' });
   const [statusModal, setStatusModal] = React.useState(false);
   const [newStatus, setNewStatus] = React.useState('');
   const [moreOpen, setMoreOpen] = React.useState(false);
@@ -212,10 +213,10 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
   }
 
   async function saveFee() {
-    if (!newFee) return;
+    if (!feeValid) return;
     setSaving(true);
     try {
-      await apiPatchContractMonthlyFee(contractId, { monthly_fee_amount: Number(newFee) });
+      await apiPatchContractMonthlyFee(contractId, { monthly_fee_amount: Number(newFee), effective_from: feeFrom });
       setFeeModal(false);
       onToast?.(t('toast_monthly_updated'));
       load();
@@ -241,7 +242,6 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
     setSaving(true);
     try {
       const body = {
-        monthly_fee_amount: Number(editForm.monthly_fee),
         customer_full_name: editForm.customer_full_name,
         customer_passport_number: editForm.customer_passport_number,
         customer_address: editForm.customer_address,
@@ -278,13 +278,27 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
   const openEdit = () => {
     setMoreOpen(false);
     setEditForm({
-      monthly_fee: String(contract.monthly_fee_amount ?? contract.monthly_fee ?? ''),
       customer_full_name: contract.customer_full_name ?? cust.full_name ?? '',
       customer_passport_number: contract.customer_passport_number ?? cust.passport_number ?? '',
       customer_address: contract.customer_address ?? cust.address ?? '',
     });
     setEditModal(true);
   };
+  // the fee can start no earlier than the contract and no later than its end (a year ahead without one)
+  const feeMin = String(contract.start_date || '').slice(0, 10);
+  const feeMax = String(contract.end_date || '').slice(0, 10)
+    || toLocalISO(new Date(new Date().getFullYear() + 1, new Date().getMonth(), new Date().getDate()));
+  const feeFromValid = !!feeFrom && (!feeMin || feeFrom >= feeMin) && feeFrom <= feeMax;
+  const feeValid = Number.isInteger(Number(newFee)) && Number(newFee) > 0 && feeFromValid;
+  const openFee = () => {
+    setMoreOpen(false);
+    setNewFee('');
+    // the 1st of this month, kept inside the contract's dates
+    const first = toLocalISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+    setFeeFrom(feeMin && first < feeMin ? feeMin : first > feeMax ? feeMax : first);
+    setFeeModal(true);
+  };
+  const feeHistory = [...(cf.payment?.fee_history || [])].sort((a, b) => String(a.effective_from).localeCompare(String(b.effective_from)));
   const openDates = () => {
     setMoreOpen(false);
     setDatesForm({
@@ -330,6 +344,11 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
             </button>
             {moreOpen && (
               <div className="popover" role="menu" style={{ minWidth: 240 }}>
+                {contract.status !== 'TERMINATED' && (
+                  <button type="button" className="menu-item" onClick={openFee}>
+                    <I.Money size={15} /> {t('contracts_edit_fee')}
+                  </button>
+                )}
                 <button type="button" className="menu-item" onClick={openDates}>
                   <I.Calendar size={15} /> {t('contracts_change_dates_btn')}
                 </button>
@@ -371,6 +390,16 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
             { label: t('contracts_monthly_fee'), value: `${fmt.format(contract.monthly_fee || 0)} ${t('currency')}` },
             { label: t('contracts_contract_year_label'), value: contract.contract_year || '—' },
           ]} />
+          {feeHistory.length > 0 && (
+            <div className="fee-history">
+              <div className="section-label">{t('contracts_fee_history')}</div>
+              {feeHistory.map(h => (
+                <div key={h.effective_from} className="fee-history-row">
+                  <b>{fmt.format(Number(h.amount) || 0)} {t('currency')}</b> — {t('contracts_fee_since').replace('{date}', fmtDate(h.effective_from))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="card" style={{ padding: 20 }}>
@@ -506,14 +535,24 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
           title={t('contracts_edit_fee')}
           footer={<>
             <button className="btn ghost" onClick={() => setFeeModal(false)}>{t('cancel')}</button>
-            <button className="btn primary" onClick={saveFee} disabled={saving || !newFee}>
+            <button className="btn primary" onClick={saveFee} disabled={saving || !feeValid}>
               {saving ? t('saving') : t('save')}
             </button>
           </>}
         >
           <div className="field">
             <label>{t('contracts_new_fee_label')}</label>
-            <input type="number" value={newFee} onChange={e => setNewFee(e.target.value)} placeholder="500000" />
+            <input type="number" min="1" step="1" value={newFee} onChange={e => setNewFee(e.target.value)} placeholder={String(Number(contract.monthly_fee) || 500000)} />
+          </div>
+          <div className="field" style={{ marginTop: 14 }}>
+            <label>{t('contracts_fee_from_label')}</label>
+            <DateInput value={feeFrom} onChange={setFeeFrom} />
+            <span className="hint">{t('contracts_fee_from_hint')}</span>
+            {feeFrom && !feeFromValid && (
+              <span className="hint" style={{ color: 'var(--danger)' }}>
+                {t('contracts_fee_from_range').replace('{min}', fmtDate(feeMin)).replace('{max}', fmtDate(feeMax))}
+              </span>
+            )}
           </div>
         </Modal>
       )}
@@ -555,7 +594,6 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
           </>}
         >
           {[
-            [t('contracts_new_fee_label'), 'monthly_fee', 'number', '500000'],
             [t('contracts_client_name_label'), 'customer_full_name', 'text', ''],
             [t('contracts_passport_no_label'), 'customer_passport_number', 'text', 'AA1234567'],
             [t('profile_address'), 'customer_address', 'text', ''],
