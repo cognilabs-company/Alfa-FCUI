@@ -72,6 +72,8 @@ const RULES = [
   [/^Row for student_id (\d+) must have exactly (\d+) cells$/i, "ID $1 o'quvchi qatori $2 ta katakdan iborat bo'lishi kerak", 'Строка ученика с ID $1 должна содержать ровно $2 ячеек'],
 
   // Contracts
+  [/^effective_from cannot be before the contract start date \((.+)\)$/i, "Sana shartnoma boshlanish sanasidan ($1) oldin bo'lishi mumkin emas", 'Дата не может быть раньше даты начала договора ($1)'],
+  [/^effective_from cannot be after the contract end date \((.+)\)$/i, "Sana shartnoma tugash sanasidan ($1) keyin bo'lishi mumkin emas", 'Дата не может быть позже даты окончания договора ($1)'],
   [/^Contract not found$/i, 'Shartnoma topilmadi', 'Контракт не найден'],
   [/^Contract is already terminated$/i, 'Shartnoma allaqachon tugatilgan', 'Контракт уже завершён'],
   [/^Could not generate unique terminated contract number$/i, "Tugatilgan shartnoma raqamini yaratib bo'lmadi", 'Не удалось создать номер завершённого контракта'],

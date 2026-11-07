@@ -548,6 +548,11 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
             <label>{t('contracts_fee_from_label')}</label>
             <DateInput value={feeFrom} onChange={setFeeFrom} />
             <span className="hint">{t('contracts_fee_from_hint')}</span>
+            {feeFromValid && !feeFrom.endsWith('-01') && (
+              <span className="hint" style={{ color: 'var(--warning)' }}>
+                {t('contracts_fee_from_mid_month').replace('{date}', fmtDate(toLocalISO(new Date(Number(feeFrom.slice(0, 4)), Number(feeFrom.slice(5, 7)), 1))))}
+              </span>
+            )}
             {feeFrom && !feeFromValid && (
               <span className="hint" style={{ color: 'var(--danger)' }}>
                 {t('contracts_fee_from_range').replace('{min}', fmtDate(feeMin)).replace('{max}', fmtDate(feeMax))}
