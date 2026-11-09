@@ -10,6 +10,7 @@ import {
   apiGetContractPdf,
   apiRegenerateContractPdf,
   apiGetContractStats,
+  apiGetFeeDistribution,
   apiPatchContractMonthlyFee,
   apiPatchContractDates,
   apiPatchContractStatus,
@@ -95,6 +96,8 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
   const { t, tp } = useT();
   const [contracts, setContracts] = React.useState([]);
   const [stats, setStats] = React.useState(null);
+  // the MRR by fee ("300 000 × 134"), so the total is not a riddle when fees differ
+  const [feeMix, setFeeMix] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [query, setQuery] = React.useState('');
   // one select drives the list: live contracts, or the archive
@@ -117,15 +120,17 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
         status: effTab === 'archived' ? 'ARCHIVED' : 'ACTIVE',
       };
       if (effQuery) params.search = effQuery;
-      const [cRes, sRes] = await Promise.allSettled([
+      const [cRes, sRes, fRes] = await Promise.allSettled([
         apiGetContracts(params),
         apiGetContractStats(),
+        apiGetFeeDistribution(),
       ]);
       const cData = cRes.status === 'fulfilled' ? cRes.value : null;
       setContracts(cData?.data || []);
       setTotalPages(cData?.meta?.total_pages || 1);
       setTotalCount(cData?.meta?.total || 0);
       if (sRes.status === 'fulfilled') setStats(sRes.value?.data || null);
+      if (fRes.status === 'fulfilled') setFeeMix(fRes.value?.data?.by_fee || []);
     } finally {
       setLoading(false);
     }
@@ -210,6 +215,16 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
                 <div className="s-label"><I.Wallet size={15}/> {t('contracts_total_monthly')}</div>
                 <div className="s-mid"><CountUp value={Number(stats.total_monthly_fee) || 0} format={fmtMoneyRoll} duration={1800}/> <span style={{ fontSize: 13, fontFamily: 'var(--font-sans)', color: 'rgba(238,242,236,0.55)' }}>{t('currency')}</span></div>
                 <div className="s-note">{fmt.format(stats.total_monthly_fee || 0)} {t('currency')}</div>
+                {feeMix.length > 0 && (
+                  <div className="s-fees" title={t('contracts_fee_mix_tip')}>
+                    {feeMix.map(f => (
+                      <div key={f.fee}>
+                        <span>{fmt.format(Number(f.fee) || 0)} × {Number(f.student_count) || 0}</span>
+                        <b>{fmt.format(Math.round(Number(f.subtotal) || 0))}</b>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
           );
