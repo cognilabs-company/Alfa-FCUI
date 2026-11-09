@@ -79,6 +79,7 @@ import { AnalyticsTab } from './analytics';
 import { LedgerTab } from './ledger';
 import { StudentPaymentsTab } from './student-payments';
 import { AttendanceTab } from './attendance';
+import { FeeDistributionTab } from './fee-distribution';
 import { PeriodPicker } from '@/shared/ui/period-picker';
 import { useReportPeriod } from '@/shared/lib/selected-month';
 import { avatarColor } from '@/shared/lib/avatar';
@@ -151,6 +152,7 @@ export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
             { id: 'ledger', label: t('lg_tab') },
             { id: 'analytics', label: t('rpt_analytics') },
             { id: 'student-payments', label: t('sp_tab') },
+            { id: 'fees', label: t('fd_tab') },
             { id: 'attendance', label: t('rpt_attendance') },
           ].map(tb => (
             <button key={tb.id} type="button" className={'tab' + (tab === tb.id ? ' active' : '')} onClick={() => setTab(tb.id)}>{tb.label}</button>
@@ -168,6 +170,8 @@ export function ReportsScreen({ initialTab = 'ledger', onNav } = {}) {
       {tab === 'analytics' && <AnalyticsTab period={period} onNav={onNav}/>}
 
       {tab === 'student-payments' && <StudentPaymentsTab period={period} groups={groups} initialStatus={spInitialStatus}/>}
+
+      {tab === 'fees' && <FeeDistributionTab period={period}/>}
 
       {tab === 'attendance' && <AttendanceTab period={period}/>}
 

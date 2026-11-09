@@ -4115,3 +4115,23 @@ button.choice { font-family: inherit; min-height: 38px; padding: 0 6px; }
   .att-session .att-meta + .att-pct { margin-left: 0; }
   .att-body { padding-left: 10px; }
 }
+
+/* Reports → Kutilgan daromad: "fee × students = subtotal" lines */
+.fd-fees { display: grid; gap: 10px; }
+.fd-fee { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
+.fd-eq { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; font-size: 14px; font-weight: 650; }
+.fd-eq .money, .fd-total .money, .fd-group-total .money, .fd-line .money { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fd-op { color: var(--muted); font-weight: 700; }
+.fd-eq .fd-sub { margin-left: auto; }
+.fd-share { display: flex; align-items: center; gap: 10px; }
+.fd-share .bar-track { flex: 1; }
+.fd-share small { width: 40px; text-align: right; font-size: 12px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fd-total { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px 0; border-top: 1px dashed var(--border); font-size: 14px; font-weight: 700; }
+.fd-group-total { flex: none; display: grid; justify-items: end; gap: 2px; }
+.fd-group-total small { font-size: 12px; font-weight: 600; color: var(--muted); }
+.fd-line { background: var(--surface); }
+.fd-line-total { background: transparent; border: 1px dashed var(--border); }
+@media (max-width: 640px) {
+  .fd-eq .fd-sub { margin-left: 0; width: 100%; }
+  .fd-group-total { flex: 1; margin-left: 27px; display: flex; align-items: baseline; justify-content: space-between; }
+}

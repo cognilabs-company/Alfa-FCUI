@@ -108,3 +108,8 @@ export async function apiGetProfitTrend(params = {}) {
 export async function apiGetStudentPayments(params = {}) {
   return apiFetch(withQuery('/reports/student-payments', params));
 }
+
+// Active students by the monthly fee in force, overall and per group; no year/month = right now
+export async function apiGetFeeDistribution(params = {}) {
+  return apiFetch(withQuery('/reports/fee-distribution', params));
+}
