@@ -3,7 +3,7 @@ import React from 'react';
 import { Icon } from '@/shared/ui/icons';
 import { useT } from '@/shared/i18n/lang';
 import { Stat } from '@/shared/ui/stat';
-import { apiGetFinanceReport, apiGetMonthlyLedger, apiGetProfitReport, apiGetProfitTrend } from '@/shared/api';
+import { apiGetFeeDistribution, apiGetFinanceReport, apiGetMonthlyLedger, apiGetProfitReport, apiGetProfitTrend } from '@/shared/api';
 import { fmt, fmtMoneyRoll, monthLabel } from '@/shared/lib/format';
 import { paymentSourceLabel } from '@/shared/lib/labels';
 import { CATEGORY_COLOR, categoryLabel } from '@/shared/lib/expenses';
@@ -11,6 +11,7 @@ import { ExpenseStatusBadge, useMoney } from '@/widgets/expenses';
 import { ChartCard } from './analytics';
 import { periodLabel } from '@/shared/lib/selected-month';
 import { Modal } from '@/shared/ui/modal';
+import { FeeMix } from '@/shared/ui/fee-mix';
 
 const num = (v) => Number(v) || 0;
 
@@ -124,6 +125,18 @@ export function LedgerTab({ period, onNav }) {
   // range mode: one row per month of the range
   const [trend, setTrend] = React.useState(null);
   const { from_date, to_date, isRange } = period;
+  // the month's contract plan by fee ("300 000 × 134"), adding up to income.expected
+  const [feeMix, setFeeMix] = React.useState([]);
+
+  React.useEffect(() => {
+    let alive = true;
+    setFeeMix([]);
+    if (isRange) return;
+    apiGetFeeDistribution({ year: period.year, month: period.month })
+      .then(res => alive && setFeeMix(res?.data?.by_fee || []))
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [isRange, period.year, period.month, period.version]);
 
   React.useEffect(() => {
     let alive = true;
@@ -256,6 +269,7 @@ export function LedgerTab({ period, onNav }) {
                 // the full monthly plan, before part-month joiners are prorated
                 income.mrr != null && <div className="stat-sub">{t('lg_mrr_line').replace('{amount}', money(income.mrr))}</div>
               )}
+              <FeeMix fees={feeMix} title={t('contracts_fee_mix_tip')}/>
             </Stat>
             <Stat label={t('pf_cash_collected')} tone="success" icon={I.HandCoins} value={received ?? '—'} format={fmtMoneyRoll} unit={received != null ? t('currency') : undefined}
               sub={received != null ? money(received) : null}>

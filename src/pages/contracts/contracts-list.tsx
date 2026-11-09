@@ -4,6 +4,7 @@ import { Icon } from '@/shared/ui/icons';
 import { SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
+import { FeeMix } from '@/shared/ui/fee-mix';
 import {
   apiGetContracts,
   apiGetContract,
@@ -215,16 +216,7 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
                 <div className="s-label"><I.Wallet size={15}/> {t('contracts_total_monthly')}</div>
                 <div className="s-mid"><CountUp value={Number(stats.total_monthly_fee) || 0} format={fmtMoneyRoll} duration={1800}/> <span style={{ fontSize: 13, fontFamily: 'var(--font-sans)', color: 'rgba(238,242,236,0.55)' }}>{t('currency')}</span></div>
                 <div className="s-note">{fmt.format(stats.total_monthly_fee || 0)} {t('currency')}</div>
-                {feeMix.length > 0 && (
-                  <div className="s-fees" title={t('contracts_fee_mix_tip')}>
-                    {feeMix.map(f => (
-                      <div key={f.fee}>
-                        <span>{fmt.format(Number(f.fee) || 0)} × {Number(f.student_count) || 0}</span>
-                        <b>{fmt.format(Math.round(Number(f.subtotal) || 0))}</b>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <FeeMix fees={feeMix} title={t('contracts_fee_mix_tip')}/>
               </div>
             </section>
           );
