@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@/shared/ui/icons';
 import { DateInput, DateTimeInput } from '@/shared/ui/date-picker';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
@@ -111,12 +112,31 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
   const [newStatus, setNewStatus] = React.useState('');
   const [moreOpen, setMoreOpen] = React.useState(false);
   const moreRef = React.useRef(null);
+  const morePopRef = React.useRef(null);
+  // the page head clips what spills out of it, so the menu lives on <body>, under its button
+  const [morePos, setMorePos] = React.useState(null);
+  const toggleMore = () => {
+    if (moreOpen) { setMoreOpen(false); return; }
+    const r = moreRef.current?.getBoundingClientRect();
+    if (r) setMorePos({ top: r.bottom + 8, right: Math.max(window.innerWidth - r.right, 8) });
+    setMoreOpen(true);
+  };
 
   React.useEffect(() => {
     if (!moreOpen) return;
-    const close = (e) => { if (moreRef.current && !moreRef.current.contains(e.target)) setMoreOpen(false); };
+    const close = (e) => {
+      if (moreRef.current?.contains(e.target) || morePopRef.current?.contains(e.target)) return;
+      setMoreOpen(false);
+    };
+    const shut = () => setMoreOpen(false);
     document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    window.addEventListener('resize', shut);
+    window.addEventListener('scroll', shut, true);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('resize', shut);
+      window.removeEventListener('scroll', shut, true);
+    };
   }, [moreOpen]);
 
   // The debt comes from the server (GET /reports/student-payments), the same
@@ -340,17 +360,18 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
           <button className="btn" onClick={openEdit}>
             <I.Edit size={15} /> {t('edit')}
           </button>
-          <div ref={moreRef} style={{ position: 'relative' }}>
-            <button className="btn" aria-haspopup="menu" aria-expanded={moreOpen} aria-label={t('actions')} onClick={() => setMoreOpen(o => !o)}>
+          {/* the fee is changed often enough to sit in the row, not in the menu */}
+          {contract.status !== 'TERMINATED' && (
+            <button className="btn" onClick={openFee}>
+              <I.Money size={15} /> {t('contracts_edit_fee')}
+            </button>
+          )}
+          <div ref={moreRef}>
+            <button className="btn" aria-haspopup="menu" aria-expanded={moreOpen} aria-label={t('actions')} onClick={toggleMore}>
               <I.More size={16} /> <I.ChevronDown size={14} />
             </button>
-            {moreOpen && (
-              <div className="popover" role="menu" style={{ minWidth: 240 }}>
-                {contract.status !== 'TERMINATED' && (
-                  <button type="button" className="menu-item" onClick={openFee}>
-                    <I.Money size={15} /> {t('contracts_edit_fee')}
-                  </button>
-                )}
+            {moreOpen && morePos && createPortal(
+              <div ref={morePopRef} className="popover" role="menu" style={{ position: 'fixed', top: morePos.top, right: morePos.right, minWidth: 240 }}>
                 <button type="button" className="menu-item" onClick={openDates}>
                   <I.Calendar size={15} /> {t('contracts_change_dates_btn')}
                 </button>
@@ -370,7 +391,8 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
                     </button>
                   </>
                 )}
-              </div>
+              </div>,
+              document.body,
             )}
           </div>
           <button className="btn primary" onClick={regenerate} disabled={regenerating}>
