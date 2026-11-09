@@ -178,6 +178,8 @@ function LedgerCheck({ ledger, total, money, t }) {
   const official = num(ledger.expected_official ?? ledger.expected);
   const pending = num(ledger.expected_pending);
   const shown = num(ledger.expected_total ?? ledger.expected);
+  // a month with no contracts: nothing to tie together, the empty text says it all
+  if (Math.round(total) === 0 && Math.round(official) === 0) return null;
   if (Math.round(official) !== Math.round(total)) {
     return (
       <div className="alert warning" style={{ marginBottom: 14 }}>
