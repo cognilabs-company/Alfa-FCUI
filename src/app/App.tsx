@@ -273,7 +273,8 @@ function AppShell() {
               onOpenStudent={(id) => { setStudentId(id); setRoute('students-profile'); }}
               canEdit={hasPerm(T.role, 'students:edit') || permissions.some(p => (typeof p === 'string' ? p : p?.code || p?.name) === 'students:edit')}/>
           )}
-          {route === 'students-profile' && <StudentProfile studentId={studentId} onBack={() => navigate('students')}/>}
+          {route === 'students-profile' && <StudentProfile studentId={studentId} onBack={() => navigate('students')}
+            canSeeFinance={['contracts:view', 'finance:transactions:view'].some(perm => hasPerm(T.role, perm) || permissions.some(p => (typeof p === 'string' ? p : p?.code || p?.name) === perm))}/>}
           {route === 'students-new' && <StudentNew onBack={() => navigate('students')} onCreated={() => { showToast(t('toast_student_created')); navigate('students'); }} onViewContract={(cid) => { setContractId(cid); navigate('contracts-view'); }}/>}
           {route === 'groups' && <GroupsScreen onOpen={(id) => { setGroupId(id); }} selectedGroupId={groupId} onCloseGroup={() => setGroupId(null)} onToast={showToast} onOpenStudent={(id) => { setStudentId(id); setRoute('students-profile'); }} />}
           {(route === 'sessions' || route === 'attendance') && <SessionsScreen onMark={(id) => { setSessionId(id); setRoute('attendance-mark'); }}/>}

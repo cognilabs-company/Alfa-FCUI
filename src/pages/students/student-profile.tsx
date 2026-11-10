@@ -22,7 +22,11 @@ import { statusChip } from '@/pages/contracts/status-chip';
 import { calcAge, fullName, normalizeStatus } from './lib';
 import { PreContractTrainingFields, emptyPreContract, preContractError, preContractPayload } from './pre-contract-training';
 
-export function StudentProfile({ studentId, onBack }) {
+/**
+ * canSeeFinance: the contract and the payments are shown only to roles that may
+ * see contracts or transactions; a coach sees the student without the money.
+ */
+export function StudentProfile({ studentId, onBack, canSeeFinance = true }) {
   const I = Icon;
   const { t, tp } = useT();
   const [info, setInfo] = React.useState(null);
@@ -57,11 +61,13 @@ export function StudentProfile({ studentId, onBack }) {
       return;
     }
     setLoading(true);
+    // only the student is required: a side list the role may not read (403) leaves its part empty
+    const optional = (req) => req.catch(() => null);
     Promise.all([
       apiGetStudentFullInfo(studentId),
-      apiGetStudentTransactions(studentId),
-      apiGetStudentGateLogs(studentId),
-      apiGetStudentAttendanceReport(studentId),
+      canSeeFinance ? optional(apiGetStudentTransactions(studentId)) : Promise.resolve(null),
+      optional(apiGetStudentGateLogs(studentId)),
+      optional(apiGetStudentAttendanceReport(studentId)),
     ]).then(([infoRes, txRes, gateRes, reportRes]) => {
       setInfo(infoRes?.data || null);
       setTransactions(txRes?.data || []);
@@ -85,7 +91,7 @@ export function StudentProfile({ studentId, onBack }) {
         });
       }
     }).catch(() => {}).finally(() => setLoading(false));
-  }, [studentId]);
+  }, [studentId, canSeeFinance]);
 
   if (loading) return <div className="empty loading" style={{ padding: 64 }}>{t('loading')}</div>;
   if (!info) return <div className="empty" style={{ padding: 48 }}>{t('students_not_found')}</div>;
@@ -135,7 +141,7 @@ export function StudentProfile({ studentId, onBack }) {
 
         <div className="actions">
           <button className="btn" onClick={() => setShowEditModal(true)}><I.Edit size={15}/> {t('edit')}</button>
-          {contract && <button className="btn" onClick={() => setTab('contract')}><I.FileText size={15}/> {t('profile_contract')}</button>}
+          {canSeeFinance && contract && <button className="btn" onClick={() => setTab('contract')}><I.FileText size={15}/> {t('profile_contract')}</button>}
           {studentStatus === 'deleted' && <button className="btn danger" onClick={() => setShowHardDeleteModal(true)}><I.Trash2 size={15}/> {t('student_full_delete')}</button>}
         </div>
       </section>
@@ -145,10 +151,10 @@ export function StudentProfile({ studentId, onBack }) {
           {[
             { id: 'overview', labelKey: 'profile_overview' },
             { id: 'attendance', labelKey: 'profile_attendance' },
-            { id: 'contract', labelKey: 'profile_contract' },
-            { id: 'transactions', labelKey: 'profile_payments' },
+            { id: 'contract', labelKey: 'profile_contract', finance: true },
+            { id: 'transactions', labelKey: 'profile_payments', finance: true },
             { id: 'files', labelKey: 'profile_files' },
-          ].map(tb => (
+          ].filter(tb => canSeeFinance || !tb.finance).map(tb => (
             <button key={tb.id} type="button" className={'tab' + (tab === tb.id ? ' active' : '')} onClick={() => setTab(tb.id)}>
               {t(tb.labelKey)}
             </button>
@@ -187,7 +193,7 @@ export function StudentProfile({ studentId, onBack }) {
                   { l: t('profile_total_trainings'), v: String(attendances.length), sub: t('profile_this_season') },
                   { l: t('profile_present_absent'), v: `${presentCount}/${absentCount}`, sub: t('profile_attendance_label') },
                   { l: t('profile_late'), v: String(lateCount), sub: t('profile_last_records') },
-                  { l: t('profile_monthly_fee'), v: contract ? `${fmt.format(contract.monthly_fee ?? contract.monthly_fee_amount ?? 0)} ${t('currency')}` : '—', sub: t('profile_contract_label') },
+                  ...(canSeeFinance ? [{ l: t('profile_monthly_fee'), v: contract ? `${fmt.format(contract.monthly_fee ?? contract.monthly_fee_amount ?? 0)} ${t('currency')}` : '—', sub: t('profile_contract_label') }] : []),
                 ].map(it => (
                   <div key={it.l} className="list-row">
                     <div className="grow">
@@ -234,7 +240,7 @@ export function StudentProfile({ studentId, onBack }) {
           </div>
         )}
 
-        {tab === 'contract' && (
+        {canSeeFinance && tab === 'contract' && (
           <div className="grid-2" style={{ padding: 20, gap: 18 }}>
             <div>
               <div className="card-title" style={{ marginBottom: 14 }}>{t('profile_current_contract')}</div>
@@ -293,7 +299,7 @@ export function StudentProfile({ studentId, onBack }) {
           </div>
         )}
 
-        {tab === 'transactions' && (
+        {canSeeFinance && tab === 'transactions' && (
           <div style={{ padding: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
               <button className="btn soft sm" onClick={() => { setPct(emptyPreContract()); setShowPctModal(true); }}>
