@@ -25,8 +25,9 @@ import { PreContractTrainingFields, emptyPreContract, preContractError, preContr
 /**
  * canSeeFinance: the contract and the payments are shown only to roles that may
  * see contracts or transactions; a coach sees the student without the money.
+ * canEdit (students:edit): editing, file uploads and the full delete; a coach only looks.
  */
-export function StudentProfile({ studentId, onBack, canSeeFinance = true }) {
+export function StudentProfile({ studentId, onBack, canSeeFinance = true, canEdit = true }) {
   const I = Icon;
   const { t, tp } = useT();
   const [info, setInfo] = React.useState(null);
@@ -140,9 +141,9 @@ export function StudentProfile({ studentId, onBack, canSeeFinance = true }) {
         </div>
 
         <div className="actions">
-          <button className="btn" onClick={() => setShowEditModal(true)}><I.Edit size={15}/> {t('edit')}</button>
+          {canEdit && <button className="btn" onClick={() => setShowEditModal(true)}><I.Edit size={15}/> {t('edit')}</button>}
           {canSeeFinance && contract && <button className="btn" onClick={() => setTab('contract')}><I.FileText size={15}/> {t('profile_contract')}</button>}
-          {studentStatus === 'deleted' && <button className="btn danger" onClick={() => setShowHardDeleteModal(true)}><I.Trash2 size={15}/> {t('student_full_delete')}</button>}
+          {canEdit && studentStatus === 'deleted' && <button className="btn danger" onClick={() => setShowHardDeleteModal(true)}><I.Trash2 size={15}/> {t('student_full_delete')}</button>}
         </div>
       </section>
 
@@ -415,7 +416,7 @@ export function StudentProfile({ studentId, onBack, canSeeFinance = true }) {
                       </button>
                     )}
                   </div>
-                  <label className="btn sm block" style={{ cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? 0.6 : 1 }}>
+                  {canEdit && <label className="btn sm block" style={{ cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? 0.6 : 1 }}>
                     {uploading ? t('loading') : <><I.Upload size={13}/> {url ? t('reupload_btn') : t('upload_btn')}</>}
                     <input type="file" style={{ display: 'none' }} accept={f.accept} disabled={uploading} onChange={async (e) => {
                       const file = e.target.files?.[0];
@@ -434,7 +435,7 @@ export function StudentProfile({ studentId, onBack, canSeeFinance = true }) {
                         e.target.value = '';
                       }
                     }}/>
-                  </label>
+                  </label>}
                 </div>
               );
             })}
