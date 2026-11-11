@@ -6,18 +6,21 @@ import { AlphaShield } from '@/shared/ui/logo';
 /*
  * The active side-nav link is marked by a small soccer ball with the club
  * crest on it. There is one ball, absolutely positioned inside the scrolling
- * <nav>. When the active link changes, the ball bounces from the old link to
- * the new one.
+ * <nav>. When the active link changes, the ball moves in two steps: it jumps
+ * a little above the old link, then drops in one arc onto the new one.
  *
  *  - Look: a truncated icosahedron projected onto a sphere every frame, so the
  *    panels foreshorten toward the rim and roll across the face. Fixed
  *    lighting sits on top: a highlight at the top left, a core shadow, and
  *    rim occlusion at the lower right. Below the ball is a contact shadow.
- *  - Motion: a small physics model is solved once per trip and then sampled
- *    each frame (rAF). It has constant gravity, restitution on every impact,
- *    friction on contact, rolling spin (ω = v / r), and squash and stretch.
- *  - Impacts: burst lines, a ground shockwave and some dust. They are drawn
- *    in a fixed overlay so the nav's overflow can't clip them.
+ *  - Motion: each trip is solved once and then sampled every frame (rAF).
+ *    Under constant gravity it is a short lift-off and then one accelerating
+ *    descent onto the link, with no hops on the way. A single tiny rebound
+ *    settles it in place. Spin is steady in the air, and the ball squashes
+ *    and stretches.
+ *  - Landing: burst lines, a ground shockwave and some dust. They are drawn
+ *    in a fixed overlay so the nav's overflow can't clip them. Contact
+ *    shadows fade off the takeoff link and sharpen on the landing link.
  *
  * Purely decorative: aria-hidden, pointer-events: none, no layout impact.
  * Per-frame writes are limited to transform, opacity and the ball's own
@@ -236,128 +239,149 @@ export function SoccerBall({ size = 22, drawRef = null }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Physics                                                              */
+/* Physics: a two-step trip                                             */
 /* ------------------------------------------------------------------ */
-
-const RESTITUTION = 0.55;
-const ROLL_OUT = 0.14; // s, rolling to a stop after the last bounce
-const MIN_HOP = 0.3; // px; lower hops count as settled
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const easeInOut = (t) => t * t * (3 - 2 * t);
 
 /**
- * Plan a trip from `start` ({x, y, h, vz, q}) to `to` ({x, y}). Ground
- * motion is along the screen; height h is drawn straight up, so a hop is a
- * parabola. The vertical velocity is solved from the gravity and the height
- * the distance calls for. Each impact keeps RESTITUTION of the vertical speed
- * and `fr` of the horizontal speed. The launch speed is solved so the hops
- * and the final roll add up to exactly the distance.
+ * Plan a trip from `start` ({x, y, vy, q, airborne}) to `to` ({x, y}), in
+ * nav-content coordinates with screen y pointing down. Gravity g pulls
+ * straight down the screen, so the whole flight is one ballistic arc in two
+ * readable steps:
+ *
+ *  1. Lift-off: the ball jumps a little above the higher of the two links
+ *     (H, 11–18 px, scaled for the rail ball), slowing to a stop at the apex.
+ *  2. Descent: from the apex it drops onto the target link, speeding up the
+ *     whole way. There are no hops on the way.
+ *
+ * Then it makes one small rebound in place (≤ 2.5 px) and comes to rest.
+ * g is solved so the flight takes the time the distance calls for
+ * (0.42–0.72 s). Horizontal speed is constant.
+ *
+ * Interrupts start from the ball's current position and vertical speed. If
+ * the new link is below, the ball keeps its motion and falls onto it. If the
+ * link is above and the current arc wouldn't clear it, the ball gets a fresh
+ * kick upward.
  */
 function planTrip(start, to, r) {
+  const k = r / 11;
   const dx = to.x - start.x;
   const dy = to.y - start.y;
   const D = Math.hypot(dx, dy);
   const dir = D > 0.01 ? [dx / D, dy / D] : [0, 1];
-  const k = r / 11;
-  const hMax = clamp(9 + D * 0.05, 9, 24) * k;
-  const T = clamp(0.62 + D / 1000, 0.62, 0.95);
-  const e = RESTITUTION;
-  const g = (8 * hMax) / (T * T * (1 - e) * (1 - e));
-  const vz0 = (T * g * (1 - e)) / 2;
-  const fr = clamp(0.35 + D / 520, 0.35, 0.86); // longer trips keep more speed per bounce
+  const H = clamp(11 + D * 0.016, 11, 18) * k; // lift above the higher link
+  const T = clamp(0.42 + D / 1100, 0.42, 0.72); // nominal flight time
 
-  // Segments: [t0, dur, w (vertical launch speed), uW (horizontal speed weight)]
-  const segs = [];
-  let t = 0;
-  let weight = 0;
-  const impacts = [];
-  // Already in the air (we were interrupted): finish the current fall first.
-  if (start.h > 0.05 || start.vz > 1) {
-    const vi = Math.sqrt(start.vz * start.vz + 2 * g * start.h);
-    const dur = (start.vz + vi) / g;
-    segs.push({ t0: 0, dur, h0: start.h, w: start.vz, u: 1 });
-    t += dur;
-    weight += dur;
-    impacts.push({ t, v: vi });
+  // Gravity from the nominal rest-to-rest flight: rise Hr, fall Hf, in T.
+  const yaRest = Math.min(start.y, to.y) - H;
+  const Hr = start.y - yaRest;
+  const Hf = to.y - yaRest;
+  const g = Math.pow((Math.sqrt(2 * Hr) + Math.sqrt(2 * Hf)) / T, 2);
+
+  let vy0;
+  if (!start.airborne) {
+    vy0 = -Math.sqrt(2 * g * Hr);
+  } else {
+    vy0 = start.vy;
+    if (to.y < start.y) {
+      // The link is above: make sure the arc's apex clears it by H.
+      const need = to.y - H;
+      const natural = vy0 < 0 ? start.y - (vy0 * vy0) / (2 * g) : start.y;
+      if (natural > need) vy0 = -Math.sqrt(2 * g * (start.y - need));
+    }
   }
-  let w = vz0;
-  let u = 1;
-  while ((w * w) / (2 * g) >= MIN_HOP * k) {
-    const dur = (2 * w) / g;
-    segs.push({ t0: t, dur, h0: 0, w, u });
-    weight += u * dur;
-    t += dur;
-    impacts.push({ t, v: w });
-    w *= e;
-    u *= fr;
-  }
-  const uRoll = u; // speed left after the last bounce; friction rolls it out
-  weight += (uRoll * ROLL_OUT) / 2;
-  const u0 = D / weight; // px/s for weight 1
-  const total = t + ROLL_OUT;
+  // Apex (only if still rising) and the time of the fall onto the link.
+  const t1 = vy0 < 0 ? -vy0 / g : 0;
+  const ya = vy0 < 0 ? start.y - (vy0 * vy0) / (2 * g) : start.y;
+  const vApex = vy0 < 0 ? 0 : vy0;
+  const fall = Math.max(0, to.y - ya);
+  const t2 = (-vApex + Math.sqrt(vApex * vApex + 2 * g * fall)) / g;
+  const Tf = Math.max(0.05, t1 + t2);
+  const vLand = vApex + g * t2;
 
-  // Arc length covered at each segment start.
-  let s = 0;
-  for (const sg of segs) { sg.s0 = s; s += sg.u * u0 * sg.dur; }
-  const rollS0 = s;
+  // One small rebound on the spot.
+  const hReb = 2.5 * k;
+  const vReb = Math.sqrt(2 * g * hReb);
+  const tReb = (2 * vReb) / g;
 
-  // Rolling spin: angle = distance / radius, scaled to a whole number of turns
-  // so the crest comes back to the front.
+  // Constant spin in the air (ω = v / r for the distance), rounded to whole
+  // turns so the crest comes back to the front.
   const natural = D / r;
-  const turns = Math.round(natural / (2 * Math.PI));
-  const spinScale = natural > 0.5 && turns > 0 ? (turns * 2 * Math.PI) / natural : 0;
-  const axis = [-dir[1], dir[0], 0];
+  const turns = natural > 2 ? Math.max(1, Math.round(natural / (2 * Math.PI))) : 0;
 
-  const vMax = Math.max(1, ...impacts.map(i => i.v));
   return {
-    from: { x: start.x, y: start.y }, to, dir, D, g, u0, segs, rollS0, uRoll, total, r, k,
-    q0: start.q || QI, spinScale, axis,
-    impacts: impacts.map((im, i) => ({ ...im, i, strength: im.v / vMax, vNorm: im.v / (260 * k) })),
+    x0: start.x, y0: start.y, to, vx: dx / Tf, vy0, g, t1, t2, Tf, ya, vLand, vReb, tReb,
+    total: Tf + tReb, D, dir, r, k, H,
+    q0: start.q || QI, spin: turns * 2 * Math.PI, axis: [-dir[1], dir[0], 0],
+    takeoff: !start.airborne,
+    impacts: [
+      { t: Tf, v: vLand, main: true },
+      { t: Tf + tReb, v: vReb, main: false },
+    ],
   };
 }
 
 /** State of the trip at time t (s). */
 function sampleTrip(P, t) {
   const tt = clamp(t, 0, P.total);
-  let s, h = 0, vz = 0, u;
-  const seg = P.segs.find(sg => tt >= sg.t0 && tt < sg.t0 + sg.dur);
-  if (seg) {
-    const lt = tt - seg.t0;
-    u = seg.u * P.u0;
-    s = seg.s0 + u * lt;
-    h = Math.max(0, seg.h0 + seg.w * lt - 0.5 * P.g * lt * lt);
-    vz = seg.w - P.g * lt;
+  let x, y, vx = 0, vy = 0, air = false;
+  if (tt < P.Tf) {
+    x = P.x0 + P.vx * tt;
+    y = P.y0 + P.vy0 * tt + 0.5 * P.g * tt * tt;
+    vx = P.vx;
+    vy = P.vy0 + P.g * tt;
+    air = true;
   } else {
-    const rollStart = P.total - ROLL_OUT;
-    const lt = clamp(tt - rollStart, 0, ROLL_OUT);
-    const u1 = P.uRoll * P.u0;
-    u = u1 * (1 - lt / ROLL_OUT);
-    s = P.rollS0 + u1 * (lt - (lt * lt) / (2 * ROLL_OUT));
+    const lt = tt - P.Tf;
+    const hs = lt < P.tReb ? Math.max(0, P.vReb * lt - 0.5 * P.g * lt * lt) : 0;
+    x = P.to.x;
+    y = P.to.y - hs;
+    vy = lt < P.tReb ? -(P.vReb - P.g * lt) : 0;
   }
-  if (tt >= P.total) { s = P.D; u = 0; }
-  const x = P.from.x + P.dir[0] * s;
-  const y = P.from.y + P.dir[1] * s;
 
-  // Orientation: roll about the axis ⟂ to the motion, and ease out any spin
-  // the trip started with (after an interrupt).
-  const progress = P.D > 0.01 ? s / P.D : tt / P.total;
-  const roll = qAxis(P.axis, (s / P.r) * P.spinScale);
-  const q = qMul(roll, qSlerp(P.q0, QI, easeInOut(clamp(progress, 0, 1))));
+  // Orientation: steady spin through the flight, easing out any spin the trip
+  // started with (after an interrupt).
+  const fp = clamp(tt / P.Tf, 0, 1);
+  const q = qMul(qAxis(P.axis, P.spin * fp), qSlerp(P.q0, QI, easeInOut(fp)));
 
   // Squash: a damped spring kicked by each impact, in proportion to the speed.
   let squash = 0;
   for (const im of P.impacts) {
     const a = tt - im.t;
     if (a < 0 || a > 0.3) continue;
-    squash += 0.3 * Math.min(1, im.vNorm) * Math.exp(-a / 0.05) * Math.cos((2 * Math.PI * a) / 0.13);
+    squash += 0.28 * Math.min(1, im.v / (600 * P.k)) * Math.exp(-a / 0.05) * Math.cos((2 * Math.PI * a) / 0.13);
   }
-  // Stretch along the velocity while airborne.
-  const vx = P.dir[0] * u;
-  const vy = P.dir[1] * u - vz; // screen y points down; height goes up
+  // Stretch along the velocity while in flight.
   const speed = Math.hypot(vx, vy);
-  const stretch = h > 0.4 ? clamp(speed / (900 * P.k), 0, 0.16) : 0;
-  return { x, y, h, vz, q, squash: clamp(squash, -0.12, 0.3), stretch, vAng: Math.atan2(vy, vx), done: t >= P.total };
+  const stretch = air ? clamp(speed / (2200 * P.k), 0, 0.16) : 0;
+  return {
+    x, y, vy, q, air, squash: clamp(squash, -0.12, 0.3), stretch, vAng: Math.atan2(vy, vx),
+    done: t >= P.total,
+  };
+}
+
+/**
+ * Contact-shadow opacities for the takeoff link (a) and the landing link (b)
+ * at time t. A fades as the ball rises off its link and is gone early in the
+ * descent; B fades in during the descent and sharpens as the ball closes in.
+ * `lift` is 0 on the floor and 1 when far above it.
+ */
+function shadowState(P, st, t, fadeFrom) {
+  const reach = P.r * 2.2;
+  let a;
+  if (P.takeoff) {
+    const up = clamp((P.y0 - Math.min(st.y, t < P.t1 ? st.y : P.ya)) / reach, 0, 1);
+    const gone = t < P.t1 ? 0 : clamp((t - P.t1) / Math.max(0.05, 0.3 * P.t2), 0, 1);
+    a = { op: (1 - up) * (1 - gone), lift: up };
+  } else {
+    a = { op: fadeFrom * (1 - clamp(t / 0.15, 0, 1)), lift: 1 - fadeFrom };
+  }
+  const liftB = clamp((P.to.y - st.y) / reach, 0, 1);
+  const inB = P.t2 > 0 ? clamp((t - P.t1) / Math.max(0.05, 0.35 * P.t2), 0, 1) : 1;
+  const b = { op: (1 - liftB) * (t >= P.Tf ? 1 : inB), lift: liftB };
+  return { a, b };
 }
 
 /* ------------------------------------------------------------------ */
@@ -456,12 +480,15 @@ export function NavBall({ navRef, active, collapsed }) {
   const ballRef = React.useRef(null);
   const squashRef = React.useRef(null);
   const stretchRef = React.useRef(null);
-  const shadowRef = React.useRef(null);
+  const shadowRefs = [React.useRef(null), React.useRef(null)];
   const fxRef = React.useRef(null);
   const drawRef = React.useRef(null);
   const [fxHost, setFxHost] = React.useState(null);
   const state = React.useRef({
     active: null, spot: null, collapsed, trip: null, t0: 0, raf: 0, bursts: [], q: QI, last: null,
+    // Two contact shadows: `land` sits on the landing link, the other on the
+    // link the ball took off from. They swap roles on every trip.
+    land: 0, from: null, fadeFrom: 1, shOp: [0, 0],
   });
 
   React.useEffect(() => { setFxHost(document.body); }, []);
@@ -471,14 +498,26 @@ export function NavBall({ navRef, active, collapsed }) {
     [navRef]
   );
 
-  /** Write one frame: ball position, squash/stretch, spin, contact shadow. */
-  const paint = React.useCallback((x, y, h, size, squash, stretch, vAng, q) => {
+  /** Draw one contact shadow on the floor at pt: shrinks and fades with lift. */
+  const paintShadow = React.useCallback((i, pt, size, op, lift, squash) => {
+    const sh = shadowRefs[i].current;
+    if (!sh) return;
+    state.current.shOp[i] = op;
+    if (!pt || op < 0.003) { sh.style.opacity = '0'; return; }
+    const r = size / 2;
+    sh.style.setProperty('--ball', `${size}px`);
+    sh.style.transform = `translate3d(${pt.x.toFixed(2)}px, ${(pt.y + r * 0.92).toFixed(2)}px, 0) scale(${(1 - 0.45 * lift + 0.25 * Math.max(0, squash)).toFixed(3)})`;
+    sh.style.opacity = op.toFixed(3);
+    sh.style.setProperty('--core', (1 - Math.min(1, lift * 2.2)).toFixed(3));
+  }, []);
+
+  /** Write one frame: ball position, squash/stretch, spin. */
+  const paint = React.useCallback((x, y, size, squash, stretch, vAng, q) => {
     const s = state.current;
     const ball = ballRef.current;
     if (!ball) return;
-    const r = size / 2;
     ball.style.setProperty('--ball', `${size}px`);
-    ball.style.transform = `translate3d(${x.toFixed(2)}px, ${(y - h).toFixed(2)}px, 0)`;
+    ball.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0)`;
     // Squash about the contact point, volume-preserving.
     const sy = 1 - squash;
     const sx = 1 / Math.sqrt(Math.max(0.5, sy));
@@ -492,15 +531,16 @@ export function NavBall({ navRef, active, collapsed }) {
       stretchRef.current.style.transform = '';
     }
     if (q !== s.q) { drawRef.current?.(q); s.q = q; }
-    // Contact shadow on the floor under the ball: shrinks and fades with height.
-    const sh = shadowRef.current;
-    const lift = clamp(h / (r * 2.2), 0, 1);
-    sh.style.setProperty('--ball', `${size}px`);
-    sh.style.transform = `translate3d(${x.toFixed(2)}px, ${(y + r * 0.92).toFixed(2)}px, 0) scale(${(1 - 0.45 * lift + 0.25 * Math.max(0, squash)).toFixed(3)})`;
-    sh.style.opacity = (1 - 0.7 * lift).toFixed(3);
-    sh.style.setProperty('--core', (1 - Math.min(1, lift * 2.2)).toFixed(3));
-    s.last = { x, y, h, size };
+    s.last = { x, y, size };
   }, []);
+
+  /** At rest on the spot: one sharp shadow under the ball. */
+  const paintRest = React.useCallback((spot) => {
+    const s = state.current;
+    paint(spot.x, spot.y, spot.size, 0, 0, 0, QI);
+    paintShadow(s.land, spot, spot.size, 1, 0, 0);
+    paintShadow(1 - s.land, null, spot.size, 0, 1, 0);
+  }, [paint, paintShadow]);
 
   const contactToViewport = React.useCallback((x, y) => {
     const nav = navRef.current;
@@ -522,24 +562,27 @@ export function NavBall({ navRef, active, collapsed }) {
       if (P) {
         const lt = t - s.t0;
         const st = sampleTrip(P, lt);
-        paint(st.x, st.y, st.h, s.spot.size, st.squash, st.stretch, st.vAng, st.q);
+        paint(st.x, st.y, s.spot.size, st.squash, st.stretch, st.vAng, st.q);
+        const sh = shadowState(P, st, lt, s.fadeFrom);
+        paintShadow(1 - s.land, s.from, s.spot.size, sh.a.op, sh.a.lift, 0);
+        paintShadow(s.land, P.to, s.spot.size, sh.b.op, sh.b.lift, st.squash);
         s.cur = st;
         // Impacts that happened since the last frame.
         for (const im of P.impacts) {
           if (im.fired || lt < im.t) continue;
           im.fired = true;
-          if (im.strength < 0.2 || !fxRef.current) continue;
-          const g = sampleTrip(P, im.t);
-          const pt = contactToViewport(g.x, g.y + P.r);
+          // Only the landing gets the burst; the tiny rebound just squashes.
+          if (!im.main || !fxRef.current) continue;
+          const pt = contactToViewport(P.to.x, P.to.y + P.r);
           if (!pt) continue;
-          const b = spawnBurst(fxRef.current, pt[0], pt[1], P.r, im.strength, im.strength > 0.999, im.i + 1);
+          const b = spawnBurst(fxRef.current, pt[0], pt[1], P.r, 1, true, Math.round(P.D) + 1);
           b.born = s.t0 + im.t;
           b.at = pt;
           const nr = navRef.current.getBoundingClientRect();
           b.nav = [nr.left, nr.top];
           s.bursts.push(b);
         }
-        if (st.done) { s.trip = null; s.cur = null; paint(s.spot.x, s.spot.y, 0, s.spot.size, 0, 0, 0, QI); }
+        if (st.done) { s.trip = null; s.cur = null; paintRest(s.spot); }
       }
       s.bursts = s.bursts.filter(b => {
         if (navRect && b.nav) {
@@ -552,7 +595,7 @@ export function NavBall({ navRef, active, collapsed }) {
       s.raf = (s.trip || s.bursts.length) ? requestAnimationFrame(frame) : 0;
     };
     s.raf = requestAnimationFrame(frame);
-  }, [paint, contactToViewport, navRef]);
+  }, [paint, paintShadow, paintRest, contactToViewport, navRef]);
 
   const stopTrip = React.useCallback(() => {
     const s = state.current;
@@ -570,7 +613,7 @@ export function NavBall({ navRef, active, collapsed }) {
       s.active = null;
       s.spot = null;
       ball.style.opacity = '0';
-      shadowRef.current.style.opacity = '0';
+      shadowRefs.forEach(r => { if (r.current) r.current.style.opacity = '0'; });
       return;
     }
     const spot = restingSpot(item, collapsed);
@@ -582,7 +625,7 @@ export function NavBall({ navRef, active, collapsed }) {
       if (moved || s.collapsed !== collapsed) {
         if (s.trip) stopTrip();
         s.spot = spot;
-        paint(spot.x, spot.y, 0, spot.size, 0, 0, 0, QI);
+        paintRest(spot);
       }
       s.collapsed = collapsed;
       return;
@@ -591,25 +634,37 @@ export function NavBall({ navRef, active, collapsed }) {
     s.active = active;
     s.collapsed = collapsed;
     ball.style.opacity = '1';
-    shadowRef.current.style.opacity = '1';
 
     if (!animate || wasHidden || !s.spot || prefersReducedMotion()) {
       stopTrip();
       s.spot = spot;
-      paint(spot.x, spot.y, 0, spot.size, 0, 0, 0, QI);
+      paintRest(spot);
       return;
     }
 
-    // Start from wherever the ball is right now, keeping its height, vertical
-    // speed and spin (it may be mid-flight).
-    const cur = s.cur && s.trip
-      ? { x: s.cur.x, y: s.cur.y, h: s.cur.h, vz: s.cur.h > 0.05 ? s.cur.vz : 0, q: s.cur.q }
-      : { x: s.spot.x, y: s.spot.y, h: 0, vz: 0, q: QI };
+    // Start from wherever the ball is right now, keeping its vertical speed
+    // and spin (it may be mid-flight).
+    const inTrip = !!(s.cur && s.trip);
+    const cur = inTrip
+      ? { x: s.cur.x, y: s.cur.y, vy: s.cur.vy, q: s.cur.q, airborne: true }
+      : { x: s.spot.x, y: s.spot.y, vy: 0, q: QI, airborne: false };
+    // Shadows: the one showing most becomes the takeoff shadow and stays put;
+    // the other moves to the new link.
+    if (inTrip) {
+      const keep = s.shOp[0] >= s.shOp[1] ? 0 : 1;
+      s.from = keep === s.land ? s.trip.to : s.from;
+      s.fadeFrom = s.shOp[keep];
+      s.land = 1 - keep;
+    } else {
+      s.from = { x: s.spot.x, y: s.spot.y };
+      s.fadeFrom = 1;
+      s.land = 1 - s.land;
+    }
     s.spot = spot;
     s.trip = planTrip(cur, spot, spot.size / 2);
     s.t0 = now();
     loop();
-  }, [active, collapsed, findItem, paint, loop, stopTrip]);
+  }, [active, collapsed, findItem, paintRest, loop, stopTrip]);
 
   // Every commit: animate if the active link changed, otherwise follow layout.
   React.useLayoutEffect(() => { sync(state.current.active != null); });
@@ -639,7 +694,8 @@ export function NavBall({ navRef, active, collapsed }) {
 
   return (
     <>
-      <span className="nav-ball-shadow" ref={shadowRef} aria-hidden="true"/>
+      <span className="nav-ball-shadow" ref={shadowRefs[0]} aria-hidden="true"/>
+      <span className="nav-ball-shadow" ref={shadowRefs[1]} aria-hidden="true"/>
       <span className={'nav-ball' + (collapsed ? ' compact' : '')} ref={ballRef} aria-hidden="true">
         <span className="nav-ball-squash" ref={squashRef}>
           <span className="nav-ball-stretch" ref={stretchRef}>
