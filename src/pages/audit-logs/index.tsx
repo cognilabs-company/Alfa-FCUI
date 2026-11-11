@@ -297,7 +297,7 @@ export function AuditLogsScreen() {
           {detail.extra && (
             <div style={{ marginTop: 10 }}>
               <div className="section-label">{t('audit_detail_extra')}</div>
-              <pre style={{ fontSize: 12, lineHeight: 1.55, background: 'var(--ink)', color: '#DDE5DF', padding: 14, borderRadius: 14, overflowX: 'auto', margin: 0, fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace' }}>{typeof detail.extra === 'string' ? detail.extra : JSON.stringify(detail.extra, null, 2)}</pre>
+              <pre style={{ fontSize: 12, lineHeight: 1.55, background: 'var(--ink)', color: '#DDE5DF', padding: 14, borderRadius: 'var(--radius)', overflowX: 'auto', margin: 0, fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace' }}>{typeof detail.extra === 'string' ? detail.extra : JSON.stringify(detail.extra, null, 2)}</pre>
             </div>
           )}
         </Modal>

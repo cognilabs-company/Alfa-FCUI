@@ -210,7 +210,7 @@ export function AttendanceMark({ sessionId, onBack }) {
               return (
                 <div key={s.id} className={'mark-card ' + (m || 'unmarked')}>
                   <div className="mark-head">
-                    <div className="avatar" style={{ background: avatarColor(s.id), width: 40, height: 40, borderRadius: 13 }}>{s.first_name?.[0]}{s.last_name?.[0]}</div>
+                    <div className="avatar" style={{ background: avatarColor(s.id), width: 40, height: 40, borderRadius: 'var(--radius-sm)' }}>{s.first_name?.[0]}{s.last_name?.[0]}</div>
                     <div className="meta">
                       <span className="name">{name}</span>
                       <span className="sub">#{String(s.id).padStart(4, '0')}</span>

@@ -161,7 +161,7 @@ export function GateLogsScreen() {
                 <tr key={l.id || idx} className="static">
                   <td>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 8, background: l.allowed !== false ? 'var(--success-soft)' : 'var(--danger-soft)', color: l.allowed !== false ? 'var(--success)' : 'var(--danger)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: l.allowed !== false ? 'var(--success-soft)' : 'var(--danger-soft)', color: l.allowed !== false ? 'var(--success)' : 'var(--danger)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
                         {l.allowed !== false ? <I.LogIn size={14} /> : <I.ShieldOff size={14} />}
                       </div>
                       <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{t('gate_col_student')} #{l.student_id || '—'}</span>

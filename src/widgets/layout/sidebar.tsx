@@ -6,6 +6,7 @@ import { useT } from '@/shared/i18n/lang';
 import { hasPerm } from '@/shared/lib/rbac';
 import { getInitials } from '@/shared/lib/avatar';
 import { NAV_ITEMS } from './nav-config';
+import { NavBall } from './nav-ball';
 
 export function Sidebar({ active, onNav, role, userPermissions = [], collapsed, onToggle, user, mobileOpen, onSignOut }) {
   const I = Icon;
@@ -31,6 +32,7 @@ export function Sidebar({ active, onNav, role, userPermissions = [], collapsed, 
     })).filter(section => section.items.length > 0);
   }, [role, grantedPerms]);
 
+  const navRef = React.useRef(null);
   const toggleLabel = collapsed ? t('nav_expand') : t('nav_collapse');
 
   return (
@@ -42,7 +44,7 @@ export function Sidebar({ active, onNav, role, userPermissions = [], collapsed, 
         </button>
       </div>
 
-      <nav className="nav">
+      <nav className="nav" ref={navRef}>
         {sections.map(section => (
           <React.Fragment key={section.sectionKey}>
             <div className="nav-section">{collapsed ? '' : t(section.sectionKey)}</div>
@@ -53,6 +55,7 @@ export function Sidebar({ active, onNav, role, userPermissions = [], collapsed, 
               return (
                 <button key={it.id}
                   type="button"
+                  data-nav-id={it.id}
                   className={'nav-item' + (isActive ? ' active' : '')}
                   aria-current={isActive ? 'page' : undefined}
                   onClick={() => onNav(it.id)}
@@ -67,6 +70,7 @@ export function Sidebar({ active, onNav, role, userPermissions = [], collapsed, 
             })}
           </React.Fragment>
         ))}
+        <NavBall navRef={navRef} active={active} collapsed={collapsed}/>
       </nav>
 
       <div className="sidebar-footer">

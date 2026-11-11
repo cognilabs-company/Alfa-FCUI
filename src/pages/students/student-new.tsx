@@ -262,7 +262,7 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
           )}
         </>}>
           <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '14px 0' }}>
-            <div style={{ width: 76, height: 76, borderRadius: 24, background: 'var(--accent)', color: 'var(--accent-contrast)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 76, height: 76, borderRadius: 'var(--radius-lg)', background: 'var(--accent)', color: 'var(--accent-contrast)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <I.Check size={38} strokeWidth={2.4}/>
             </div>
             <div>

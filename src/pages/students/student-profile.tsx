@@ -357,7 +357,7 @@ export function StudentProfile({ studentId, onBack, canSeeFinance = true, canEdi
             {gateLogs.length === 0 && <div className="empty">{t('profile_no_gate')}</div>}
             {gateLogs.slice(0, 30).map(log => (
               <div key={log.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: log.allowed ? 'var(--success-soft)' : 'var(--accent-soft)',
                   color: log.allowed ? 'var(--success)' : 'var(--danger)' }}>
                   {log.allowed ? <I.Check size={15}/> : <I.X size={15}/>}
@@ -496,7 +496,7 @@ export function StudentProfile({ studentId, onBack, canSeeFinance = true, canEdi
             }} disabled={hardDeleting}>{hardDeleting ? t('deleting') : t('student_full_delete')}</button>
           </>}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--danger-soft)', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><I.Trash2 size={20}/></div>
+            <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-sm)', background: 'var(--danger-soft)', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><I.Trash2 size={20}/></div>
             <div style={{ color: 'var(--text-2)', fontSize: 13.5, lineHeight: 1.55 }}>
               {t('student_full_delete_confirm_desc')}
             </div>
