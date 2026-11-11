@@ -45,7 +45,7 @@ function GroupFormFields({ form, setForm, coaches }) {
   );
 }
 
-export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onToast, onOpenStudent } = {}) {
+export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onToast, onOpenStudent, canEditGroups = true } = {}) {
   const I = Icon;
   const { t, tp } = useT();
   const [groups, setGroups] = React.useState([]);
@@ -242,7 +242,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
           <div className="page-sub">{groups.length} {tp('groups_sub', groups.length)}</div>
         </div>
         <div className="page-actions">
-          {selectedIds.length > 0 && (
+          {canEditGroups && selectedIds.length > 0 && (
             <button className="btn ghost danger-ghost" onClick={handleBulkDelete} disabled={bulkDeleting}>
               <I.Trash size={14}/> {bulkDeleting ? t('deleting') : `${t('delete')} (${selectedIds.length})`}
             </button>
@@ -255,7 +255,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
             <button className={view === 'cards' ? 'active' : ''} onClick={() => setView('cards')}>{t('groups_cards')}</button>
             <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>{t('groups_list')}</button>
           </div>
-          <button className="btn primary" onClick={() => setShowNew(true)}><I.Plus size={15}/> {t('groups_new')}</button>
+          {canEditGroups && <button className="btn primary" onClick={() => setShowNew(true)}><I.Plus size={15}/> {t('groups_new')}</button>}
         </div>
       </div>
 
@@ -268,9 +268,9 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
           subtitle={selectedGroup.description || t('groups_no_desc')}
           headerExtra={
             <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-              <button className="btn ghost sm" onClick={() => { onCloseGroup?.(); openEdit(selectedGroup); }}>
+              {canEditGroups && <button className="btn ghost sm" onClick={() => { onCloseGroup?.(); openEdit(selectedGroup); }}>
                 <I.Edit size={13}/> {t('edit')}
-              </button>
+              </button>}
               <button className="btn ghost sm" onClick={() => handleExport(selectedGroup.id)}>
                 <I.Download size={13}/> {t('export')}
               </button>
@@ -343,7 +343,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
             return (
               <div key={g.id} className={'card group-card' + (isSelected ? ' selected' : '')} onClick={e => openFrom(e, g.id)}>
                 <div className="gc-top">
-                  <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(g.id)} style={{ marginTop: 2 }} aria-label={g.name} />
+                  {canEditGroups && <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(g.id)} style={{ marginTop: 2 }} aria-label={g.name} />}
                   <button type="button" className="gc-open">
                     {g.description && <div className="gc-eyebrow">{g.description}</div>}
                     <div className="gc-name">{g.name}</div>
@@ -378,9 +378,9 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
                     )}
                   </div>
                   <div className="gc-actions">
-                    <button className="icon-btn plain" title={t('btn_edit')} aria-label={t('btn_edit')} onClick={() => openEdit(g)}><I.Edit size={15}/></button>
+                    {canEditGroups && <button className="icon-btn plain" title={t('btn_edit')} aria-label={t('btn_edit')} onClick={() => openEdit(g)}><I.Edit size={15}/></button>}
                     <button className="icon-btn plain" title={t('export')} aria-label={t('export')} onClick={() => handleExport(g.id)}><I.Download size={15}/></button>
-                    <button className="icon-btn plain danger" title={t('btn_delete')} aria-label={t('btn_delete')} onClick={() => handleDeleteGroup(g)}><I.Trash size={15}/></button>
+                    {canEditGroups && <button className="icon-btn plain danger" title={t('btn_delete')} aria-label={t('btn_delete')} onClick={() => handleDeleteGroup(g)}><I.Trash size={15}/></button>}
                   </div>
                 </div>
               </div>
@@ -396,7 +396,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
             <thead>
               <tr>
                 <th style={{ width: 36 }}>
-                  <input type="checkbox" checked={selectedIds.length === groups.length && groups.length > 0} onChange={toggleAll} />
+                  {canEditGroups && <input type="checkbox" checked={selectedIds.length === groups.length && groups.length > 0} onChange={toggleAll} />}
                 </th>
                 <th>{t('groups_col_group')}</th><th>{t('groups_col_desc')}</th><th>{t('groups_col_coach')}</th><th>{t('groups_col_students')}</th><th>{t('groups_col_waiting')}</th><th>{t('groups_col_status')}</th><th></th>
               </tr>
@@ -408,7 +408,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
                 return (
                   <tr key={g.id} className={isSelected ? 'selected' : undefined} onClick={e => openFrom(e, g.id)}>
                     <td onClick={e => e.stopPropagation()}>
-                      <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(g.id)} />
+                      {canEditGroups && <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(g.id)} />}
                     </td>
                     <td style={{ fontWeight: 600 }}>{g.name}</td>
                     <td style={{ color: 'var(--muted)' }}>{g.description || '—'}</td>
@@ -427,9 +427,9 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
                         <div className="menu" style={{ position: 'fixed', top: menuPos.y, left: menuPos.x }}>
                           {[
                             { icon: 'Eye', label: t('view'), action: () => { onOpen?.(g.id); setOpenMenuGroupId(null); } },
-                            { icon: 'Edit', label: t('edit'), action: () => openEdit(g) },
+                            ...(canEditGroups ? [{ icon: 'Edit', label: t('edit'), action: () => openEdit(g) }] : []),
                             { icon: 'Download', label: t('export'), action: () => { handleExport(g.id); setOpenMenuGroupId(null); } },
-                            { icon: 'Trash', label: t('delete'), action: () => { setOpenMenuGroupId(null); handleDeleteGroup(g); }, danger: true },
+                            ...(canEditGroups ? [{ icon: 'Trash', label: t('delete'), action: () => { setOpenMenuGroupId(null); handleDeleteGroup(g); }, danger: true }] : []),
                           ].map(item => {
                             const Ic = I[item.icon];
                             return (

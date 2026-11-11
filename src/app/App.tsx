@@ -277,7 +277,8 @@ function AppShell() {
             canEdit={hasPerm(T.role, 'students:edit') || permissions.some(p => (typeof p === 'string' ? p : p?.code || p?.name) === 'students:edit')}
             canSeeFinance={['contracts:view', 'finance:transactions:view'].some(perm => hasPerm(T.role, perm) || permissions.some(p => (typeof p === 'string' ? p : p?.code || p?.name) === perm))}/>}
           {route === 'students-new' && <StudentNew onBack={() => navigate('students')} onCreated={() => { showToast(t('toast_student_created')); navigate('students'); }} onViewContract={(cid) => { setContractId(cid); navigate('contracts-view'); }}/>}
-          {route === 'groups' && <GroupsScreen onOpen={(id) => { setGroupId(id); }} selectedGroupId={groupId} onCloseGroup={() => setGroupId(null)} onToast={showToast} onOpenStudent={(id) => { setStudentId(id); setRoute('students-profile'); }} />}
+          {route === 'groups' && <GroupsScreen onOpen={(id) => { setGroupId(id); }} selectedGroupId={groupId} onCloseGroup={() => setGroupId(null)} onToast={showToast} onOpenStudent={(id) => { setStudentId(id); setRoute('students-profile'); }}
+            canEditGroups={hasPerm(T.role, 'groups:edit') || permissions.some(p => (typeof p === 'string' ? p : p?.code || p?.name) === 'groups:edit')} />}
           {(route === 'sessions' || route === 'attendance') && <SessionsScreen onMark={(id) => { setSessionId(id); setRoute('attendance-mark'); }}/>}
           {route === 'attendance-mark' && <AttendanceMark sessionId={sessionId} onBack={() => navigate('sessions')}/>}
           {route === 'performance' && <PerformanceTable/>}
