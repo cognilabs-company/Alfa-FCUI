@@ -84,6 +84,7 @@ export function StudentProfile({ studentId, onBack, canSeeFinance = true, canEdi
           weight: s.weight || '',
           pnfl: s.pnfl || '',
           phone: s.phone || '',
+          parent_phone: s.parent_phone || '',
           ampula: s.ampula || 'O(+)',
           millati: s.millati || "O'zbek",
           address: s.address || '',
@@ -173,6 +174,7 @@ export function StudentProfile({ studentId, onBack, canSeeFinance = true, canEdi
                 { label: t('profile_height_weight'), value: `${s.height} ${t('unit_cm')} · ${s.weight} ${t('unit_kg')}`, icon: I.Ruler },
                 { label: t('profile_pnfl'), value: s.pnfl, icon: I.IdCard },
                 { label: t('profile_phone'), value: s.phone || '—', icon: I.Phone },
+                { label: t('profile_parent_phone'), value: s.parent_phone || '—', icon: I.Phone },
                 { label: t('profile_address'), value: s.address || '—', icon: I.MapPin },
                 { label: t('profile_joined'), value: fmtDate(s.created_at), icon: I.UserPlus },
               ]}/>
@@ -521,6 +523,8 @@ export function StudentProfile({ studentId, onBack, canSeeFinance = true, canEdi
                   ['first_name', 'last_name', 'date_of_birth', 'height', 'weight', 'pnfl', 'phone', 'ampula', 'millati', 'address', 'status'].forEach(k => {
                     if (editForm[k]) fd.append(k, editForm[k]);
                   });
+                  // parent_phone is optional: always send it (even empty) so it can be set or cleared
+                  fd.append('parent_phone', editForm.parent_phone || '');
                   await apiUpdateStudent(studentId, fd);
                   if (editForm.group_id && String(editForm.group_id) !== String(info?.group?.id || '')) {
                     await apiChangeStudentGroup(studentId, editForm.group_id);
@@ -537,6 +541,7 @@ export function StudentProfile({ studentId, onBack, canSeeFinance = true, canEdi
                     weight: infoRes.data.student.weight,
                     pnfl: infoRes.data.student.pnfl,
                     phone: infoRes.data.student.phone,
+                    parent_phone: infoRes.data.student.parent_phone || '',
                     ampula: infoRes.data.student.ampula,
                     millati: infoRes.data.student.millati,
                     address: infoRes.data.student.address,
@@ -561,6 +566,7 @@ export function StudentProfile({ studentId, onBack, canSeeFinance = true, canEdi
               [t('field_weight'), 'weight'],
               [t('profile_pnfl'), 'pnfl'],
               [t('profile_phone'), 'phone'],
+              [t('profile_parent_phone'), 'parent_phone'],
               [t('profile_address'), 'address'],
             ].map(([label, field]) => (
               <div key={field} className="field">

@@ -40,7 +40,7 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
 
   const [form, setForm] = React.useState({
     first_name: '', last_name: '', date_of_birth: '', height: '', weight: '',
-    pnfl: '', phone: '', ampula: 'O(+)', millati: "O'zbek", address: '', group_id: '',
+    pnfl: '', phone: '', parent_phone: '', ampula: 'O(+)', millati: "O'zbek", address: '', group_id: '',
     customer_full_name: '', customer_passport_number: '', customer_address: '',
     monthly_fee_amount: '500000', uniform_fee_amount: '',
     contract_start_date: todayISO(),
@@ -77,7 +77,7 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
     setSaving(true);
     try {
       const fd = new FormData();
-      const studentFields = ['first_name', 'last_name', 'date_of_birth', 'height', 'weight', 'pnfl', 'phone', 'ampula', 'millati', 'address', 'group_id'];
+      const studentFields = ['first_name', 'last_name', 'date_of_birth', 'height', 'weight', 'pnfl', 'phone', 'parent_phone', 'ampula', 'millati', 'address', 'group_id'];
       studentFields.forEach(k => { if (form[k]) fd.append(k, k === 'pnfl' ? String(form[k]) : form[k]); });
       const contractFields = ['customer_full_name', 'customer_passport_number', 'customer_address', 'monthly_fee_amount', 'uniform_fee_amount', 'contract_start_date', 'contract_end_date'];
       contractFields.forEach(k => { if (form[k]) fd.append(k, form[k]); });
@@ -156,6 +156,7 @@ export function StudentNew({ onBack, onCreated, onViewContract }) {
               <div className="field"><label>{t('field_weight')} <span className="req">*</span></label><input type="number" value={form.weight} onChange={e => setF('weight', e.target.value)} placeholder="35"/></div>
               <div className="field"><label>{t('field_pnfl')} <span className="req">*</span></label><input value={form.pnfl} onChange={e => setF('pnfl', e.target.value)} placeholder={t('pnfl_placeholder')}/></div>
               <div className="field"><label>{t('field_phone')}</label><input value={form.phone} onChange={e => setF('phone', e.target.value)} placeholder="+998 90 123 45 67"/></div>
+              <div className="field"><label>{t('profile_parent_phone')}</label><input value={form.parent_phone} onChange={e => setF('parent_phone', e.target.value)} placeholder="+998 90 123 45 67"/></div>
               <div className="field"><label>{t('field_blood')}</label>
                 <SearchableSelect
                   value={form.ampula || 'O(+)'}
