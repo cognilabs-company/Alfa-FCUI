@@ -89,9 +89,9 @@ const GEO = (() => {
 })();
 
 /* Rotation helpers (quaternions: [w, x, y, z]) */
-const QI = [1, 0, 0, 0];
-const qAxis = (a, ang) => { const s = Math.sin(ang / 2); return [Math.cos(ang / 2), a[0] * s, a[1] * s, a[2] * s]; };
-const qMul = (a, b) => [
+export const QI = [1, 0, 0, 0];
+export const qAxis = (a, ang) => { const s = Math.sin(ang / 2); return [Math.cos(ang / 2), a[0] * s, a[1] * s, a[2] * s]; };
+export const qMul = (a, b) => [
   a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
   a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
   a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
