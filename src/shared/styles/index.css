@@ -2132,25 +2132,58 @@ textarea.input { height: auto; padding: 11px 13px; resize: vertical; min-height:
 }
 
 /* ---------- Auth (login) ----------
-   One quiet card on the brand green. The only decoration is a faint,
-   static centre circle. Card colours follow the light/dark theme. */
+   A calm night stadium (three.js on desktop/tablet, CSS/SVG on phones and
+   as the fallback) behind one quiet login card. The stage is decorative
+   (aria-hidden, no pointer events): at idle it is only the lit pitch and
+   the crest ball turning slowly on the centre spot. It comes alive for the
+   goal on success and the post hit on a wrong password. */
 
 .auth-min {
   --crest-red: #C8202C;
   --auth-err: var(--crest-red);
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
   min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: 24px 16px;
-  background:
-    radial-gradient(circle at 50% 50%, transparent 0 199px, rgba(255, 255, 255, 0.045) 200px 201.5px, transparent 202.5px),
-    radial-gradient(ellipse 70% 60% at 50% 45%, #17241D 0%, transparent 70%),
-    #0E1311;
-  background-attachment: fixed;
+  background: #05090A;
   overflow-x: hidden;
 }
 [data-theme="dark"] .auth-min { --auth-err: #FF6B74; } /* crest red lifted for contrast on the dark card */
+
+/* Stage */
+.auth3d-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 70% at 40% 0%, #0E1A15 0%, transparent 60%),
+    linear-gradient(180deg, #05090A 0%, #08100D 55%, #0A1510 100%);
+  transition: transform 700ms cubic-bezier(0.6, 0, 0.9, 0.4);
+}
+.auth3d-scene { position: absolute; inset: 0; opacity: 0; transition: opacity 500ms var(--ease); }
+.auth-min.is-scene-ready .auth3d-scene { opacity: 1; }
+.auth3d-scene-canvas, .auth3d-scene canvas { display: block; width: 100%; height: 100%; }
+.auth3d-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(270deg, rgba(5, 9, 10, 0.5) 0%, rgba(5, 9, 10, 0) 42%),
+    radial-gradient(130% 90% at 50% 45%, transparent 55%, rgba(3, 6, 5, 0.65) 100%);
+}
+
+.auth-min-layout {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  align-items: center;
+  justify-items: end;
+  padding: 24px clamp(24px, 8vw, 140px);
+  pointer-events: none;
+}
+.auth-min-layout > * { pointer-events: auto; }
 
 .auth-min-shake { width: 100%; max-width: 400px; }
 .auth-min-card {
@@ -2160,10 +2193,13 @@ textarea.input { height: auto; padding: 11px 13px; resize: vertical; min-height:
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  box-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.6);
-  animation: auth-min-in 250ms var(--ease) both;
+  box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.75);
+  animation: auth-min-in 250ms var(--ease) backwards;
+  transition: opacity 260ms var(--ease), transform 300ms var(--ease);
 }
 @keyframes auth-min-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+/* the kick: the card steps aside so the goal is the focus */
+.auth-min.is-leaving .auth-min-card { opacity: 0; transform: scale(0.97) translateY(6px); pointer-events: none; }
 
 .auth-min-lang { position: absolute; top: 14px; right: 14px; display: flex; gap: 2px; }
 .auth-min-lang button {
@@ -2227,14 +2263,199 @@ textarea.input { height: auto; padding: 11px 13px; resize: vertical; min-height:
   color: var(--auth-err);
 }
 
+.auth-min .sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* Success: lime flash, then the tunnel into the dashboard */
+.auth-min.is-tunnel .auth3d-stage { transform: scale(1.35); }
+
+.auth3d-fx { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+.auth3d-fx > i { position: absolute; inset: 0; opacity: 0; }
+.fx-flash { background: radial-gradient(circle at var(--ball-x, 50%) 40%, rgba(220, 255, 120, 0.85), rgba(200, 240, 60, 0.35) 35%, transparent 75%); mix-blend-mode: screen; }
+.fx-lines {
+  background:
+    radial-gradient(circle at 50% 45%, transparent 0 12%, rgba(5, 9, 10, 0.2) 30%, rgba(5, 9, 10, 0.9) 75%),
+    repeating-conic-gradient(from 0deg at 50% 45%, rgba(200, 240, 60, 0.22) 0 1.2deg, transparent 1.2deg 7deg);
+}
+.fx-fill { background: var(--frame); }
+.auth-min.is-flash .fx-flash { animation: auth3d-flash 520ms ease-out forwards; }
+.auth-min.is-tunnel .fx-lines { animation: auth3d-tunnel 760ms cubic-bezier(0.5, 0, 0.9, 0.5) forwards; }
+.auth-min.is-tunnel .fx-fill { animation: auth3d-fill 760ms cubic-bezier(0.6, 0, 1, 0.6) forwards; }
+@keyframes auth3d-flash { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes auth3d-tunnel { from { opacity: 0; transform: scale(2.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes auth3d-fill { 0%, 45% { opacity: 0; } 100% { opacity: 1; } }
+
+/* ---------- The CSS/SVG stadium (phones, fallback, reduced motion) ---------- */
+
+.sl { position: absolute; inset: 0; overflow: hidden; --flood: 1; }
+.sl.is-secret { --flood: 0.55; }
+.sl-sky {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 40% at calc(var(--art-w, 100vw) * 0.5) 0%, rgba(200, 240, 160, 0.1), transparent 70%),
+    linear-gradient(180deg, #060B0A 0%, #0A1410 42%, #0E1F16 100%);
+}
+.sl-stand {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 18%;
+  height: 16%;
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 6px),
+    linear-gradient(180deg, #070C0B, #0B1512);
+  opacity: 0.9;
+}
+.sl-lights { position: absolute; inset: 0; transition: opacity 400ms var(--ease); opacity: var(--flood); }
+.sl-flood {
+  position: absolute;
+  top: 7%;
+  left: calc(var(--art-w, 100vw) * (0.3 + var(--i) * 0.2));
+  width: 34px;
+  height: 18px;
+  margin-left: -17px;
+  border-radius: 3px;
+  background: repeating-linear-gradient(90deg, #FFFFFF 0 4px, #DDF5C8 4px 6px);
+  box-shadow: 0 0 22px 8px rgba(235, 255, 210, 0.55), 0 0 90px 40px rgba(200, 240, 160, 0.16);
+}
+.sl-flood::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: 40vh;
+  background: linear-gradient(#141B18, transparent);
+}
+.sl-beam {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46vh;
+  height: 90vh;
+  margin-left: -23vh;
+  clip-path: polygon(48% 0, 52% 0, 100% 100%, 0 100%);
+  background: linear-gradient(180deg, rgba(240, 255, 220, 0.3), rgba(220, 255, 190, 0.05) 60%, transparent);
+  transform-origin: 50% 0;
+  transform: rotate(calc((1.5 - var(--i)) * 11deg));
+  mix-blend-mode: screen;
+  filter: blur(6px);
+}
+.sl:not(.is-still) .sl-flood { animation: sl-flood-on 900ms steps(1, end) both; animation-delay: calc(120ms + var(--i) * 200ms); }
+@keyframes sl-flood-on { 0% { opacity: 0; } 20% { opacity: 0.8; } 32% { opacity: 0.1; } 44% { opacity: 1; } 56% { opacity: 0.3; } 70%, 100% { opacity: 1; } }
+.sl-wide:not(.is-still) .sl-flood { animation: none; } /* static fallback: lights simply on */
+
+.sl-pitch {
+  position: absolute;
+  left: calc(var(--art-w, 100vw) * 0.5 - 70vh);
+  width: 140vh;
+  top: 34%;
+  height: 120vh;
+  color: rgba(200, 240, 190, 0.32);
+  transform-origin: 50% 0;
+  transform: perspective(70vh) rotateX(62deg);
+  background: repeating-linear-gradient(180deg, rgba(36, 85, 53, 0.55) 0 8.3%, rgba(31, 74, 44, 0.55) 8.3% 16.6%);
+}
+.sl-pitch svg { width: 100%; height: 100%; display: block; }
+.sl-haze { position: absolute; inset: 0; background: radial-gradient(70% 30% at calc(var(--art-w, 100vw) * 0.5) 36%, rgba(200, 240, 180, 0.12), transparent 70%); opacity: var(--flood); transition: opacity 400ms var(--ease); }
+
+.sl-goal {
+  position: absolute;
+  left: calc(var(--art-w, 100vw) * 0.7);
+  top: 38%;
+  width: clamp(90px, 11vw, 160px);
+  transform: translate(-50%, -50%);
+}
+.sl-goal svg { display: block; width: 100%; height: auto; overflow: visible; }
+/* The shot: net layer behind the ball, frame layer in front of it */
+.sl-cam { position: absolute; inset: 0; transform-origin: 50% 42%; transition: transform 480ms cubic-bezier(0.3, 0, 0.2, 1); }
+.sl.is-shot .sl-cam { transform: scale(0.88); }
+.sl-wide.is-shot .sl-cam { transform: scale(0.95); }
+.sl-goal-net { z-index: 1; }
+.sl-cam > .sl-ball-spot { z-index: 2; }
+.sl-goal-frame { z-index: 3; }
+.sl.is-shot .sl-ball-spot { animation: none !important; }
+.sl.is-shot .sl-ball { transform-origin: 50% 50%; }
+.sl.is-shot .sl-shadow, .sl.is-shot .sl-halo { opacity: 0; transition: opacity 200ms; }
+.sl-post { transform-box: fill-box; transform-origin: 50% 100%; }
+.sl-post.is-hit { animation: sl-post 520ms ease-out; fill: #FFFFFF; }
+@keyframes sl-post { 0%, 100% { transform: none; } 15% { transform: rotate(-6deg); } 35% { transform: rotate(4deg); } 55% { transform: rotate(-2deg); } 75% { transform: rotate(1deg); } }
+
+.sl-ball-spot {
+  position: absolute;
+  left: var(--ball-x, 35%);
+  top: var(--ball-y, 55%);
+  width: var(--ball-d, 160px);
+  height: var(--ball-d, 160px);
+  transform: translate(-50%, -50%);
+}
+.sl-ball { position: absolute; inset: 0; will-change: transform; transform-origin: 50% 100%; }
+.sl-ball .soccer-ball, .sl-ball .soccer-ball > svg { width: 100% !important; height: 100% !important; }
+.sl-ball .soccer-ball { filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.5)); }
+.sl-shadow {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -22%;
+  height: 16%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.7), transparent);
+}
+.sl-halo {
+  position: absolute;
+  left: -14%;
+  right: -14%;
+  bottom: -28%;
+  height: 28%;
+  border-radius: 50%;
+  border: 2px solid rgba(200, 240, 60, 0.35);
+  box-shadow: 0 0 24px rgba(200, 240, 60, 0.25);
+  transition: border-color 300ms, box-shadow 300ms;
+}
+.sl.is-loading .sl-halo { border-color: rgba(200, 240, 60, 0.85); box-shadow: 0 0 34px rgba(200, 240, 60, 0.5); }
+
+/* Phone: ball + one beam on top, form below */
+.sl-compact { --art-w: 100vw; }
+.sl-compact .sl-stand { top: 30%; height: 18%; }
+.sl-compact .sl-flood { top: 12px; left: calc(14% + var(--i) * 72%); width: 26px; height: 13px; margin-left: -13px; }
+.sl-compact .sl-flood::after { display: none; }
+.sl-compact .sl-beam { width: 300px; height: 360px; margin-left: -150px; transform: rotate(calc(var(--i) * 46deg - 23deg)); }
+.sl-compact .sl-flood:nth-child(2) .sl-beam { opacity: 0.45; }
+.sl-compact .sl-pitch { left: calc(50% - 360px); width: 720px; top: 46%; height: 600px; transform: perspective(260px) rotateX(64deg); }
+.sl-compact .sl-goal { top: 30%; width: clamp(210px, 68vw, 300px); }
+.sl-compact .sl-haze { background: radial-gradient(70% 40% at 50% 40%, rgba(200, 240, 180, 0.14), transparent 70%); }
+.sl-compact .sl-ball-spot { left: 50%; top: 76%; width: clamp(84px, 26vw, 112px); height: clamp(84px, 26vw, 112px); }
+/* phones: push in toward the goal for the shot so the ball and the net belly read clearly */
+.sl-compact .sl-cam { transform-origin: 50% 30%; }
+.sl-compact.is-shot .sl-cam { transform: scale(1.12); }
+.sl-compact .sl-net { stroke: rgba(236, 244, 238, 0.78); }
+
+/* Phones: the stadium is a band on top, the card below it */
+@media (max-width: 767.98px) {
+  .auth3d-stage { position: relative; height: clamp(230px, 38vh, 330px); }
+  .auth3d-vignette { background: linear-gradient(180deg, transparent 60%, #05090A 100%); }
+  .auth-min-layout { min-height: 0; display: block; padding: 0 12px 20px; margin-top: -28px; }
+  .auth-min-shake { max-width: 420px; margin: 0 auto; }
+  /* the shot: the stadium band moves to the middle of the screen and pushes in,
+     so the goal fills the phone while the card is gone */
+  .auth3d-stage { transform-origin: 50% 0; transition: transform 460ms cubic-bezier(0.3, 0, 0.2, 1); }
+  .auth-min.is-leaving .auth3d-stage { transform: translateY(20vh) scale(1.3); }
+  .auth-min.is-tunnel .auth3d-stage { transform: translateY(20vh) scale(1.6); transition-duration: 700ms; }
+  .auth-min.is-leaving .sl-compact.is-shot .sl-cam { transform: scale(1.04); }
+}
 @media (max-width: 420px) {
-  .auth-min { padding: 16px 12px; }
   .auth-min-card { padding: 32px 20px 22px; }
 }
+
+/* Reduced motion: one still picture, no motion at all */
 @media (prefers-reduced-motion: reduce) {
-  .auth-min-card { animation: none; }
+  .auth-min-card { animation: none; transition: none; }
   .auth-min-btn:active:not(:disabled) { transform: none; }
 }
+.auth-min.fx-still .auth3d-stage, .auth-min.fx-still .fx-flash, .auth-min.fx-still .fx-lines, .auth-min.fx-still .fx-fill { animation: none; transition: none; }
 
 /* ---------- Dashboard ---------- */
 
