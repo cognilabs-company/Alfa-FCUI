@@ -6,7 +6,7 @@ import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal, DetailGrid } from '@/shared/ui/modal';
 import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
-import { txStatusBadge } from '@/shared/ui/status';
+import { txStatusBadge, txTone } from '@/shared/ui/status';
 import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import {
   apiGetContracts,
@@ -550,7 +550,7 @@ export function TransactionsScreen({ onToast, onOpenStudent } = {}) {
               const st = statusLabel(tx.status);
               const checked = selectedIds.includes(tx.id);
               return (
-                <tr key={tx.id} className={checked ? 'selected' : undefined} onClick={() => openDetail(tx.id, tx)}>
+                <tr key={tx.id} data-sl={txTone(tx.status)} className={checked ? 'selected' : undefined} onClick={() => openDetail(tx.id, tx)}>
                   <td onClick={e => e.stopPropagation()}>
                     <input type="checkbox" checked={checked} onChange={e => setSelectedIds(p => e.target.checked ? [...p, tx.id] : p.filter(x => x !== tx.id))} />
                   </td>

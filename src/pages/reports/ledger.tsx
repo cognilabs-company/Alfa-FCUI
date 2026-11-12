@@ -6,7 +6,8 @@ import { Stat } from '@/shared/ui/stat';
 import { apiGetFeeDistribution, apiGetFinanceReport, apiGetMonthlyLedger, apiGetProfitReport, apiGetProfitTrend } from '@/shared/api';
 import { fmt, fmtMoneyRoll, monthLabel } from '@/shared/lib/format';
 import { paymentSourceLabel } from '@/shared/lib/labels';
-import { CATEGORY_COLOR, categoryLabel } from '@/shared/lib/expenses';
+import { CATEGORY_COLOR, STATUS_TONE, categoryLabel } from '@/shared/lib/expenses';
+import { moneyTone } from '@/shared/ui/status';
 import { ExpenseStatusBadge, useMoney } from '@/widgets/expenses';
 import { ChartCard } from './analytics';
 import { periodLabel } from '@/shared/lib/selected-month';
@@ -60,12 +61,12 @@ function ProfitBreakdown({ pb, expenses, salaries }) {
           <tbody>
             {(expenses?.by_category || []).length === 0 && <tr className="static"><td colSpan={4} className="empty-cell">{t('an_no_data')}</td></tr>}
             {(expenses?.by_category || []).map(r => (
-              <tr key={r.category} className="static">
+              <tr key={r.category} className="static" data-sl={STATUS_TONE[settleStatus(r.paid, r.unpaid)] || 'neutral'}>
                 <td>{categoryLabel(t, r.category, r.label)}</td>
                 {cell(r.expected, planStyle)}{cell(r.paid, paidStyle)}{cell(r.unpaid, muted)}
               </tr>
             ))}
-            <tr className="static">
+            <tr className="static" data-sl="off">
               <td style={{ fontWeight: 800 }}>{t('total')}</td>
               {cell(expenses?.expected, planStyle)}{cell(expenses?.paid, paidStyle)}{cell(expenses?.unpaid, muted)}
             </tr>
@@ -203,11 +204,11 @@ export function LedgerTab({ period, onNav }) {
                 <div className="table-scroll">
                   <table className="table compact-report-table">
                     <tbody>
-                      <tr className="static">
+                      <tr className="static" data-sl="success">
                         <td>{t('lg_income_official')}</td>
                         <td className="money" style={{ textAlign: 'right' }}>{fmt.format(Math.round(num(studentCash.cash_collected_official)))}</td>
                       </tr>
-                      <tr className="static">
+                      <tr className="static" data-sl="warning">
                         <td>{t('lg_income_pending')}</td>
                         <td className="money" style={{ textAlign: 'right' }}>{fmt.format(Math.round(num(studentCash.cash_collected_pending)))}</td>
                       </tr>
@@ -229,7 +230,7 @@ export function LedgerTab({ period, onNav }) {
                     <thead><tr><th>{t('rpt_source_col')}</th><th style={{ textAlign: 'right' }}>{t('rpt_sum_col')}</th><th style={{ textAlign: 'right' }}>{t('rpt_count_col')}</th></tr></thead>
                     <tbody>
                       {finance.breakdown.map((b, i) => (
-                        <tr key={b.source || i} className="static">
+                        <tr key={b.source || i} className="static" data-sl="success">
                           <td><span className="chip">{paymentSourceLabel(b.source, t)}</span></td>
                           <td className="money" style={{ textAlign: 'right' }}>{fmt.format(Math.round(num(b.total_amount)))}</td>
                           <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{num(b.transaction_count)}</td>
@@ -315,7 +316,7 @@ export function LedgerTab({ period, onNav }) {
                       </thead>
                       <tbody>
                         {ex.by_category.map(r => (
-                          <tr key={r.category} className="static">
+                          <tr key={r.category} className="static" data-sl={STATUS_TONE[settleStatus(r.paid, r.unpaid)] || 'neutral'}>
                             <td>
                               <div className="row-name">
                                 <span className="cat-dot" style={{ background: CATEGORY_COLOR[r.category] || 'var(--viz-other)' }}/>
@@ -360,7 +361,7 @@ export function LedgerTab({ period, onNav }) {
                 : (
                   <div>
                     {(carry.items || []).map((it, i) => (
-                      <div key={it.expense_id ?? i} className="receipt-line carry-line">
+                      <div key={it.expense_id ?? i} className="receipt-line carry-line sl" data-sl="warning">
                         <span className="rl-left rl-stack">
                           <span>{it.title || categoryLabel(t, it.category, it.category_label)}</span>
                           <small>{monthLabel(num(it.origin_month) - 1, lang)} {it.origin_year} · {categoryLabel(t, it.category, it.category_label)}</small>
@@ -373,7 +374,7 @@ export function LedgerTab({ period, onNav }) {
                       </div>
                     ))}
                     {num(carry.salary_unpaid_total) > 0 && (
-                      <div className="receipt-line carry-line">
+                      <div className="receipt-line carry-line sl" data-sl="warning">
                         <span className="rl-left rl-stack">
                           <span>{t('lg_carry_salaries')}</span>
                           <small>{t('lg_carry_salaries_sub')}</small>
@@ -443,7 +444,7 @@ export function LedgerTab({ period, onNav }) {
                       </thead>
                       <tbody>
                         {sal.by_employee.map(e => (
-                          <tr key={e.user_id} className="static">
+                          <tr key={e.user_id} className="static" data-sl={STATUS_TONE[settleStatus(e.paid, e.remaining)] || 'neutral'}>
                             <td style={{ fontWeight: 750 }}>{e.name || `#${e.user_id}`}</td>
                             <td className="money" style={{ textAlign: 'right' }}>{fmt.format(Math.round(num(e.earned)))}</td>
                             <td className="money" style={{ textAlign: 'right', color: 'var(--success)' }}>{fmt.format(Math.round(num(e.paid)))}</td>
@@ -530,7 +531,7 @@ function RangeLedger({ t, money, lang, rows, loading, error, finance, periodName
                       </thead>
                       <tbody>
                         {list.map(r => (
-                          <tr key={r.period || `${r.year}-${r.month}`} className="static">
+                          <tr key={r.period || `${r.year}-${r.month}`} className="static" data-sl={moneyTone(r.net_cash)}>
                             <td style={{ fontWeight: 750 }}>{monthLabel(num(r.month) - 1, lang)} {r.year}</td>
                             {cell(r.expected_income)}
                             {cell(r.collected_income, { color: 'var(--success)' })}
@@ -539,7 +540,7 @@ function RangeLedger({ t, money, lang, rows, loading, error, finance, periodName
                             {cell(r.net_cash, signed(r.net_cash))}
                           </tr>
                         ))}
-                        <tr className="static">
+                        <tr className="static" data-sl="off">
                           <td style={{ fontWeight: 800 }}>{t('total')}</td>
                           {cell(expected, { fontWeight: 800 })}
                           {cell(sum('collected_income'), { fontWeight: 800, color: 'var(--success)' })}

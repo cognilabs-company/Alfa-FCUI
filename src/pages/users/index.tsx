@@ -4,7 +4,7 @@ import { Icon } from '@/shared/ui/icons';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
-import { Badge, userStatusBadge } from '@/shared/ui/status';
+import { Badge, userStatusBadge, userTone } from '@/shared/ui/status';
 import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import {
   apiGetContracts,
@@ -161,7 +161,7 @@ function PermSelector({ ids, onChange, permissions }) {
           onChange(e.target.checked ? [...new Set([...ids, ...groupIds])] : ids.filter(id => !groupIds.includes(id)));
         }
         return (
-          <div key={g.label} className="perm-group">
+          <div key={g.label} className="perm-group sl" data-sl={allChecked ? 'success' : someChecked ? 'accent' : 'neutral'}>
             <label className="check-line">
               <input type="checkbox" checked={allChecked} ref={el => { if (el) el.indeterminate = someChecked && !allChecked; }} onChange={toggleGroup} />
               {t(g.label)}
@@ -516,7 +516,7 @@ export function UsersScreen({ initialView = 'users', onToast } = {}) {
               const roleList = regularRolesOf(u);
               const personal = personalRoleOf(u);
               return (
-                <div key={u.id} className={'user-card' + (isSelected ? ' selected' : '')}>
+                <div key={u.id} className={'user-card sl' + (isSelected ? ' selected' : '')} data-sl={u.is_super_admin ? 'accent' : userTone(u.status)}>
                   {u.is_super_admin && <span className="crown">Super Admin</span>}
                   <div className="uc-top">
                     {!u.is_super_admin

@@ -13,7 +13,7 @@ import {
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal, DetailGrid } from '@/shared/ui/modal';
 import { useT } from '@/shared/i18n/lang';
-import { Badge, studentStatusBadge, contractStatusBadge, txStatusBadge } from '@/shared/ui/status';
+import { Badge, studentStatusBadge, contractStatusBadge, txStatusBadge, txTone, contractTone } from '@/shared/ui/status';
 import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
 import { fmt, fmtDate, fmtDateTime, monthLabel } from '@/shared/lib/format';
@@ -193,12 +193,12 @@ export function StudentProfile({ studentId, onBack, canSeeFinance = true, canEdi
               <div className="card-title" style={{ marginBottom: 14 }}>{t('profile_stats')}</div>
               <div className="list-stack">
                 {[
-                  { l: t('profile_total_trainings'), v: String(attendances.length), sub: t('profile_this_season') },
-                  { l: t('profile_present_absent'), v: `${presentCount}/${absentCount}`, sub: t('profile_attendance_label') },
-                  { l: t('profile_late'), v: String(lateCount), sub: t('profile_last_records') },
-                  ...(canSeeFinance ? [{ l: t('profile_monthly_fee'), v: contract ? `${fmt.format(contract.monthly_fee ?? contract.monthly_fee_amount ?? 0)} ${t('currency')}` : '—', sub: t('profile_contract_label') }] : []),
+                  { l: t('profile_total_trainings'), v: String(attendances.length), sub: t('profile_this_season'), tone: 'info' },
+                  { l: t('profile_present_absent'), v: `${presentCount}/${absentCount}`, sub: t('profile_attendance_label'), tone: absentCount > presentCount ? 'danger' : 'success' },
+                  { l: t('profile_late'), v: String(lateCount), sub: t('profile_last_records'), tone: lateCount > 0 ? 'warning' : 'neutral' },
+                  ...(canSeeFinance ? [{ l: t('profile_monthly_fee'), v: contract ? `${fmt.format(contract.monthly_fee ?? contract.monthly_fee_amount ?? 0)} ${t('currency')}` : '—', sub: t('profile_contract_label'), tone: contract ? contractTone(contract.status || 'ACTIVE') : 'neutral' }] : []),
                 ].map(it => (
-                  <div key={it.l} className="list-row">
+                  <div key={it.l} className="list-row sl" data-sl={it.tone}>
                     <div className="grow">
                       <div className="title" style={{ fontSize: 13 }}>{it.l}</div>
                       <div className="subtitle">{it.sub}</div>
@@ -207,7 +207,7 @@ export function StudentProfile({ studentId, onBack, canSeeFinance = true, canEdi
                   </div>
                 ))}
                 {attendanceReport && (
-                  <div className="list-row">
+                  <div className="list-row sl" data-sl="violet">
                     <div className="grow">
                       <div className="title" style={{ fontSize: 13 }}>{t('profile_official_report')}</div>
                       <div className="subtitle">{attendanceReport.present_count || 0} / {attendanceReport.absent_count || 0} / {attendanceReport.late_count || 0}</div>
@@ -318,7 +318,7 @@ export function StudentProfile({ studentId, onBack, canSeeFinance = true, canEdi
                 </thead>
                 <tbody>
                   {transactions.slice(0, 10).map(tx => (
-                    <tr key={tx.id}>
+                    <tr key={tx.id} data-sl={txTone(tx.status)}>
                       <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>{fmtDateTime(tx.paid_at)}</td>
                       <td>
                         <span className="chip">{tx.source}</span>
@@ -385,7 +385,7 @@ export function StudentProfile({ studentId, onBack, canSeeFinance = true, canEdi
               const url = s[f.urlKey];
               const uploading = uploadingFile === f.apiKey;
               return (
-                <div key={f.apiKey} className={'file-tile' + (url ? ' has' : '')}>
+                <div key={f.apiKey} className={'file-tile sl' + (url ? ' has' : '')} data-sl={url ? 'success' : 'neutral'}>
                   <div className="head">
                     <div className="ic">
                       <Ic size={20}/>

@@ -4,7 +4,7 @@ import { Icon } from '@/shared/ui/icons';
 import { DateInput, DateTimeInput } from '@/shared/ui/date-picker';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal, DetailGrid } from '@/shared/ui/modal';
-import { Badge, txStatusBadge } from '@/shared/ui/status';
+import { Badge, txStatusBadge, txTone } from '@/shared/ui/status';
 import { Pager, menuPosition } from '@/shared/ui/pager';
 import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
@@ -203,7 +203,7 @@ function PendingDetail({ row, groupName, canEdit, onClose, onChanged, onEdit, on
               </thead>
               <tbody>
                 {payments.map(tx => (
-                  <tr key={tx.id} className="static">
+                  <tr key={tx.id} className="static" data-sl={txTone(tx.status)}>
                     <td className="num" style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>{fmtDateTime(tx.paid_at || tx.created_at)}</td>
                     <td className="money" style={{ textAlign: 'right' }}>
                       <div>{fmt.format(tx.amount || 0)} {t('currency')}</div>
@@ -502,7 +502,7 @@ export function PendingStudents({ onTab, onToast, onOpenStudent, canEdit = true 
                   const done = isDone(r);
                   const pay = paid[r.id];
                   return (
-                    <tr key={r.id} onClick={() => setDetail(r)} style={{ cursor: 'pointer' }}>
+                    <tr key={r.id} data-sl={done ? 'success' : 'warning'} onClick={() => setDetail(r)} style={{ cursor: 'pointer' }}>
                       <td>
                         <div className="row-name">
                           <div className="avatar" style={{ background: avatarColor(r.id) }}>

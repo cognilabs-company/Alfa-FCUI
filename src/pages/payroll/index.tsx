@@ -12,6 +12,7 @@ import {
   apiDeletePayrollPayment, apiDeletePayrollAdjustment, apiClosePayrollMonth, apiReopenPayrollMonth,
 } from '@/shared/api';
 import { avatarColor } from '@/shared/lib/avatar';
+import { STATUS_TONE } from '@/shared/lib/expenses';
 import { fmt, fmtDate, monthLabel, toLocalISO } from '@/shared/lib/format';
 import { ExpenseStatusBadge, ExpenseTotals, PeriodNav, useMoney, usePeriod } from '@/widgets/expenses';
 import { PayrollPayDialog, AdjustmentDialog, ProfileDialog } from './dialogs';
@@ -308,7 +309,7 @@ export function PayrollScreen({ onToast, canManage = true }) {
                     const st = itemStatus(it);
                     const payable = canManage && !it.is_closed && num(it.remaining_amount) > 0;
                     return (
-                      <tr key={it.user_id} className={payable ? '' : 'static'} onClick={payable ? () => setPayFor({ item: it }) : undefined}>
+                      <tr key={it.user_id} data-sl={st === 'closed' ? 'neutral' : (STATUS_TONE[st] || 'neutral')} className={payable ? '' : 'static'} onClick={payable ? () => setPayFor({ item: it }) : undefined}>
                         <td>
                           <div className="row-name">
                             <Initials id={it.user_id} name={it.user_full_name}/>
@@ -373,7 +374,7 @@ export function PayrollScreen({ onToast, canManage = true }) {
               <tbody>
                 {!loading && list.rows.length === 0 && <tr className="static"><td colSpan={5} className="empty-cell">{t('py_payments_empty')}</td></tr>}
                 {list.rows.map(p => (
-                  <tr key={p.id} className="static">
+                  <tr key={p.id} className="static" data-sl="success">
                     <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5, fontWeight: 700 }}>{fmtDate(p.payment_date)}</td>
                     <td><div className="row-name"><Initials id={p.user_id} name={p.user_full_name || nameOf(p.user_id)}/><div className="meta"><span className="name">{p.user_full_name || nameOf(p.user_id)}</span></div></div></td>
                     <td className="money" style={{ textAlign: 'right', color: 'var(--success)' }}>{fmt.format(Math.round(num(p.amount)))}</td>
@@ -414,7 +415,7 @@ export function PayrollScreen({ onToast, canManage = true }) {
                 {list.rows.map(a => {
                   const bonus = a.adjustment_type !== 'penalty';
                   return (
-                    <tr key={a.id} className="static">
+                    <tr key={a.id} className="static" data-sl={bonus ? 'success' : 'danger'}>
                       <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5, fontWeight: 700 }}>{fmtDate(a.adjustment_date)}</td>
                       <td><div className="row-name"><Initials id={a.user_id} name={a.user_full_name || nameOf(a.user_id)}/><div className="meta"><span className="name">{a.user_full_name || nameOf(a.user_id)}</span></div></div></td>
                       <td><Badge tone={bonus ? 'success' : 'danger'} icon={bonus ? I.PlusCircle : I.MinusCircle}>{t(bonus ? 'py_type_bonus' : 'py_type_penalty')}</Badge></td>
@@ -456,7 +457,7 @@ export function PayrollScreen({ onToast, canManage = true }) {
               <tbody>
                 {!loading && list.rows.length === 0 && <tr className="static"><td colSpan={7} className="empty-cell">{t('py_rates_empty')}</td></tr>}
                 {list.rows.map(p => (
-                  <tr key={p.user_id} className={canManage ? '' : 'static'} onClick={canManage ? () => setRateFor({ userId: p.user_id }) : undefined}>
+                  <tr key={p.user_id} data-sl={p.is_active !== false ? 'success' : 'neutral'} className={canManage ? '' : 'static'} onClick={canManage ? () => setRateFor({ userId: p.user_id }) : undefined}>
                     <td><div className="row-name"><Initials id={p.user_id} name={p.user_full_name || nameOf(p.user_id)}/><div className="meta"><span className="name">{p.user_full_name || nameOf(p.user_id)}</span></div></div></td>
                     <td>{t(p.salary_type === 'daily' ? 'py_type_daily' : 'py_type_monthly')}</td>
                     <td className="money" style={{ textAlign: 'right' }}>{fmt.format(Math.round(num(p.amount)))}</td>

@@ -6,7 +6,7 @@ import { DateInput, DateTimeInput } from '@/shared/ui/date-picker';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
-import { txStatusBadge } from '@/shared/ui/status';
+import { txStatusBadge, txTone } from '@/shared/ui/status';
 import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import {
   apiGetContracts,
@@ -417,8 +417,8 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
           {feeHistory.length > 0 && (
             <div className="fee-history">
               <div className="section-label">{t('contracts_fee_history')}</div>
-              {feeHistory.map(h => (
-                <div key={h.effective_from} className="fee-history-row">
+              {feeHistory.map((h, i) => (
+                <div key={h.effective_from} className="fee-history-row sl" data-sl={i === feeHistory.length - 1 ? 'accent' : 'neutral'}>
                   <b>{fmt.format(Number(h.amount) || 0)} {t('currency')}</b> — {t('contracts_fee_since').replace('{date}', fmtDate(h.effective_from))}
                 </div>
               ))}
@@ -509,7 +509,7 @@ export function ContractView({ contractId, onBack, onToast, onNavigateToStudent 
                   </thead>
                   <tbody>
                     {transactions.map(tx => (
-                      <tr key={tx.id} className="static">
+                      <tr key={tx.id} className="static" data-sl={txTone(isPaid(String(tx.status || '').toLowerCase()) ? 'success' : tx.status)}>
                         <td className="muted num" style={{ fontWeight: 700, fontSize: 12.5 }}>#{tx.id}</td>
                         <td className="money">{fmt.format(tx.amount || 0)} {t('currency')}</td>
                         <td><span className="chip">{srcLabel(tx.source)}</span></td>

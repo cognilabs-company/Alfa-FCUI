@@ -3,7 +3,7 @@ import React from 'react';
 import { Icon } from '@/shared/ui/icons';
 import { useT } from '@/shared/i18n/lang';
 import { periodLabel } from '@/shared/lib/selected-month';
-import { attendanceBadge } from '@/shared/ui/status';
+import { attendanceBadge, attendanceTone } from '@/shared/ui/status';
 import {
   apiGetAttendanceGroupsReport, apiGetGroupAttendanceSessions, apiGetSessionAttendance,
 } from '@/shared/api';
@@ -11,6 +11,8 @@ import { fmtDate, weekdayShort } from '@/shared/lib/format';
 
 const pctOf = (v) => Math.round(Number(v) || 0);
 const tone = (pct) => (pct < 60 ? ' red' : pct < 80 ? ' gold' : ' green');
+// the row's side line follows the same thresholds as its progress bar
+const slTone = (v) => { const pct = pctOf(v); return pct < 60 ? 'danger' : pct < 80 ? 'warning' : 'success'; };
 // who came first, then late, then who did not, then not yet marked
 const STATUS_ORDER = { present: 0, late: 1, absent: 2, not_marked: 3 };
 
@@ -111,7 +113,7 @@ export function AttendanceTab({ period }) {
         </div>
         <div className="att-students">
           {students.map(st => (
-            <div key={st.student_id} className={'att-student ' + (st.status || 'not_marked')}>
+            <div key={st.student_id} className={'att-student sl ' + (st.status || 'not_marked')} data-sl={attendanceTone(st.status)}>
               <span className="name">{st.student_name || `#${st.student_id}`}</span>
               {attendanceBadge(st.status, t)}
             </div>
@@ -132,7 +134,7 @@ export function AttendanceTab({ period }) {
       const came = (Number(r.present_count) || 0) + (Number(r.late_count) || 0);
       return (
         <div key={r.session_id} className={'att-session' + (open ? ' open' : '')}>
-          <button type="button" className="att-row" aria-expanded={open} onClick={() => toggleSession(r.session_id)}>
+          <button type="button" className="att-row sl" data-sl={slTone(r.attendance_percentage)} aria-expanded={open} onClick={() => toggleSession(r.session_id)}>
             <I.ChevronRight size={14} className="att-caret"/>
             <div className="att-main">
               <b>{fmtDate(d)} <span className="muted">· {weekdayShort(d, lang)}</span></b>
@@ -169,7 +171,7 @@ export function AttendanceTab({ period }) {
             const open = openGroups.has(id);
             return (
               <div key={id} className={'att-group' + (open ? ' open' : '')}>
-                <button type="button" className="att-row" aria-expanded={open} onClick={() => toggleGroup(id)}>
+                <button type="button" className="att-row sl" data-sl={slTone(g.attendance_percentage ?? g.attendance_rate)} aria-expanded={open} onClick={() => toggleGroup(id)}>
                   <I.ChevronRight size={15} className="att-caret"/>
                   <div className="att-main">
                     <b>{g.group_name}</b>

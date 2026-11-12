@@ -7,6 +7,7 @@ import { Pager } from '@/shared/ui/pager';
 import { SearchableGroupSelect } from '@/shared/ui/controls';
 import { apiGetStudentPayments } from '@/shared/api';
 import { avatarColor } from '@/shared/lib/avatar';
+import { STATUS_TONE } from '@/shared/lib/expenses';
 import { fmt, fmtMoneyRoll, monthShort, todayISO } from '@/shared/lib/format';
 import { periodLabel } from '@/shared/lib/selected-month';
 import { PaymentsByGroup } from './payments-by-group';
@@ -173,7 +174,7 @@ export function StudentPaymentsTab({ period, groups = [], initialStatus = 'all' 
                   const paidPct = total > 0 ? Math.round((num(s.months_paid) / total) * 100) : 0;
                   const unpaid = s.unpaid_month_labels || [];
                   return (
-                    <tr key={s.student_id} className="static">
+                    <tr key={s.student_id} className="static" data-sl={STATUS_TONE[s.status || 'unpaid'] || 'neutral'}>
                       <td>
                         <div className="row-name">
                           <div className="avatar" style={{ background: avatarColor(num(s.student_id)) }}>

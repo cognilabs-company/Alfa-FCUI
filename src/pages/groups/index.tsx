@@ -17,7 +17,7 @@ import { menuPosition } from '@/shared/ui/pager';
 import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
 import { CountUp } from '@/shared/ui/count-up';
-import { Badge, studentStatusBadge } from '@/shared/ui/status';
+import { Badge, studentStatusBadge, studentTone } from '@/shared/ui/status';
 import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
 
@@ -303,7 +303,8 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
                   {groupStudents.map((s) => (
                     <div
                       key={s.id}
-                      className="list-row"
+                      className="list-row sl"
+                      data-sl={studentTone(s.status)}
                       role={onOpenStudent ? 'button' : undefined}
                       tabIndex={onOpenStudent ? 0 : undefined}
                       style={onOpenStudent ? { cursor: 'pointer' } : undefined}
@@ -341,7 +342,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
             const capacity = Number(g.capacity) > 0 ? Number(g.capacity) : null;
             const pct = capacity ? Math.min(100, Math.round((count / capacity) * 100)) : null;
             return (
-              <div key={g.id} className={'card group-card' + (isSelected ? ' selected' : '')} onClick={e => openFrom(e, g.id)}>
+              <div key={g.id} className={'card group-card sl' + (isSelected ? ' selected' : '')} data-sl="success" onClick={e => openFrom(e, g.id)}>
                 <div className="gc-top">
                   {canEditGroups && <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(g.id)} style={{ marginTop: 2 }} aria-label={g.name} />}
                   <button type="button" className="gc-open">
@@ -406,7 +407,7 @@ export function GroupsScreen({ onOpen, selectedGroupId = null, onCloseGroup, onT
                 const coachName = coachMap[g.coach_id] || '—';
                 const isSelected = selectedIds.includes(g.id);
                 return (
-                  <tr key={g.id} className={isSelected ? 'selected' : undefined} onClick={e => openFrom(e, g.id)}>
+                  <tr key={g.id} data-sl="success" className={isSelected ? 'selected' : undefined} onClick={e => openFrom(e, g.id)}>
                     <td onClick={e => e.stopPropagation()}>
                       {canEditGroups && <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(g.id)} />}
                     </td>

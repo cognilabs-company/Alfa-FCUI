@@ -4,6 +4,7 @@ import { Icon } from '@/shared/ui/icons';
 import { useT } from '@/shared/i18n/lang';
 import { apiGetStudentPayments } from '@/shared/api';
 import { fmt } from '@/shared/lib/format';
+import { STATUS_TONE } from '@/shared/lib/expenses';
 import { ExpenseStatusBadge, useMoney } from '@/widgets/expenses';
 
 const PAGE_SIZE = 500; // the server's maximum
@@ -86,7 +87,8 @@ export function PaymentsByGroup({ fromDate, toDate, groupId, refresh }) {
         const owing = [...[...g.unpaid].sort(byName), ...[...g.partial].sort(byName)];
         return (
           <div key={g.id} className={'att-group' + (isOpen ? ' open' : '')}>
-            <button type="button" className="att-row" aria-expanded={isOpen} onClick={() => toggle(g.id)}>
+            <button type="button" className="att-row sl" aria-expanded={isOpen} onClick={() => toggle(g.id)}
+              data-sl={g.unpaid.length > 0 ? 'danger' : g.partial.length > 0 ? 'warning' : 'success'}>
               <I.ChevronRight size={15} className="att-caret"/>
               <div className="att-main">
                 <b>{g.name}</b>
@@ -105,7 +107,7 @@ export function PaymentsByGroup({ fromDate, toDate, groupId, refresh }) {
                   : (
                     <div className="att-students sp-group-students">
                       {owing.map(s => (
-                        <div key={s.student_id} className="att-student sp-group-student">
+                        <div key={s.student_id} className="att-student sp-group-student sl" data-sl={STATUS_TONE[s.status || 'unpaid'] || 'danger'}>
                           <span className="name">{s.student_name || `#${s.student_id}`}</span>
                           <span className="sp-group-owes">
                             <span className="money" style={{ color: 'var(--danger)' }}>{fmt.format(Math.round(num(s.debt)))}</span>

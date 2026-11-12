@@ -111,7 +111,7 @@ function ExpensesReport({ year, month }) {
                   </thead>
                   <tbody>
                     {byCategory.map(r => (
-                      <tr key={r.key} className="static">
+                      <tr key={r.key} className="static" data-sl={Number(r.unpaid) > 0 ? (Number(r.paid) > 0 ? 'warning' : 'danger') : 'success'}>
                         <td>
                           <div className="row-name">
                             <span className="cat-dot" style={{ background: CATEGORY_COLOR[r.key] || 'var(--viz-other)' }}/>

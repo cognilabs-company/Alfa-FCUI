@@ -14,7 +14,7 @@ import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Pager, menuPosition } from '@/shared/ui/pager';
 import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
-import { studentStatusBadge } from '@/shared/ui/status';
+import { studentStatusBadge, studentTone } from '@/shared/ui/status';
 import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
 import { fmtDate } from '@/shared/lib/format';
@@ -291,7 +291,7 @@ export function StudentsList({ onOpen, onNew, onToast, onTab }) {
                 const grpName = groupMap[s.group_id] || '—';
                 const contractNo = contractByStudent[s.id] || s.contract_number || '';
                 return (
-                  <tr key={s.id} className={selected.includes(s.id) ? 'selected' : undefined} onClick={() => onOpen(s.id)}>
+                  <tr key={s.id} data-sl={studentTone(s.status)} className={selected.includes(s.id) ? 'selected' : undefined} onClick={() => onOpen(s.id)}>
                     <td onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={selected.includes(s.id)} onChange={e => setSelected(e.target.checked ? [...selected, s.id] : selected.filter(x => x !== s.id))}/>
                     </td>

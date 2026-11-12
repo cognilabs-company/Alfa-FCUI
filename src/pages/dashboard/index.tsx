@@ -321,7 +321,8 @@ export function Dashboard({ user, onNav, onOpenGroup }) {
                 const capacity = Number(g.capacity) > 0 ? Number(g.capacity) : DEFAULT_CAPACITY;
                 const pct = Math.min(Math.round((count / capacity) * 100), 100);
                 return (
-                  <button key={g.id} type="button" className="capacity-row"
+                  <button key={g.id} type="button" className="capacity-row sl"
+                    data-sl={pct >= 95 ? 'danger' : pct >= 75 ? 'warning' : 'accent'}
                     onClick={() => onOpenGroup ? onOpenGroup(g.id) : onNav('groups')}>
                     <div className="top">
                       <span className="name">{g.name}</span>

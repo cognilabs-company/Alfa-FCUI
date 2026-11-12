@@ -4504,3 +4504,175 @@ button.choice { font-family: inherit; min-height: 38px; padding: 0 6px; }
   .fd-eq .fd-sub { margin-left: 0; width: 100%; }
   .fd-group-total { flex: 1; margin-left: 27px; display: flex; align-items: baseline; justify-content: space-between; }
 }
+
+/* ============================================================
+   Side lines — a coloured bar on the left edge of every list row
+   and list card, with a soft tint fading in behind it. The colour
+   carries the row's status, using the same tones as its badge.
+
+   Tables: every `.table tbody` row gets one automatically (neutral
+   unless the row sets data-sl). Other lists: add class "sl" and a
+   data-sl tone. data-sl="off" opts a row out (totals, empty states).
+
+   Tones (badge name / plain name):
+     success|green · warning|amber · danger|red · info|blue
+     accent|lime   · violet        · neutral (default)
+   ============================================================ */
+
+:root {
+  --sl-neutral: color-mix(in srgb, var(--muted) 42%, var(--border-strong));
+  --sl-lime: color-mix(in srgb, var(--accent) 62%, var(--accent-ink));
+  --sl-violet: #8A3FD1;
+}
+[data-theme="dark"] {
+  --sl-neutral: color-mix(in srgb, var(--muted) 70%, var(--border-strong));
+  --sl-lime: var(--accent);
+  --sl-violet: #C29BFF;
+}
+
+:where(.sl, .table tbody tr) {
+  --sl: var(--sl-neutral);
+  --sl-a: 9%;
+  --sl-b: 3%;
+}
+[data-theme="dark"] :where(.sl, .table tbody tr) { --sl-a: 13%; --sl-b: 4%; }
+[data-sl="success"], [data-sl="green"]  { --sl: var(--success); }
+[data-sl="warning"], [data-sl="amber"]  { --sl: var(--warning); }
+[data-sl="danger"],  [data-sl="red"]    { --sl: var(--danger); }
+[data-sl="info"],    [data-sl="blue"]   { --sl: var(--info); }
+[data-sl="accent"],  [data-sl="lime"]   { --sl: var(--sl-lime); }
+[data-sl="violet"]                      { --sl: var(--sl-violet); }
+[data-sl="neutral"]                     { --sl: var(--sl-neutral); }
+
+/* The bar itself: shared by tables and list items */
+.sl::after,
+.table:not(.performance-table) tbody tr:not([data-sl="off"]):not(:has(> td.empty-cell))::after,
+.performance-table tbody tr:not([data-sl="off"]) > td:first-child::after {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: var(--sl);
+  opacity: 0.88;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  animation: sl-in 460ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  transition: width 180ms var(--ease), top 180ms var(--ease), bottom 180ms var(--ease),
+              opacity 180ms var(--ease), box-shadow 180ms var(--ease);
+}
+@keyframes sl-in { from { transform: scaleY(0.2); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .sl::after,
+  .table tbody tr::after,
+  .performance-table tbody tr > td:first-child::after { animation: none; }
+}
+
+/* Hover (bar grows and glows) and selected / active (bar stays grown) */
+.sl:hover::after,
+.sl:focus-visible::after,
+.table:not(.performance-table) tbody tr:not([data-sl="off"]):hover::after,
+.performance-table tbody tr:not([data-sl="off"]):hover > td:first-child::after {
+  width: 4px; top: 6px; bottom: 6px; opacity: 1;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--sl) 55%, transparent);
+}
+.sl.selected::after,
+.sl[data-active="1"]::after,
+.table:not(.performance-table) tbody tr.selected:not([data-sl="off"])::after {
+  width: 4px; top: 4px; bottom: 4px; opacity: 1;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--sl) 50%, transparent);
+}
+
+/* ---- Table rows: the row carries the tint, cells stay see-through ---- */
+.table:not(.performance-table) tbody tr:not([data-sl="off"]):not(:has(> td.empty-cell)) {
+  position: relative;
+  background-image: linear-gradient(90deg,
+    color-mix(in srgb, var(--sl) var(--sl-a), transparent) 0,
+    color-mix(in srgb, var(--sl) var(--sl-b), transparent) 140px,
+    transparent 300px);
+}
+.table:not(.performance-table) tbody tr:not([data-sl="off"]):not(:has(> td.empty-cell)):hover {
+  background-color: color-mix(in srgb, var(--sl) 4%, var(--row-hover));
+}
+.table:not(.performance-table) tbody tr:not([data-sl="off"]):not(:has(> td.empty-cell)):hover > td { background: transparent; }
+.table:not(.performance-table) tbody tr.selected:not([data-sl="off"]) { background-color: var(--selected); }
+.table:not(.performance-table) tbody tr.selected:not([data-sl="off"]) > td { background: transparent; box-shadow: none; }
+.table:not(.performance-table) tbody tr.selected:not([data-sl="off"]) {
+  background-image: linear-gradient(90deg,
+    color-mix(in srgb, var(--sl) 16%, transparent) 0,
+    color-mix(in srgb, var(--sl) 6%, transparent) 160px,
+    transparent 360px);
+}
+
+/* Matrix table: the first column is sticky, so the bar rides inside it */
+.performance-table tbody tr:not([data-sl="off"]) > td:first-child {
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--sl) var(--sl-a), transparent), transparent 85%);
+}
+
+/* ---- List items (rows, cards, feed entries, agenda lines) ---- */
+.sl {
+  position: relative;
+  background-image: linear-gradient(90deg,
+    color-mix(in srgb, var(--sl) var(--sl-a), transparent) 0,
+    color-mix(in srgb, var(--sl) var(--sl-b), transparent) 120px,
+    transparent 280px);
+}
+.sl:hover,
+.sl:focus-visible {
+  background-image: linear-gradient(90deg,
+    color-mix(in srgb, var(--sl) calc(var(--sl-a) + 4%), transparent) 0,
+    color-mix(in srgb, var(--sl) var(--sl-b), transparent) 160px,
+    transparent 320px);
+}
+.sl.selected,
+.sl[data-active="1"] {
+  background-image: linear-gradient(90deg,
+    color-mix(in srgb, var(--sl) 16%, transparent) 0,
+    color-mix(in srgb, var(--sl) 6%, transparent) 160px,
+    transparent 360px);
+}
+/* rows that sit flush inside a framed group keep the bar off the frame line */
+.att-row.sl::after, .rate-row.sl::after { top: 8px; bottom: 8px; }
+.agenda-item.sl::after { top: 10px; bottom: 10px; }
+
+/* Attendance mark cards: the old full-height spine becomes the shared bar */
+.mark-card { padding-left: 18px; }
+.mark-card.present { --sl: var(--success); }
+.mark-card.late    { --sl: var(--warning); }
+.mark-card.absent  { --sl: var(--danger); }
+.mark-card::before { display: none; }
+.mark-card.unmarked.sl::after {
+  background: repeating-linear-gradient(var(--border-strong) 0 6px, transparent 6px 12px);
+  opacity: 1;
+}
+
+/* Phones: table rows turn into cards — the card gets the bar and tint */
+@media (max-width: 640px) {
+  .table:not(.performance-table):has(thead) tbody tr:not([data-sl="off"]):not(:has(> td.empty-cell)) {
+    position: relative;
+    padding-left: 15px;
+    background-image: linear-gradient(90deg,
+      color-mix(in srgb, var(--sl) var(--sl-a), transparent) 0,
+      color-mix(in srgb, var(--sl) var(--sl-b), transparent) 45%,
+      transparent 85%);
+  }
+  .table:not(.performance-table):has(thead) tbody tr:not([data-sl="off"]):not(:has(> td.empty-cell))::after { top: 10px; bottom: 10px; }
+  .table:not(.performance-table):has(thead) tbody tr.selected:not([data-sl="off"])::after { top: 6px; bottom: 6px; }
+}
+.fee-history-row.sl { padding: 7px 10px 7px 14px; border-radius: var(--radius-sm); }
+.fee-history-row.sl::after { top: 7px; bottom: 7px; }
+.card.sl::after, .file-tile.sl::after { top: 14px; bottom: 14px; }
+.user-card.sl::after { top: 16px; bottom: 16px; }
+.perm-group.sl { padding-left: 14px; }
+.perm-group.sl::after { top: 8px; bottom: 8px; }
+.capacity-row.sl { padding-left: 14px; }
+.att-student.sl { padding-left: 13px; }
+.att-student.sl::after { top: 7px; bottom: 7px; }
+.fd-fee.sl { padding-left: 15px; }
+.receipt-line.sl { padding-left: 12px; padding-right: 8px; border-radius: var(--radius-xs); }
+.receipt-line.sl::after { top: 6px; bottom: 6px; }
+.carry-line.sl { padding-top: 9px; padding-bottom: 9px; }
+.mark-card.sl::after { top: 14px; bottom: 14px; }

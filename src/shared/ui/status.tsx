@@ -81,3 +81,74 @@ export function auditActionMeta(action) {
   if (s === 'CANCEL' || s === 'TERMINATE') return { tone: 'danger', icon: I.Prohibit };
   return { tone: 'neutral', icon: I.Dashed };
 }
+
+/* ------------------------------------------------------------------
+ * Side-line tones: the colour of a row's left bar (data-sl). Each one
+ * mirrors the tone of the badge the same row shows, so the bar and
+ * the chip always agree. Values: success | warning | danger | info |
+ * accent | violet | neutral.
+ * ------------------------------------------------------------------ */
+
+export function studentTone(status) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'active') return 'success';
+  if (s === 'inactive') return 'warning';
+  if (s === 'deleted') return 'danger';
+  return 'neutral';
+}
+
+export function contractTone(status) {
+  const s = String(status || '').toUpperCase();
+  if (s === 'ACTIVE') return 'success';
+  if (s === 'TERMINATED') return 'danger';
+  if (s === 'EXPIRED') return 'warning';
+  return 'neutral';
+}
+
+export function txTone(status) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'success' || s === 'completed' || s === 'settled') return 'success';
+  if (s === 'pending') return 'warning';
+  if (s === 'unassigned') return 'info';
+  if (s === 'cancelled' || s === 'failed') return 'danger';
+  return 'neutral';
+}
+
+/** kind: completed | today | upcoming */
+export function sessionTone(kind) {
+  if (kind === 'completed') return 'success';
+  if (kind === 'today') return 'accent';
+  return 'info';
+}
+
+export function attendanceTone(status) {
+  if (status === 'present') return 'success';
+  if (status === 'late') return 'warning';
+  if (status === 'absent') return 'danger';
+  return 'neutral';
+}
+
+export function userTone(status) {
+  return status === 'active' ? 'success' : 'neutral';
+}
+
+export function gateTone(allowed) {
+  return allowed !== false ? 'success' : 'danger';
+}
+
+/** Money direction: income green, expense red, zero neutral. */
+export function moneyTone(n) {
+  const v = Number(n) || 0;
+  if (v > 0) return 'success';
+  if (v < 0) return 'danger';
+  return 'neutral';
+}
+
+/** Attendance / completion percentage: ≥85 green, ≥60 amber, below red. */
+export function pctTone(pct) {
+  const v = Number(pct);
+  if (!Number.isFinite(v)) return 'neutral';
+  if (v >= 85) return 'success';
+  if (v >= 60) return 'warning';
+  return 'danger';
+}

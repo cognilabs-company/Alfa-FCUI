@@ -251,7 +251,7 @@ export function AuditLogsScreen() {
                 return (
                   <React.Fragment key={r.id}>
                     {showDay && <div className="feed-day"><I.Calendar size={13}/> {dayKey}</div>}
-                    <button type="button" className={'feed-item' + (detail?.id === r.id ? ' selected' : '')}
+                    <button type="button" className={'feed-item sl' + (detail?.id === r.id ? ' selected' : '')} data-sl={meta.tone}
                       style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}
                       onClick={() => setDetail(r)}>
                       <span className={'feed-icon ' + meta.tone}><Ic size={20} weight="duotone"/></span>

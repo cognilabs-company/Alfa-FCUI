@@ -288,8 +288,10 @@ export function PerformanceTable() {
               <tbody>
                 {rows.map((row, ri) => {
                   let goals = 0;
+                  // side line: green once the player has scored in the shown matches
+                  const scored = matches.some((m, mi) => cellStyle(editMode ? (editCells[ri]?.[mi] ?? null) : (row.cells?.[mi] ?? null)).numericGoals > 0);
                   return (
-                    <tr key={row.student_id} className={editMode ? undefined : 'static'}>
+                    <tr key={row.student_id} data-sl={scored ? 'success' : 'neutral'} className={editMode ? undefined : 'static'}>
                       <td>
                         <div className="row-name">
                           <div className="avatar sm" style={{ background: avatarColor(row.student_id) }}>

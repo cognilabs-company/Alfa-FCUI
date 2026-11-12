@@ -208,7 +208,7 @@ export function AttendanceMark({ sessionId, onBack }) {
               // only a missed or late session needs explaining
               const needsReason = m === 'late' || m === 'absent';
               return (
-                <div key={s.id} className={'mark-card ' + (m || 'unmarked')}>
+                <div key={s.id} className={'mark-card sl ' + (m || 'unmarked')}>
                   <div className="mark-head">
                     <div className="avatar" style={{ background: avatarColor(s.id), width: 40, height: 40, borderRadius: 'var(--radius-sm)' }}>{s.first_name?.[0]}{s.last_name?.[0]}</div>
                     <div className="meta">

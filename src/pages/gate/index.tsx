@@ -5,7 +5,7 @@ import { DateInput, DateTimeInput } from '@/shared/ui/date-picker';
 import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
-import { gateBadge } from '@/shared/ui/status';
+import { gateBadge, gateTone } from '@/shared/ui/status';
 import {
   apiGetContracts,
   apiGetContract,
@@ -158,7 +158,7 @@ export function GateLogsScreen() {
                 <tr className="static"><td colSpan={4} className="empty-cell">{t('gate_no_logs')}</td></tr>
               )}
               {logs.map((l, idx) => (
-                <tr key={l.id || idx} className="static">
+                <tr key={l.id || idx} className="static" data-sl={gateTone(l.allowed)}>
                   <td>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: l.allowed !== false ? 'var(--success-soft)' : 'var(--danger-soft)', color: l.allowed !== false ? 'var(--success)' : 'var(--danger)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>

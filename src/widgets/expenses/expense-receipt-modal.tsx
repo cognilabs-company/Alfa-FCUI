@@ -41,7 +41,7 @@ export function ExpenseReceiptModal({ expense, canManage, onClose, onPay, onEdit
         </div>
         {pays.length === 0 && <div className="empty" style={{ padding: 14 }}>{t('exp_no_payments')}</div>}
         {pays.map((p, i) => (
-          <div key={p.id ?? i} className="receipt-line">
+          <div key={p.id ?? i} className="receipt-line sl" data-sl="success">
             <span className="rl-left rl-stack">
               <span>
                 <span className="rl-num">{String(i + 1).padStart(2, '0')}</span> {fmtDate(p.paid_at)}

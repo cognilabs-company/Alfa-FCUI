@@ -94,7 +94,7 @@ export function FeeDistributionTab({ period }) {
             {byFee.map(f => {
               const share = total > 0 ? num(f.subtotal) / total : 0;
               return (
-                <div key={f.fee} className="fd-fee">
+                <div key={f.fee} className="fd-fee sl" data-sl="accent">
                   <div className="fd-eq">
                     <b className="money">{money(f.fee)}</b>
                     <span className="fd-op">×</span>
@@ -132,7 +132,7 @@ export function FeeDistributionTab({ period }) {
               const fees = g.fees || [];
               return (
                 <div key={id} className={'att-group' + (isOpen ? ' open' : '')}>
-                  <button type="button" className="att-row" aria-expanded={isOpen} onClick={() => toggle(id)}>
+                  <button type="button" className="att-row sl" data-sl={num(g.total) > 0 ? 'accent' : 'neutral'} aria-expanded={isOpen} onClick={() => toggle(id)}>
                     <I.ChevronRight size={15} className="att-caret"/>
                     <div className="att-main">
                       <b>{g.group_name || t('sp_no_group')}</b>
@@ -146,7 +146,7 @@ export function FeeDistributionTab({ period }) {
                   {isOpen && (
                     <div className="att-body">
                       {fees.map(f => (
-                        <div key={f.fee} className="att-student fd-line">
+                        <div key={f.fee} className="att-student fd-line sl" data-sl="accent">
                           <span className="name">{t('fd_students_n').replace('{n}', num(f.student_count))} × {money(f.fee)}</span>
                           <b className="money">{money(f.subtotal)}</b>
                         </div>

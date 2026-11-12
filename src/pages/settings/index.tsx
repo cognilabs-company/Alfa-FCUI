@@ -266,7 +266,8 @@ export function SettingsScreen({ theme, setTheme } = {}) {
                       <thead><tr><th>{t('settings_col_key')}</th><th>{t('settings_col_value')}</th><th>{t('settings_col_desc')}</th></tr></thead>
                       <tbody>
                         {rawSettings.map((s) => (
-                          <tr key={s.id || s.key} className="static">
+                          <tr key={s.id || s.key} className="static"
+                            data-sl={settings[s.key] !== undefined && String(settings[s.key]) !== String(s.value ?? '') ? 'accent' : 'neutral'}>
                             <td><span className="kbd" style={{ fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: 12 }}>{s.key}</span></td>
                             <td>
                               <input
@@ -325,7 +326,7 @@ export function SettingsScreen({ theme, setTheme } = {}) {
                   ['status', t('import_col_status'), false],
                   ['group_name', t('import_col_group'), false],
                 ].map(([key, label, required]) => (
-                  <div key={key} className="detail-item" style={required ? { background: 'var(--accent-soft)' } : undefined}>
+                  <div key={key} className="detail-item sl" data-sl={required ? 'accent' : 'neutral'} style={required ? { backgroundColor: 'var(--accent-soft)' } : undefined}>
                     <div style={{ fontSize: 12, fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontWeight: 700, color: 'var(--text)' }}>{key}</div>
                     <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{label}{required ? ' *' : ''}</div>
                   </div>

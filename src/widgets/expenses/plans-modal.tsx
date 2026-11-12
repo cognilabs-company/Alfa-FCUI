@@ -257,7 +257,8 @@ export function ExpensePlansModal({ categories, categoryOptions, canManage, empl
             const closed = !!p.effective_to;
             const label = p.coach_name || p.title || categoryLabel(t, p.category, p.category_label);
             return (
-              <div key={p.id} className={'rate-row' + (closed ? ' closed' : '')}>
+              <div key={p.id} className={'rate-row sl' + (closed ? ' closed' : '')}
+                data-sl={closed ? 'neutral' : p.is_active === false ? 'warning' : 'success'}>
                 <span className="cat-dot" style={{ background: CATEGORY_COLOR[p.category] || 'var(--viz-other)' }}/>
                 <div className="rate-main">
                   <b>{label}</b>

@@ -78,6 +78,7 @@ import { Stat } from '@/shared/ui/stat';
 import { Modal } from '@/shared/ui/modal';
 
 import { statusChip } from './status-chip';
+import { contractTone } from '@/shared/ui/status';
 
 // ─── Contracts ───────────────────────────────────────────────────────────────
 
@@ -259,7 +260,7 @@ export function ContractsScreen({ onOpenContract, onNavigateToStudent, onToast }
                 <tr className="static"><td colSpan={6} className="empty-cell">{t('contracts_not_found')}</td></tr>
               )}
               {rows.map((c) => (
-                <tr key={c.id} onClick={() => onOpenContract?.(c.id)} style={{ cursor: 'pointer' }}>
+                <tr key={c.id} data-sl={contractTone(c.status)} onClick={() => onOpenContract?.(c.id)} style={{ cursor: 'pointer' }}>
                   <td style={{ fontWeight: 800, whiteSpace: 'nowrap' }}>{c.contract_number}</td>
                   <td className="student-link" onClick={c.student_id ? e => { e.stopPropagation(); onNavigateToStudent?.(c.student_id); } : undefined}
                     style={{ color: 'var(--text-2)', fontWeight: 650, ...(c.student_id && onNavigateToStudent ? { cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'var(--border-strong)', textUnderlineOffset: 3 } : {}) }}>

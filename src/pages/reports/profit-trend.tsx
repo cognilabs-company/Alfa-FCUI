@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React from 'react';
+import { moneyTone } from '@/shared/ui/status';
 import { Icon } from '@/shared/ui/icons';
 import { useT } from '@/shared/i18n/lang';
 import { Columns, ChartLegend } from '@/shared/ui/charts';
@@ -80,7 +81,7 @@ export function ProfitTrendCard({ from, to, months, refresh }) {
               </thead>
               <tbody>
                 {rows.map(r => (
-                  <tr key={r.period} className="static">
+                  <tr key={r.period} className="static" data-sl={moneyTone(r.net_cash)}>
                     <td style={{ fontWeight: 750 }}>{name(r)}</td>
                     <td className="money" style={{ textAlign: 'right', color: 'var(--text-2)' }}>{fmt.format(Math.round(num(r.expected_income)))}</td>
                     <td className="money" style={{ textAlign: 'right' }}>{fmt.format(Math.round(num(r.collected_income)))}</td>

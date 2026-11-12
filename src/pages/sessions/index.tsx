@@ -16,7 +16,7 @@ import { SearchableGroupSelect, SearchableSelect } from '@/shared/ui/controls';
 import { Modal } from '@/shared/ui/modal';
 import { useT } from '@/shared/i18n/lang';
 import { PageIcon } from '@/shared/ui/page-head';
-import { Badge, sessionStatusBadge, attendanceBadge } from '@/shared/ui/status';
+import { Badge, sessionStatusBadge, attendanceBadge, attendanceTone, sessionTone } from '@/shared/ui/status';
 import { confirmDialog, notify } from '@/shared/ui/dialogs';
 import { avatarColor } from '@/shared/lib/avatar';
 import { fmtDate, monthLabel, monthShort, todayISO, toLocalISO, weekdayLong, weekdayShort } from '@/shared/lib/format';
@@ -385,10 +385,10 @@ export function SessionsScreen({ onMark }) {
                 </thead>
                 <tbody>
                   {myAttendances.length === 0 && (
-                    <tr><td colSpan={6} style={{ padding: 18, color: 'var(--muted)' }}>{t('sessions_no_sessions')}</td></tr>
+                    <tr data-sl="off"><td colSpan={6} style={{ padding: 18, color: 'var(--muted)' }}>{t('sessions_no_sessions')}</td></tr>
                   )}
                   {myAttendances.map(a => (
-                    <tr key={a.id}>
+                    <tr key={a.id} data-sl={attendanceTone(a.status)}>
                       <td>{(() => {
                         const st = studentMap[a.student_id];
                         const name = st ? `${st.first_name || ''} ${st.last_name || ''}`.trim() : '';
@@ -547,7 +547,8 @@ export function SessionsScreen({ onMark }) {
                         const delay = 60 + (n++) * 45;
                         return (
                           <div key={s.id} role="button" tabIndex={0}
-                            className={'agenda-item ' + s._status}
+                            className={'agenda-item sl ' + s._status}
+                            data-sl={sessionTone(s._status)}
                             style={{ animationDelay: `${delay}ms`, '--group': groupColor(s.group_id) }}
                             onClick={() => onMark(s.id)}
                             onKeyDown={(e) => { if (e.key === 'Enter') onMark(s.id); }}>

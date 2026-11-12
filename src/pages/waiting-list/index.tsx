@@ -265,7 +265,7 @@ export function WaitingListScreen({ onToast } = {}) {
               {rows.map((r) => {
                 const p = Number(r.priority || 0);
                 return (
-                  <tr key={r.id} className="static">
+                  <tr key={r.id} className="static" data-sl={p >= 8 ? 'danger' : p >= 4 ? 'warning' : 'success'}>
                     <td style={{ fontWeight: 750 }}>{r.student_first_name} {r.student_last_name}</td>
                     <td style={{ fontSize: 12.5 }}>
                       {(r.father_name || r.father_phone) && (

@@ -127,7 +127,8 @@ export function ExpenseCategoriesModal({ canManage, onClose, onChanged }) {
             // in use or built in: deleting would orphan rows or break salaries — switch it off instead
             const deletable = !c.is_system && c.in_use !== true;
             return (
-              <div key={c.id} className={'rate-row' + (c.is_active ? '' : ' closed')}>
+              <div key={c.id} className={'rate-row sl' + (c.is_active ? '' : ' closed')}
+                data-sl={!c.is_active ? 'warning' : c.is_salary ? 'info' : c.is_system ? 'neutral' : 'success'}>
                 <span className="cat-dot" style={{ background: CATEGORY_COLOR[c.key] || 'var(--viz-other)' }}/>
                 <div className="rate-main">
                   {isEditing ? (

@@ -5,7 +5,7 @@ import { useT } from '@/shared/i18n/lang';
 import { menuPosition } from '@/shared/ui/pager';
 import { avatarColor } from '@/shared/lib/avatar';
 import { fmtDate } from '@/shared/lib/format';
-import { CATEGORY_COLOR, categoryLabel, expenseStatus, expenseUnpaid, personName } from '@/shared/lib/expenses';
+import { CATEGORY_COLOR, STATUS_TONE, categoryLabel, expenseStatus, expenseUnpaid, personName } from '@/shared/lib/expenses';
 import { ExpenseStatusBadge, PeriodText, useMoney } from './parts';
 
 const initials = (name) => String(name || '').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -75,7 +75,7 @@ export function ExpenseTable({ rows, loading, subject, canManage, selected, onSe
                 : [cat, r.kind === 'additional' ? t('exp_kind_additional') : null].filter(Boolean).join(' · ');
               const paidAmount = Number(r.paid_amount) || 0;
               return (
-                <tr key={r.id} className={selected.has(r.id) ? 'selected' : undefined} onClick={() => onRowClick?.(r)} style={onRowClick ? { cursor: 'pointer' } : undefined}>
+                <tr key={r.id} data-sl={STATUS_TONE[status] || 'neutral'} className={selected.has(r.id) ? 'selected' : undefined} onClick={() => onRowClick?.(r)} style={onRowClick ? { cursor: 'pointer' } : undefined}>
                   {canManage && (
                     <td onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={selected.has(r.id)} disabled={status === 'paid'} onChange={() => toggleOne(r.id)}/>
