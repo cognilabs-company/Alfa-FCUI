@@ -17,13 +17,27 @@ import { StadiumLite } from './stadium-lite';
  *   still — prefers-reduced-motion: the lite picture with no motion
  * Every stage has the same small API (juggle, setSecret, setLoading, goal,
  * miss, setPointer, setTarget). Animations are fire-and-forget; the only
- * things that wait on them are capped by timeouts (goal ≤ 1.6 s before
- * onLogin, post hit ≤ 0.7 s before the error shows).
+ * things that wait on them are capped by timeouts (goal ≤ 2.5 s before
+ * onLogin, post hit ≤ 0.7 s before the error shows), and a click, Enter,
+ * Esc or Space during the goal skips straight to the dashboard.
  */
 
 const MOBILE_Q = '(max-width: 767.98px)';
 const REDUCED_Q = '(prefers-reduced-motion: reduce)';
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
+/** Resolves on the first click / tap / Enter / Esc / Space; `off()` removes the listeners. */
+function skipSignal() {
+  let off = () => {};
+  const promise = new Promise((resolve) => {
+    const onKey = (e) => { if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') { e.preventDefault(); resolve('skip'); } };
+    const onPtr = () => resolve('skip');
+    window.addEventListener('keydown', onKey, true);
+    window.addEventListener('pointerdown', onPtr, true);
+    off = () => { window.removeEventListener('keydown', onKey, true); window.removeEventListener('pointerdown', onPtr, true); };
+  });
+  return { promise, off: () => off() };
+}
 const mq = (q) => typeof window !== 'undefined' && window.matchMedia?.(q).matches;
 
 function hasWebGL() {
@@ -222,7 +236,10 @@ export function LoginScreen({ onLogin }) {
       setLeaving(true);
       setAnnounce(t('login_success'));
       const s = stage();
-      if (s && fx !== 'still') await Promise.race([s.goal(), wait(1600)]);
+      if (s && fx !== 'still') {
+        const skip = skipSignal();
+        try { await Promise.race([s.goal(), wait(2500), skip.promise]); } finally { skip.off(); }
+      }
       onLogin();
     } catch (err) {
       const msg = err.message || t('login_error_default');
