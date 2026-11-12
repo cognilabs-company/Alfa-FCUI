@@ -2131,472 +2131,109 @@ textarea.input { height: auto; padding: 11px 13px; resize: vertical; min-height:
   100% { transform: translateX(260%); }
 }
 
-/* ---------- Auth (login) — "Tungi stadion" ----------
-   A night stadium fills the screen (three.js on desktop/tablet, CSS/SVG on
-   phones and as the fallback); the form sits on a dark glass card. The
-   stage is decorative and never takes pointer events. */
+/* ---------- Auth (login) ----------
+   One quiet card on the brand green. The only decoration is a faint,
+   static centre circle. Card colours follow the light/dark theme. */
 
-.auth3d {
+.auth-min {
   --crest-red: #C8202C;
-  --crest-red-text: #FF6B74; /* crest red lifted for 4.5:1 on the glass card */
-  position: relative;
+  --auth-err: var(--crest-red);
+  min-height: 100vh;
   min-height: 100dvh;
-  background: #05090A;
-  color: #EEF2EC;
-  overflow-x: hidden;
-  isolation: isolate;
-}
-.auth3d .sr-only {
-  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
-}
-
-/* Stage */
-.auth3d-stage {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(120% 70% at 40% 0%, #0E1A15 0%, transparent 60%),
-    linear-gradient(180deg, #05090A 0%, #08100D 55%, #0A1510 100%);
-  transition: transform 700ms cubic-bezier(0.6, 0, 0.9, 0.4);
-}
-.auth3d-scene { position: absolute; inset: 0; opacity: 0; transition: opacity 500ms var(--ease); }
-.auth3d.is-scene-ready .auth3d-scene { opacity: 1; }
-.auth3d-scene-canvas, .auth3d-scene canvas { display: block; width: 100%; height: 100%; }
-.auth3d-vignette {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, rgba(5, 9, 10, 0.55) 0%, rgba(5, 9, 10, 0) 38%),
-    radial-gradient(130% 90% at 50% 45%, transparent 55%, rgba(3, 6, 5, 0.65) 100%);
-}
-
-/* Layout: art column on the left, glass card on the right */
-.auth3d-layout {
-  position: relative;
-  z-index: 1;
-  min-height: 100dvh;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
-  grid-template-rows: auto auto minmax(150px, 1fr) auto auto;
-  column-gap: clamp(28px, 4vw, 72px);
-  padding: clamp(22px, 3vw, 44px) clamp(22px, 3.4vw, 52px);
-  pointer-events: none;
-}
-.auth3d-layout > * { pointer-events: auto; min-width: 0; }
-.auth3d-top { grid-column: 1; grid-row: 1; }
-.auth3d-copy { grid-column: 1; grid-row: 2; margin-top: clamp(20px, 4.5vh, 48px); }
-.auth3d-slot { grid-column: 1; grid-row: 3; pointer-events: none; }
-.auth3d-cards { grid-column: 1; grid-row: 4; }
-.auth3d-foot { grid-column: 1; grid-row: 5; margin-top: 18px; font-size: 12px; font-weight: 600; color: rgba(238, 242, 236, 0.42); letter-spacing: 0.02em; }
-.auth3d-panel { grid-column: 2; grid-row: 1 / -1; align-self: center; padding: 8px 0; }
-
-.auth3d-headline {
-  font-family: var(--font-display);
-  font-size: clamp(30px, 3.9vw, 56px);
-  font-weight: 600;
-  line-height: 1.05;
-  letter-spacing: -0.035em;
-  max-width: 12ch;
-  text-wrap: balance;
-  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.55);
-}
-.auth3d-headline .w {
-  display: inline-block;
-  opacity: 0;
-  transform: translateY(0.55em) rotateX(-40deg);
-  transform-origin: 50% 100%;
-}
-.auth3d-headline .w.accent { color: var(--accent); }
-.auth3d.is-intro .auth3d-headline .w {
-  animation: auth3d-word 620ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
-  animation-delay: calc(380ms + var(--i) * 90ms);
-}
-@keyframes auth3d-word { to { opacity: 1; transform: none; } }
-.auth3d-lede {
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1.6;
-  color: rgba(238, 242, 236, 0.7);
-  max-width: 440px;
-  margin-top: 16px;
-  opacity: 0;
-  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6);
-}
-.auth3d.is-intro .auth3d-lede { animation: auth3d-fade 600ms var(--ease) 900ms forwards; }
-@keyframes auth3d-fade { to { opacity: 1; } }
-
-/* Player cards over the pitch */
-.auth3d-cards {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  perspective: 900px;
-}
-.pcard { width: clamp(100px, 8.6vw, 128px); aspect-ratio: 0.74; opacity: 0; }
-.auth3d.is-intro .pcard { animation: auth3d-card-in 700ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards; animation-delay: calc(1000ms + var(--i) * 80ms); }
-@keyframes auth3d-card-in { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
-.pcard-sway {
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-  animation: pcard-sway 5.6s ease-in-out infinite alternate;
-  animation-delay: calc(var(--i) * -1.3s);
-}
-@keyframes pcard-sway {
-  from { transform: translateY(-5px) rotateX(10deg) rotateY(-7deg) rotateZ(-1deg); }
-  to { transform: translateY(4px) rotateX(16deg) rotateY(7deg) rotateZ(1deg); }
-}
-.pcard-inner {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-  transition: transform 620ms cubic-bezier(0.3, 1.3, 0.5, 1);
-}
-.pcard:hover .pcard-inner { transform: rotateY(180deg); }
-.pcard-face {
-  position: absolute;
-  inset: 0;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  border-radius: var(--radius);
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background:
-    radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
-    linear-gradient(165deg, rgba(30, 42, 36, 0.86), rgba(10, 15, 13, 0.92));
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 18px 30px -16px rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(6px);
-}
-.pcard-front { justify-content: space-between; }
-.pcard-no { font-family: var(--font-display); font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: 0.02em; }
-.pcard-icon {
-  align-self: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
   display: grid;
   place-items: center;
-  color: var(--accent);
-  background: rgba(200, 240, 60, 0.1);
-  box-shadow: inset 0 0 0 1px rgba(200, 240, 60, 0.3), 0 0 22px -6px rgba(200, 240, 60, 0.5);
+  padding: 24px 16px;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 199px, rgba(255, 255, 255, 0.045) 200px 201.5px, transparent 202.5px),
+    radial-gradient(ellipse 70% 60% at 50% 45%, #17241D 0%, transparent 70%),
+    #0E1311;
+  background-attachment: fixed;
+  overflow-x: hidden;
 }
-.pcard-face b { font-size: 12.5px; font-weight: 750; line-height: 1.25; color: #EEF2EC; overflow-wrap: anywhere; }
-.pcard-back {
-  transform: rotateY(180deg);
-  gap: 6px;
-  background: linear-gradient(165deg, rgba(200, 240, 60, 0.95), rgba(160, 205, 40, 0.95));
-}
-.pcard-back b { color: #0E1311; font-size: 12px; }
-.pcard-back p { margin: 0; font-size: 11.5px; font-weight: 650; line-height: 1.38; color: #1A220F; }
+[data-theme="dark"] .auth-min { --auth-err: #FF6B74; } /* crest red lifted for contrast on the dark card */
 
-/* Glass card */
-.auth3d-shake { width: 100%; }
-.auth3d-card {
-  /* dark tokens for everything inside the card */
-  color-scheme: dark;
-  --bg: #0F1412;
-  --surface: rgba(10, 15, 13, 0.72);
-  --surface-2: rgba(255, 255, 255, 0.07);
-  --surface-3: rgba(255, 255, 255, 0.1);
-  --border: rgba(255, 255, 255, 0.14);
-  --border-strong: rgba(255, 255, 255, 0.24);
-  --text: #EEF2EC;
-  --text-2: #C9D2CB;
-  --muted: #95A19A;
-  --hover: rgba(255, 255, 255, 0.07);
-  --pill-bg: var(--accent);
-  --pill-text: var(--accent-contrast);
-  --accent-ink: var(--accent);
-  --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent);
+.auth-min-shake { width: 100%; max-width: 400px; }
+.auth-min-card {
   position: relative;
+  padding: 36px 32px 28px;
+  background: var(--surface);
   color: var(--text);
+  border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: 30px 32px 30px;
-  background:
-    radial-gradient(90% 60% at var(--gx, 80%) var(--gy, 0%), rgba(255, 255, 255, 0.06), transparent 60%),
-    linear-gradient(165deg, rgba(22, 30, 26, 0.8), rgba(8, 12, 10, 0.86));
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.09),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 40px 90px -40px rgba(0, 0, 0, 0.9);
-  transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-  transition: transform 260ms var(--ease);
+  box-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.6);
+  animation: auth-min-in 250ms var(--ease) both;
 }
-/* Light sweep: a lime glint that runs round the edge toward the cursor */
-.auth3d-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.5px;
-  background: conic-gradient(from var(--sweep, 0deg) at 50% 50%,
-    rgba(200, 240, 60, 0.95), rgba(255, 255, 255, 0.35) 7%, transparent 18%,
-    transparent 82%, rgba(255, 255, 255, 0.35) 93%, rgba(200, 240, 60, 0.95));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-  opacity: 0.25;
-  transition: opacity 300ms var(--ease);
-  pointer-events: none;
-}
-.auth3d-card.is-lit::before { opacity: 0.9; }
-.auth3d-card .auth-form { max-width: none; }
-.auth3d-card input:not([type="checkbox"]) { background-color: var(--surface); border-color: var(--border); }
-.auth3d-card input::placeholder { color: #7F8B84; }
-.auth3d-card .input-icon .icon-l { color: var(--muted); }
-.auth3d-card .seg { background: rgba(255, 255, 255, 0.06); }
-.auth3d-lang { display: flex; justify-content: flex-end; margin-bottom: 22px; }
-.auth3d-card .input-trail:focus-visible { outline: none; box-shadow: var(--ring); color: var(--text); }
-.auth3d-card .btn.primary { box-shadow: 0 12px 28px -12px color-mix(in srgb, var(--accent) 80%, transparent); }
-.auth3d.has-error .auth3d-card input:not([type="checkbox"]) { border-color: var(--crest-red); }
-.auth3d-error.alert.danger {
-  margin-bottom: 16px;
-  background: color-mix(in srgb, var(--crest-red) 16%, transparent);
-  color: var(--crest-red-text);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--crest-red) 70%, transparent);
-}
-.auth3d-error.alert.danger svg { color: var(--crest-red-text); }
+@keyframes auth-min-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
-.auth-form { width: 100%; max-width: 360px; }
-.auth-form .mobile-brand { display: none; }
-.auth-title {
+.auth-min-lang { position: absolute; top: 14px; right: 14px; display: flex; gap: 2px; }
+.auth-min-lang button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 5px 7px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+.auth-min-lang button:hover { color: var(--text); }
+.auth-min-lang button.active { color: var(--text); background: var(--surface-2); }
+.auth-min-lang button:focus-visible { outline: none; box-shadow: var(--ring); }
+
+.auth-min-crest { display: flex; justify-content: center; margin-bottom: 14px; }
+.auth-min-title {
+  margin: 0 0 28px;
+  text-align: center;
   font-family: var(--font-display);
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 600;
-  letter-spacing: -0.03em;
-  margin: 0 0 8px;
+  letter-spacing: -0.02em;
 }
-.auth-sub { color: var(--muted); font-size: 14px; font-weight: 600; margin: 0 0 26px; }
-.auth-form .field { margin-bottom: 16px; }
-.auth-form .field input { height: 48px !important; border-radius: var(--radius-sm) !important; }
-.auth-row { display: flex; justify-content: space-between; align-items: center; margin: 4px 0 22px; }
 
-/* Success: the UI steps back, lime flash, tunnel into the dashboard */
-.auth3d-top, .auth3d-copy, .auth3d-cards, .auth3d-foot, .auth3d-panel {
-  transition: opacity 320ms var(--ease), transform 420ms var(--ease);
-}
-.auth3d.is-leaving .auth3d-top,
-.auth3d.is-leaving .auth3d-copy,
-.auth3d.is-leaving .auth3d-cards,
-.auth3d.is-leaving .auth3d-foot { opacity: 0; transform: translateY(-10px); }
-.auth3d.is-leaving .auth3d-panel { opacity: 0; transform: scale(0.96) translateY(8px); }
-.auth3d.is-tunnel .auth3d-stage { transform: scale(1.35); }
+.auth-min .field { margin-bottom: 16px; }
+.auth-min .field input { height: 46px; border-radius: var(--radius-sm); }
+.auth-min .auth-min-pw input { padding-left: 14px !important; padding-right: 44px; }
+.auth-min .field input[aria-invalid="true"] { border-color: var(--auth-err); }
+.auth-min .field input[aria-invalid="true"]:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--auth-err) 30%, transparent); }
+.auth-min .input-trail { cursor: pointer; }
+.auth-min .input-trail:focus-visible { outline: none; box-shadow: var(--ring); color: var(--text); }
 
-.auth3d-fx { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
-.auth3d-fx > i { position: absolute; inset: 0; opacity: 0; }
-.fx-flash { background: radial-gradient(circle at var(--ball-x, 50%) 40%, rgba(220, 255, 120, 0.85), rgba(200, 240, 60, 0.35) 35%, transparent 75%); mix-blend-mode: screen; }
-.fx-lines {
-  background:
-    radial-gradient(circle at 50% 45%, transparent 0 12%, rgba(5, 9, 10, 0.2) 30%, rgba(5, 9, 10, 0.9) 75%),
-    repeating-conic-gradient(from 0deg at 50% 45%, rgba(200, 240, 60, 0.22) 0 1.2deg, transparent 1.2deg 7deg);
-}
-.fx-fill { background: var(--frame); }
-.auth3d.is-flash .fx-flash { animation: auth3d-flash 520ms ease-out forwards; }
-.auth3d.is-tunnel .fx-lines { animation: auth3d-tunnel 760ms cubic-bezier(0.5, 0, 0.9, 0.5) forwards; }
-.auth3d.is-tunnel .fx-fill { animation: auth3d-fill 760ms cubic-bezier(0.6, 0, 1, 0.6) forwards; }
-@keyframes auth3d-flash { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
-@keyframes auth3d-tunnel { from { opacity: 0; transform: scale(2.4); } to { opacity: 1; transform: scale(1); } }
-@keyframes auth3d-fill { 0%, 45% { opacity: 0; } 100% { opacity: 1; } }
+.auth-min-remember { margin: 2px 0 22px; }
 
-/* ---------- The CSS/SVG stadium (phones, fallback, reduced motion) ---------- */
-
-.sl { position: absolute; inset: 0; overflow: hidden; --flood: 1; }
-.sl.is-secret { --flood: 0.55; }
-.sl-sky {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(60% 40% at calc(var(--art-w, 100vw) * 0.5) 0%, rgba(200, 240, 160, 0.1), transparent 70%),
-    linear-gradient(180deg, #060B0A 0%, #0A1410 42%, #0E1F16 100%);
-}
-.sl-stand {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 18%;
-  height: 16%;
-  background:
-    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 6px),
-    linear-gradient(180deg, #070C0B, #0B1512);
-  opacity: 0.9;
-}
-.sl-lights { position: absolute; inset: 0; transition: opacity 400ms var(--ease); opacity: var(--flood); }
-.sl-flood {
-  position: absolute;
-  top: 7%;
-  left: calc(var(--art-w, 100vw) * (0.3 + var(--i) * 0.2));
-  width: 34px;
-  height: 18px;
-  margin-left: -17px;
-  border-radius: 3px;
-  background: repeating-linear-gradient(90deg, #FFFFFF 0 4px, #DDF5C8 4px 6px);
-  box-shadow: 0 0 22px 8px rgba(235, 255, 210, 0.55), 0 0 90px 40px rgba(200, 240, 160, 0.16);
-}
-.sl-flood::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 100%;
-  width: 2px;
-  height: 40vh;
-  background: linear-gradient(#141B18, transparent);
-}
-.sl-beam {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 46vh;
-  height: 90vh;
-  margin-left: -23vh;
-  clip-path: polygon(48% 0, 52% 0, 100% 100%, 0 100%);
-  background: linear-gradient(180deg, rgba(240, 255, 220, 0.3), rgba(220, 255, 190, 0.05) 60%, transparent);
-  transform-origin: 50% 0;
-  transform: rotate(calc((1.5 - var(--i)) * 11deg));
-  mix-blend-mode: screen;
-  filter: blur(6px);
-}
-.sl:not(.is-still) .sl-flood { animation: sl-flood-on 900ms steps(1, end) both; animation-delay: calc(120ms + var(--i) * 200ms); }
-@keyframes sl-flood-on { 0% { opacity: 0; } 20% { opacity: 0.8; } 32% { opacity: 0.1; } 44% { opacity: 1; } 56% { opacity: 0.3; } 70%, 100% { opacity: 1; } }
-.sl-wide:not(.is-still) .sl-flood { animation: none; } /* static fallback: lights simply on */
-
-.sl-pitch {
-  position: absolute;
-  left: calc(var(--art-w, 100vw) * 0.5 - 70vh);
-  width: 140vh;
-  top: 34%;
-  height: 120vh;
-  color: rgba(200, 240, 190, 0.32);
-  transform-origin: 50% 0;
-  transform: perspective(70vh) rotateX(62deg);
-  background: repeating-linear-gradient(180deg, rgba(36, 85, 53, 0.55) 0 8.3%, rgba(31, 74, 44, 0.55) 8.3% 16.6%);
-}
-.sl-pitch svg { width: 100%; height: 100%; display: block; }
-.sl-haze { position: absolute; inset: 0; background: radial-gradient(70% 30% at calc(var(--art-w, 100vw) * 0.5) 36%, rgba(200, 240, 180, 0.12), transparent 70%); opacity: var(--flood); transition: opacity 400ms var(--ease); }
-
-.sl-goal {
-  position: absolute;
-  left: calc(var(--art-w, 100vw) * 0.7);
-  top: 38%;
-  width: clamp(90px, 11vw, 160px);
-  transform: translate(-50%, -50%);
-}
-.sl-goal svg { display: block; width: 100%; height: auto; overflow: visible; }
-/* The shot: net layer behind the ball, frame layer in front of it */
-.sl-cam { position: absolute; inset: 0; transform-origin: 50% 42%; transition: transform 480ms cubic-bezier(0.3, 0, 0.2, 1); }
-.sl.is-shot .sl-cam { transform: scale(0.88); }
-.sl-wide.is-shot .sl-cam { transform: scale(0.95); }
-.sl-goal-net { z-index: 1; }
-.sl-cam > .sl-ball-spot { z-index: 2; }
-.sl-goal-frame { z-index: 3; }
-.sl.is-shot .sl-ball-spot { animation: none !important; }
-.sl.is-shot .sl-ball { transform-origin: 50% 50%; }
-.sl.is-shot .sl-shadow, .sl.is-shot .sl-halo { opacity: 0; transition: opacity 200ms; }
-.sl-post { transform-box: fill-box; transform-origin: 50% 100%; }
-.sl-post.is-hit { animation: sl-post 520ms ease-out; fill: #FFFFFF; }
-@keyframes sl-post { 0%, 100% { transform: none; } 15% { transform: rotate(-6deg); } 35% { transform: rotate(4deg); } 55% { transform: rotate(-2deg); } 75% { transform: rotate(1deg); } }
-
-.sl-ball-spot {
-  position: absolute;
-  left: var(--ball-x, 35%);
-  top: var(--ball-y, 55%);
-  width: var(--ball-d, 160px);
-  height: var(--ball-d, 160px);
-  transform: translate(-50%, -50%);
-}
-.sl-ball { position: absolute; inset: 0; will-change: transform; transform-origin: 50% 100%; }
-.sl-ball .soccer-ball, .sl-ball .soccer-ball > svg { width: 100% !important; height: 100% !important; }
-.sl-ball .soccer-ball { filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.5)); }
-.sl-shadow {
-  position: absolute;
-  left: 8%;
-  right: 8%;
-  bottom: -22%;
-  height: 16%;
+.auth-min-btn,
+.auth-min-btn:hover:not(:disabled) { background: var(--volt); color: var(--ink); box-shadow: none; transform: none; }
+.auth-min-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--volt) 90%, #0E1311); }
+.auth-min-btn:active:not(:disabled) { transform: scale(0.985); }
+.auth-min-btn:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--volt) 55%, transparent); }
+.auth-min-btn[aria-busy="true"]:disabled { opacity: 1; cursor: progress; }
+.auth-min-spinner {
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.7), transparent);
+  border: 2px solid color-mix(in srgb, var(--ink) 25%, transparent);
+  border-top-color: var(--ink);
+  animation: spin 700ms linear infinite;
 }
-.sl-halo {
-  position: absolute;
-  left: -14%;
-  right: -14%;
-  bottom: -28%;
-  height: 28%;
-  border-radius: 50%;
-  border: 2px solid rgba(200, 240, 60, 0.35);
-  box-shadow: 0 0 24px rgba(200, 240, 60, 0.25);
-  transition: border-color 300ms, box-shadow 300ms;
-}
-.sl.is-loading .sl-halo { border-color: rgba(200, 240, 60, 0.85); box-shadow: 0 0 34px rgba(200, 240, 60, 0.5); }
 
-/* Phone: ball + one beam on top, form below */
-.sl-compact { --art-w: 100vw; }
-.sl-compact .sl-stand { top: 30%; height: 18%; }
-.sl-compact .sl-flood { top: 12px; left: calc(14% + var(--i) * 72%); width: 26px; height: 13px; margin-left: -13px; }
-.sl-compact .sl-flood::after { display: none; }
-.sl-compact .sl-beam { width: 300px; height: 360px; margin-left: -150px; transform: rotate(calc(var(--i) * 46deg - 23deg)); }
-.sl-compact .sl-flood:nth-child(2) .sl-beam { opacity: 0.45; }
-.sl-compact .sl-pitch { left: calc(50% - 360px); width: 720px; top: 46%; height: 600px; transform: perspective(260px) rotateX(64deg); }
-.sl-compact .sl-goal { top: 33%; width: clamp(140px, 42vw, 180px); }
-.sl-compact .sl-haze { background: radial-gradient(70% 40% at 50% 40%, rgba(200, 240, 180, 0.14), transparent 70%); }
-.sl-compact .sl-ball-spot { left: 50%; top: 66%; width: clamp(78px, 24vw, 104px); height: clamp(78px, 24vw, 104px); }
-.sl-compact:not(.is-still) .sl-ball-spot { animation: sl-bob 2.8s ease-in-out infinite alternate; }
-@keyframes sl-bob { from { transform: translate(-50%, -50%); } to { transform: translate(-50%, calc(-50% - 6px)); } }
-
-/* Reduced motion: one calm, fully lit picture */
-.auth3d.fx-still .auth3d-headline .w,
-.auth3d.fx-still .auth3d-lede,
-.auth3d.fx-still .pcard { opacity: 1; transform: none; animation: none; }
-.auth3d.fx-still .pcard-sway { animation: none; transform: rotateX(12deg); }
-.auth3d.fx-still .auth3d-card { transform: none; transition: none; }
-.auth3d.fx-still .pcard-inner { transition: none; }
-.auth3d.fx-still .auth3d-stage, .auth3d.fx-still .fx-flash, .auth3d.fx-still .fx-lines { animation: none; transition: none; }
-
-/* Tablet: the player cards run in one row under both columns */
-@media (max-width: 1099.98px) and (min-width: 768px) {
-  .auth3d-layout { grid-template-columns: minmax(0, 1fr) minmax(320px, 370px); column-gap: 28px; }
-  .auth3d-panel { grid-row: 1 / 4; }
-  .auth3d-cards { grid-column: 1 / -1; flex-wrap: nowrap; margin-top: 22px; }
-  .pcard { flex: 1 1 0; width: auto; max-width: 160px; aspect-ratio: 1.12; }
-  .auth3d-foot { grid-column: 1 / -1; }
-  .auth3d-card { padding: 26px 24px; }
-  .auth3d-lede { font-size: 14px; }
+.auth-min-error {
+  margin: 12px 0 0;
+  min-height: 1.45em; /* one line reserved so the card does not jump */
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: center;
+  color: var(--auth-err);
 }
-@media (max-height: 800px) and (min-width: 768px) {
-  .auth3d-lede { display: none; }
-  .auth3d-layout { grid-template-rows: auto auto minmax(120px, 1fr) auto auto; }
-  .pcard { width: clamp(92px, 7.4vw, 112px); }
+
+@media (max-width: 420px) {
+  .auth-min { padding: 16px 12px; }
+  .auth-min-card { padding: 32px 20px 22px; }
 }
-@media (max-width: 767.98px) {
-  .auth3d-stage { position: relative; height: clamp(190px, 31vh, 250px); }
-  .auth3d-vignette { background: linear-gradient(180deg, transparent 55%, #05090A 100%); }
-  .auth3d-layout { display: flex; flex-direction: column; min-height: 0; padding: 0 12px 24px; margin-top: -30px; }
-  .auth3d-panel { order: 1; align-self: stretch; }
-  .auth3d-foot { order: 2; }
-  .auth3d-top, .auth3d-copy, .auth3d-slot, .auth3d-cards { display: none; }
-  .auth3d-foot { text-align: center; margin-top: 18px; }
-  .auth3d-panel { padding: 0; }
-  .auth3d-card { padding: 22px 18px 24px; transform: none; }
-  .auth3d-card::before { opacity: 0.45; }
-  .auth-form { max-width: none; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
-  .auth-form > * { grid-column: 1 / -1; }
-  .auth-form .mobile-brand { grid-column: 1; display: flex; align-items: center; gap: 12px; margin-bottom: 22px; min-width: 0; }
-  .auth-form .auth3d-lang { grid-column: 2; margin-bottom: 22px; }
-  .auth-title { font-size: 23px; }
-  .auth-sub { margin-bottom: 22px; }
+@media (prefers-reduced-motion: reduce) {
+  .auth-min-card { animation: none; }
+  .auth-min-btn:active:not(:disabled) { transform: none; }
 }
 
 /* ---------- Dashboard ---------- */
